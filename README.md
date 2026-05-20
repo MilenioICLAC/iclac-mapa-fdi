@@ -38,6 +38,7 @@ Abrir `http://localhost:5173`.
 | `npm run preview` | Servir `dist/` localmente para verificación post-build |
 | `npm run typecheck` | Solo TypeScript, sin emitir |
 | `npm run lint` | ESLint sobre `src/` (legacy excluido) |
+| `npm run etl` | Procesa XLSX cliente → `public/data/investments.json` |
 
 ## Estructura
 
@@ -66,14 +67,22 @@ docs/                  # cotización, planes de sprint
 
 ## Datos
 
-`public/data/` sirve los archivos estáticos al cliente. En S1 solo `south-america.geojson`. El resto entra en S2 según necesidad de filtros (Inversión, año, sectores, paper).
+Pipeline ETL adelantado a S2:
 
-Pipeline planeado (S5):
+- **Fuente:** `data/source/entrega1_inversiones.xlsx` (XLSX del cliente, versionado)
+- **Script:** `scripts/etl.mjs` (Node + sheetjs)
+- **Salida:** `public/data/investments.json` (gitignored, regenerado)
+- **Comando:** `npm run etl`
+- **Producción:** Netlify ejecuta `npm run etl && npm run build` automáticamente
+
+Auditoría del XLSX en [`docs/auditoria_xlsx_entrega1.md`](docs/auditoria_xlsx_entrega1.md): schema completo, problemas de calidad detectados, normalizaciones aplicadas, preguntas pendientes con cliente.
+
+Pipeline planeado para S5 (validación automática):
 
 1. Cliente edita XLSX en su repo fork
 2. Abre PR
 3. GitHub Action ejecuta validador JS (esquema, tipos, FK)
-4. Merge → Netlify rebuild
+4. Merge → Netlify rebuild (incluye `npm run etl`)
 
 ## Idiomas
 

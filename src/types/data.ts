@@ -10,3 +10,33 @@ export type CountryProperties = {
 export type CountryFeatureCollection = FeatureCollection<Geometry, CountryProperties>
 
 export type LocaleCode = 'es' | 'en' | 'cn'
+
+export type ProjectType = 'Adquisición' | 'Greenfield' | 'Construcción'
+
+export type ResearchCase = {
+  caso: string
+  link: string | null
+}
+
+export type Investment = {
+  id: string
+  year: number | null
+  country: string | null
+  investor: string | null
+  vector: string | null
+  path: string | null
+  area_en: string | null
+  area_es: string | null
+  detail_es: string | null
+  detail_en: string | null
+  investment_musd: number | null
+  location: string | null
+  project_type: ProjectType
+  is_construction: boolean
+  is_joint_venture: boolean
+  origin_of_seller: string | null
+  stake: number | null
+  has_research: boolean
+  research_cases: ResearchCase[]
+  coordinates: [number, number]
+}

@@ -20,3 +20,6 @@ transformation_loading/
 
 # TypeScript incremental build info
 *.tsbuildinfo
+
+# ETL output — regenerated from data/source/ via npm run etl
+public/data/investments.json
