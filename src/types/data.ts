@@ -18,13 +18,11 @@ export type ResearchCase = {
   link: string | null
 }
 
-export type Investment = {
+type InvestmentBase = {
   id: string
   year: number | null
   country: string | null
   investor: string | null
-  vector: string | null
-  path: string | null
   area_en: string | null
   area_es: string | null
   detail_es: string | null
@@ -38,5 +36,17 @@ export type Investment = {
   stake: number | null
   has_research: boolean
   research_cases: ResearchCase[]
+  vector_raw: string | number | null
+}
+
+export type PointInvestment = InvestmentBase & {
+  geometry_type: 'point'
   coordinates: [number, number]
 }
+
+export type LineInvestment = InvestmentBase & {
+  geometry_type: 'line'
+  coordinates: [number, number][]
+}
+
+export type Investment = PointInvestment | LineInvestment

@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
     "lint": "eslint . --ext js,jsx,ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "etl": "node scripts/etl.mjs"
+    "etl": "node scripts/etl.mjs",
+    "conflicts": "node scripts/export_vector_conflicts.mjs"
   },
   "dependencies": {
     "d3": "^7.9.0",

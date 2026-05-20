@@ -17,6 +17,34 @@
     "title": "Methodology"
   },
   "common": {
-    "coming_soon": "Coming soon"
+    "coming_soon": "Coming soon",
+    "all": "All",
+    "clear": "Clear",
+    "loading": "Loading data…"
+  },
+  "filter": {
+    "country": "Country",
+    "year": "Year",
+    "project_type": "Type",
+    "construction": "Construction",
+    "case_studies": "Case studies",
+    "sectors": "Sectors",
+    "with_studies": "With studies",
+    "without_studies": "Without studies",
+    "acquisition": "Acquisition",
+    "greenfield": "Greenfield",
+    "clear_all": "Clear filters",
+    "investments_count": "{{count}} investments",
+    "points_lines": "{{points}} points · {{lines}} lines"
+  },
+  "sector": {
+    "Energy": "Energy",
+    "Manufacturing": "Manufacturing",
+    "Mining": "Mining",
+    "Real Estate": "Real Estate",
+    "ICT": "ICT",
+    "Infrastructure": "Infrastructure",
+    "Agroindustry": "Agroindustry",
+    "Finance": "Finance"
   }
 }

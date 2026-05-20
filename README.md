@@ -39,6 +39,7 @@ Abrir `http://localhost:5173`.
 | `npm run typecheck` | Solo TypeScript, sin emitir |
 | `npm run lint` | ESLint sobre `src/` (legacy excluido) |
 | `npm run etl` | Procesa XLSX cliente → `public/data/investments.json` |
+| `npm run conflicts` | Genera XLSX con conflictos de la columna `Vector` para revisión del cliente |
 
 ## Estructura
 
