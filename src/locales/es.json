@@ -1,0 +1,22 @@
+{
+  "app": {
+    "title": "Repositorio FDI Chinas en LATAM"
+  },
+  "nav": {
+    "map": "Mapa",
+    "sankey": "Sankey",
+    "methodology": "Metodología"
+  },
+  "footer": {
+    "tagline": "Repositorio Regional de Inversiones Chinas en América Latina"
+  },
+  "sankey": {
+    "title": "Diagrama Sankey"
+  },
+  "methodology": {
+    "title": "Metodología"
+  },
+  "common": {
+    "coming_soon": "Próximamente"
+  }
+}

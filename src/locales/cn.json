@@ -1,0 +1,22 @@
+{
+  "app": {
+    "title": "拉美中国FDI数据库"
+  },
+  "nav": {
+    "map": "地图",
+    "sankey": "桑基图",
+    "methodology": "方法论"
+  },
+  "footer": {
+    "tagline": "中国对拉丁美洲投资区域数据库"
+  },
+  "sankey": {
+    "title": "桑基图"
+  },
+  "methodology": {
+    "title": "方法论"
+  },
+  "common": {
+    "coming_soon": "即将上线"
+  }
+}

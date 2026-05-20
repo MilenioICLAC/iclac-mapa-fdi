@@ -1,0 +1,22 @@
+node_modules
+dist
+dist-ssr
+.env
+.env.local
+.env.*.local
+.vite
+.vscode
+.idea
+.DS_Store
+*.log
+.netlify
+
+# Internal docs (cotizaciones, planes de sprint, UAT) — no se versionan
+docs/
+
+# Legacy reference code (Vue / IMFD) — local only, no versionar
+legacy/
+transformation_loading/
+
+# TypeScript incremental build info
+*.tsbuildinfo
