@@ -35,7 +35,8 @@
     "greenfield": "绿地",
     "clear_all": "清除筛选",
     "investments_count": "{{count}} 个投资",
-    "points_lines": "{{points}} 个点 · {{lines}} 条线"
+    "points_lines": "{{points}} 个点 · {{lines}} 条线",
+    "cluster": "聚合点"
   },
   "sector": {
     "Energy": "能源",

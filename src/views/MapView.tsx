@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { MapContainer, TileLayer, GeoJSON, useMap } from 'react-leaflet'
 import L from 'leaflet'
+import 'leaflet.markercluster'
 import { useTranslation } from 'react-i18next'
 import type { Feature, Geometry } from 'geojson'
 import type { LatLngExpression, Layer, LeafletMouseEvent, Path, PathOptions } from 'leaflet'
@@ -27,13 +28,16 @@ const hoverCountryStyle: PathOptions = {
   fillOpacity: 0.4
 }
 
-function InvestmentMarkers({ investments }: { investments: Investment[] }) {
+function InvestmentMarkers({ investments, cluster }: { investments: Investment[]; cluster: boolean }) {
   const map = useMap()
 
   useEffect(() => {
     if (investments.length === 0) return
 
-    const layer = L.layerGroup()
+    const lineLayer = L.layerGroup()
+    const pointLayer = cluster
+      ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50, disableClusteringAtZoom: 9 })
+      : L.layerGroup()
     const svgRenderer = L.svg()
 
     for (const inv of investments) {
@@ -60,7 +64,7 @@ function InvestmentMarkers({ investments }: { investments: Investment[] }) {
         })
         marker.bindTooltip(tooltipHtml, { sticky: true })
         marker.on('click', onClick)
-        marker.addTo(layer)
+        pointLayer.addLayer(marker)
       } else {
         const polyline = L.polyline(inv.coordinates, {
           color,
@@ -71,15 +75,17 @@ function InvestmentMarkers({ investments }: { investments: Investment[] }) {
         })
         polyline.bindTooltip(tooltipHtml, { sticky: true })
         polyline.on('click', onClick)
-        polyline.addTo(layer)
+        polyline.addTo(lineLayer)
       }
     }
 
-    layer.addTo(map)
+    pointLayer.addTo(map)
+    lineLayer.addTo(map)
     return () => {
-      map.removeLayer(layer)
+      map.removeLayer(pointLayer)
+      map.removeLayer(lineLayer)
     }
-  }, [investments, map])
+  }, [investments, map, cluster])
 
   return null
 }
@@ -90,6 +96,7 @@ export default function MapView() {
   const [investments, setInvestments] = useState<Investment[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [cluster, setCluster] = useState(true)
   const { filters } = useFilters()
 
   useEffect(() => {
@@ -116,6 +123,18 @@ export default function MapView() {
   const sectors = useMemo(() => distinctSectors(investments), [investments])
   const [yearMin, yearMax] = useMemo(() => yearBounds(investments), [investments])
   const filtered = useMemo(() => applyFilters(investments, filters), [investments, filters])
+
+  const filteredGeo = useMemo<CountryFeatureCollection | null>(() => {
+    if (!geo) return null
+    if (filters.countries.length === 0) return geo
+    return {
+      ...geo,
+      features: geo.features.filter(f => {
+        const name = f.properties?.name ?? f.properties?.NAME
+        return name ? filters.countries.includes(name) : false
+      })
+    }
+  }, [geo, filters.countries])
 
   const onEachFeature = (feature: Feature<Geometry, CountryProperties>, layer: Layer) => {
     layer.on({
@@ -148,11 +167,17 @@ export default function MapView() {
           </div>
         )}
         {!loading && !error && (
-          <div className="absolute top-2 right-2 z-[1000] bg-white px-3 py-1 rounded shadow text-sm">
-            {t('filter.investments_count', { count: filtered.length })}
-            <span className="text-gray-500 ml-2">
-              ({t('filter.points_lines', { points: pointsCount, lines: linesCount })})
-            </span>
+          <div className="absolute top-2 right-2 z-[1000] flex flex-col items-end gap-2">
+            <div className="bg-white px-3 py-1 rounded shadow text-sm">
+              {t('filter.investments_count', { count: filtered.length })}
+              <span className="text-gray-500 ml-2">
+                ({t('filter.points_lines', { points: pointsCount, lines: linesCount })})
+              </span>
+            </div>
+            <label className="bg-white px-3 py-1 rounded shadow text-sm flex items-center gap-2 cursor-pointer">
+              <input type="checkbox" checked={cluster} onChange={e => setCluster(e.target.checked)} />
+              {t('filter.cluster')}
+            </label>
           </div>
         )}
         <MapContainer
@@ -166,8 +191,15 @@ export default function MapView() {
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
             url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
           />
-          {geo && <GeoJSON data={geo} style={baseCountryStyle} onEachFeature={onEachFeature} />}
-          {filtered.length > 0 && <InvestmentMarkers investments={filtered} />}
+          {filteredGeo && (
+            <GeoJSON
+              key={filters.countries.join(',') || 'all'}
+              data={filteredGeo}
+              style={baseCountryStyle}
+              onEachFeature={onEachFeature}
+            />
+          )}
+          {filtered.length > 0 && <InvestmentMarkers investments={filtered} cluster={cluster} />}
         </MapContainer>
       </div>
     </div>

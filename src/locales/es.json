@@ -35,7 +35,8 @@
     "greenfield": "Greenfield",
     "clear_all": "Limpiar filtros",
     "investments_count": "{{count}} inversiones",
-    "points_lines": "{{points}} puntos · {{lines}} líneas"
+    "points_lines": "{{points}} puntos · {{lines}} líneas",
+    "cluster": "Agrupar puntos"
   },
   "sector": {
     "Energy": "Energía",
