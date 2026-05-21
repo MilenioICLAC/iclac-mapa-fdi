@@ -18,3 +18,35 @@ html, body, #root {
 .leaflet-tooltip {
   padding: 8px 10px;
 }
+
+.year-thumb {
+  pointer-events: none;
+}
+.year-thumb::-webkit-slider-thumb {
+  pointer-events: auto;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #111827;
+  cursor: pointer;
+  margin-top: -2px;
+}
+.year-thumb::-moz-range-thumb {
+  pointer-events: auto;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: #fff;
+  border: 2px solid #111827;
+  cursor: pointer;
+}
+.year-thumb::-webkit-slider-runnable-track {
+  background: transparent;
+  height: 12px;
+}
+.year-thumb::-moz-range-track {
+  background: transparent;
+  height: 12px;
+}

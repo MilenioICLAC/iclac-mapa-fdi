@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { useFilters } from '@/hooks/useFilters'
 import { sectorColor } from '@/lib/sectors'
 import type { ResearchFilter } from '@/lib/filter'
+import YearRangeSlider from './YearRangeSlider'
 
 type Props = {
   countries: string[]
@@ -49,27 +50,14 @@ export default function FilterPanel({ countries, sectors, yearMin, yearMax }: Pr
       </section>
 
       <section>
-        <label className="block text-xs font-medium text-gray-600 mb-1">{t('filter.year')}</label>
-        <div className="flex gap-2 items-center">
-          <input
-            type="number"
-            min={yearMin}
-            max={yearMax}
-            value={yMin}
-            onChange={e => setFilters({ yearMin: Number.parseInt(e.target.value, 10) || null })}
-            className="w-20 border rounded px-2 py-1"
-          />
-          <span className="text-gray-400">–</span>
-          <input
-            type="number"
-            min={yearMin}
-            max={yearMax}
-            value={yMax}
-            onChange={e => setFilters({ yearMax: Number.parseInt(e.target.value, 10) || null })}
-            className="w-20 border rounded px-2 py-1"
-          />
-        </div>
-        <div className="text-xs text-gray-400 mt-1">{yearMin}–{yearMax}</div>
+        <label className="block text-xs font-medium text-gray-600 mb-2">{t('filter.year')}</label>
+        <YearRangeSlider
+          min={yearMin}
+          max={yearMax}
+          valueMin={yMin}
+          valueMax={yMax}
+          onChange={(vMin, vMax) => setFilters({ yearMin: vMin, yearMax: vMax })}
+        />
       </section>
 
       <section>
