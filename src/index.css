@@ -7,3 +7,14 @@ html, body, #root {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
+
+.mapa-cluster-icon {
+  background: transparent !important;
+  border: none !important;
+}
+.mapa-cluster-donut {
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.25));
+}
+.leaflet-tooltip {
+  padding: 8px 10px;
+}

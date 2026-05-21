@@ -10,6 +10,7 @@ import { sectorColor } from '@/lib/sectors'
 import { applyFilters, distinctCountries, distinctSectors, yearBounds } from '@/lib/filter'
 import { useFilters } from '@/hooks/useFilters'
 import FilterPanel from '@/components/FilterPanel'
+import { buildDonutSvg, buildLegendHtml, tallyByArea, type SectorTally } from '@/lib/clusterDonut'
 
 const LATAM_CENTER: LatLngExpression = [-15, -60]
 const INITIAL_ZOOM = 3
@@ -28,6 +29,21 @@ const hoverCountryStyle: PathOptions = {
   fillOpacity: 0.4
 }
 
+type MarkerWithArea = L.CircleMarker & { _area?: string | null }
+
+const clusterIconCreate = (cluster: L.MarkerCluster): L.DivIcon => {
+  const children = cluster.getAllChildMarkers() as unknown as MarkerWithArea[]
+  const tallies = tallyByArea(children.map(m => m._area))
+  const total = cluster.getChildCount()
+  const size = total >= 100 ? 56 : total >= 20 ? 48 : 40
+  const svg = buildDonutSvg(tallies, total, { size, innerRatio: 0.55 })
+  return L.divIcon({
+    html: `<div class="mapa-cluster-donut">${svg}</div>`,
+    className: 'mapa-cluster-icon',
+    iconSize: [size, size]
+  })
+}
+
 function InvestmentMarkers({ investments, cluster }: { investments: Investment[]; cluster: boolean }) {
   const map = useMap()
 
@@ -35,9 +51,16 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
     if (investments.length === 0) return
 
     const lineLayer = L.layerGroup()
-    const pointLayer = cluster
-      ? L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 50, disableClusteringAtZoom: 9 })
-      : L.layerGroup()
+    const clusterGroup = cluster
+      ? L.markerClusterGroup({
+          chunkedLoading: true,
+          maxClusterRadius: 60,
+          disableClusteringAtZoom: 9,
+          showCoverageOnHover: false,
+          iconCreateFunction: clusterIconCreate
+        })
+      : null
+    const pointLayer: L.LayerGroup = clusterGroup ?? L.layerGroup()
     const svgRenderer = L.svg()
 
     for (const inv of investments) {
@@ -61,7 +84,8 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
           fillOpacity: 0.7,
           weight: 1,
           opacity: 0.9
-        })
+        }) as MarkerWithArea
+        marker._area = inv.area_en
         marker.bindTooltip(tooltipHtml, { sticky: true })
         marker.on('click', onClick)
         pointLayer.addLayer(marker)
@@ -77,6 +101,24 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
         polyline.on('click', onClick)
         polyline.addTo(lineLayer)
       }
+    }
+
+    if (clusterGroup) {
+      clusterGroup.on('clustermouseover', (e: L.LeafletEvent) => {
+        const c = (e as unknown as { layer: L.MarkerCluster }).layer
+        const children = c.getAllChildMarkers() as unknown as MarkerWithArea[]
+        const tallies: SectorTally[] = tallyByArea(children.map(m => m._area))
+        const total = c.getChildCount()
+        const donut = buildDonutSvg(tallies, total, { size: 140, innerRatio: 0.6, showLabel: false })
+        const legend = buildLegendHtml(tallies, total)
+        const html = `<div style="display:flex;align-items:center;gap:10px">${donut}<div>${legend}</div></div>`
+        c.bindTooltip(html, { sticky: false, direction: 'top', opacity: 1, offset: [0, -10] }).openTooltip()
+      })
+      clusterGroup.on('clustermouseout', (e: L.LeafletEvent) => {
+        const c = (e as unknown as { layer: L.MarkerCluster }).layer
+        c.closeTooltip()
+        c.unbindTooltip()
+      })
     }
 
     pointLayer.addTo(map)
