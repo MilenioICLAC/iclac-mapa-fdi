@@ -10,6 +10,7 @@ import { sectorColor } from '@/lib/sectors'
 import { applyFilters, distinctCountries, distinctSectors, yearBounds } from '@/lib/filter'
 import { useFilters } from '@/hooks/useFilters'
 import FilterPanel from '@/components/FilterPanel'
+import SectorLegend from '@/components/SectorLegend'
 import { buildDonutSvg, buildLegendHtml, tallyByArea, type SectorTally } from '@/lib/clusterDonut'
 
 const LATAM_CENTER: LatLngExpression = [-15, -60]
@@ -195,7 +196,7 @@ export default function MapView() {
   return (
     <div className="flex h-[calc(100vh-7rem)] w-full">
       {!loading && !error && (
-        <FilterPanel countries={countries} sectors={sectors} yearMin={yearMin} yearMax={yearMax} />
+        <FilterPanel countries={countries} yearMin={yearMin} yearMax={yearMax} />
       )}
       <div className="relative flex-1">
         {loading && (
@@ -243,6 +244,7 @@ export default function MapView() {
           )}
           {filtered.length > 0 && <InvestmentMarkers investments={filtered} cluster={cluster} />}
         </MapContainer>
+        {!loading && !error && <SectorLegend sectors={sectors} />}
       </div>
     </div>
   )

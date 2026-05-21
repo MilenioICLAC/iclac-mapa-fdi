@@ -18,18 +18,24 @@ export default function YearRangeSlider({
   intervalMs = 500
 }: Props) {
   const [playing, setPlaying] = useState(false)
-  const playingRef = useRef(playing)
-  playingRef.current = playing
+  const [localMin, setLocalMin] = useState(valueMin)
+  const [localMax, setLocalMax] = useState(valueMax)
+  const draggingRef = useRef(false)
+
+  useEffect(() => {
+    if (draggingRef.current) return
+    setLocalMin(valueMin)
+    setLocalMax(valueMax)
+  }, [valueMin, valueMax])
 
   useEffect(() => {
     if (!playing) return
     const id = setInterval(() => {
-      const current = valueMax
-      if (current >= max) {
+      if (valueMax >= max) {
         setPlaying(false)
         return
       }
-      onChange(valueMin, current + 1)
+      onChange(valueMin, valueMax + 1)
     }, intervalMs)
     return () => clearInterval(id)
   }, [playing, valueMax, valueMin, max, onChange, intervalMs])
@@ -43,27 +49,41 @@ export default function YearRangeSlider({
 
   const reset = () => {
     setPlaying(false)
+    draggingRef.current = false
+    setLocalMin(min)
+    setLocalMax(max)
     onChange(min, max)
   }
 
   const trackRange = max - min || 1
-  const leftPct = ((valueMin - min) / trackRange) * 100
-  const rightPct = ((valueMax - min) / trackRange) * 100
+  const leftPct = ((localMin - min) / trackRange) * 100
+  const rightPct = ((localMax - min) / trackRange) * 100
 
-  const handleMin = (v: number) => {
-    const next = Math.min(v, valueMax)
-    onChange(next, valueMax)
+  const onPointerDown = () => {
+    draggingRef.current = true
   }
-  const handleMax = (v: number) => {
-    const next = Math.max(v, valueMin)
-    onChange(valueMin, next)
+  const commit = () => {
+    if (!draggingRef.current) return
+    draggingRef.current = false
+    if (localMin !== valueMin || localMax !== valueMax) {
+      onChange(localMin, localMax)
+    }
+  }
+
+  const handleMinChange = (raw: number) => {
+    const next = Math.min(raw, localMax)
+    setLocalMin(next)
+  }
+  const handleMaxChange = (raw: number) => {
+    const next = Math.max(raw, localMin)
+    setLocalMax(next)
   }
 
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-xs text-gray-600">
-        <span>{valueMin}</span>
-        <span>{valueMax}</span>
+        <span>{localMin}</span>
+        <span>{localMax}</span>
       </div>
 
       <div className="relative h-6">
@@ -77,8 +97,12 @@ export default function YearRangeSlider({
           min={min}
           max={max}
           step={1}
-          value={valueMin}
-          onChange={e => handleMin(Number.parseInt(e.target.value, 10))}
+          value={localMin}
+          onChange={e => handleMinChange(Number.parseInt(e.target.value, 10))}
+          onPointerDown={onPointerDown}
+          onPointerUp={commit}
+          onPointerCancel={commit}
+          onBlur={commit}
           className="year-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
         />
         <input
@@ -86,8 +110,12 @@ export default function YearRangeSlider({
           min={min}
           max={max}
           step={1}
-          value={valueMax}
-          onChange={e => handleMax(Number.parseInt(e.target.value, 10))}
+          value={localMax}
+          onChange={e => handleMaxChange(Number.parseInt(e.target.value, 10))}
+          onPointerDown={onPointerDown}
+          onPointerUp={commit}
+          onPointerCancel={commit}
+          onBlur={commit}
           className="year-thumb absolute inset-0 w-full appearance-none bg-transparent pointer-events-none"
         />
       </div>

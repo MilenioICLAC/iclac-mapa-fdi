@@ -46,23 +46,38 @@ Abrir `http://localhost:5173`.
 ```
 src/
   App.tsx              # rutas
-  main.tsx             # entrypoint
+  main.tsx             # entrypoint (Leaflet + markercluster CSS)
   i18n.ts              # config react-i18next
-  index.css            # tailwind directivas
+  index.css            # tailwind directivas + estilos cluster/slider
   components/
     Layout.tsx         # header + nav + footer + lang switcher
+    FilterPanel.tsx    # sidebar (país, año, tipo, construcción, estudios)
+    YearRangeSlider.tsx# bar dual-handle + play button
+    SectorLegend.tsx   # legend flotante bottom-right que también filtra
+  hooks/
+    useFilters.ts      # filtros URL-backed (?p=&yMin=&t=&c=&r=&s=)
+  lib/
+    filter.ts          # applyFilters + distinctCountries/Sectors/yearBounds
+    sectors.ts         # paleta colores por sector (de legacy)
+    clusterDonut.ts    # SVG donut + legenda para cluster bubbles
   views/
-    MapView.tsx        # mapa Leaflet con GeoJSON LATAM
-    SankeyView.tsx     # placeholder S3+
+    MapView.tsx        # mapa Leaflet con GeoJSON + clustering + markers + lines
+    SankeyView.tsx     # placeholder S5
     MethodologyView.tsx# placeholder
   locales/
     es.json, en.json, cn.json
   types/
-    data.ts            # tipos compartidos (GeoJSON, locales)
+    data.ts            # tipos (Investment point|line, CountryFeature, LocaleCode)
 public/
-  data/                # GeoJSON + JSON estáticos servidos en runtime
+  data/                # GeoJSON estáticos + investments.json (gitignored, regenerado)
+data/
+  source/              # XLSX del cliente (versionado)
+  conflicts/           # XLSX de conflictos para revisión cliente (gitignored)
+scripts/
+  etl.mjs              # XLSX → investments.json
+  export_vector_conflicts.mjs # XLSX de conflictos
 legacy/                # código Vue original — solo referencia, no compilar
-docs/                  # cotización, planes de sprint
+docs/                  # cotización, planes de sprint, auditoría
 .github/workflows/ci.yml  # typecheck + lint + build
 ```
 

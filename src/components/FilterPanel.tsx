@@ -1,12 +1,10 @@
 import { useTranslation } from 'react-i18next'
 import { useFilters } from '@/hooks/useFilters'
-import { sectorColor } from '@/lib/sectors'
 import type { ResearchFilter } from '@/lib/filter'
 import YearRangeSlider from './YearRangeSlider'
 
 type Props = {
   countries: string[]
-  sectors: string[]
   yearMin: number
   yearMax: number
 }
@@ -16,7 +14,7 @@ const PROJECT_TYPES = ['Adquisición', 'Greenfield'] as const
 const toggleInArray = (arr: string[], v: string): string[] =>
   arr.includes(v) ? arr.filter(x => x !== v) : [...arr, v]
 
-export default function FilterPanel({ countries, sectors, yearMin, yearMax }: Props) {
+export default function FilterPanel({ countries, yearMin, yearMax }: Props) {
   const { t } = useTranslation()
   const { filters, setFilters, reset } = useFilters()
 
@@ -108,32 +106,6 @@ export default function FilterPanel({ countries, sectors, yearMin, yearMax }: Pr
         </div>
       </section>
 
-      <section>
-        <label className="block text-xs font-medium text-gray-600 mb-1">{t('filter.sectors')}</label>
-        <div className="space-y-1">
-          {sectors.map(s => {
-            const active = filters.sectors.length === 0 || filters.sectors.includes(s)
-            return (
-              <label key={s} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={active}
-                  onChange={() => {
-                    const current = filters.sectors.length === 0 ? sectors : filters.sectors
-                    const next = toggleInArray(current, s)
-                    setFilters({ sectors: next.length === sectors.length ? [] : next })
-                  }}
-                />
-                <span
-                  className="inline-block w-3 h-3 rounded-sm"
-                  style={{ backgroundColor: sectorColor(s) }}
-                />
-                <span>{t(`sector.${s}`, s)}</span>
-              </label>
-            )
-          })}
-        </div>
-      </section>
     </aside>
   )
 }
