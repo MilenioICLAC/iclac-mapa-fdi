@@ -12,6 +12,7 @@ import { useFilters } from '@/hooks/useFilters'
 import FilterPanel from '@/components/FilterPanel'
 import SectorLegend from '@/components/SectorLegend'
 import { buildDonutSvg, buildLegendHtml, tallyByArea, type SectorTally } from '@/lib/clusterDonut'
+import { buildInvestmentPopup, buildInvestmentTooltip } from '@/lib/popup'
 
 const LATAM_CENTER: LatLngExpression = [-15, -60]
 const INITIAL_ZOOM = 3
@@ -45,7 +46,7 @@ const clusterIconCreate = (cluster: L.MarkerCluster): L.DivIcon => {
   })
 }
 
-function InvestmentMarkers({ investments, cluster }: { investments: Investment[]; cluster: boolean }) {
+function InvestmentMarkers({ investments, cluster, lang }: { investments: Investment[]; cluster: boolean; lang: string }) {
   const map = useMap()
 
   useEffect(() => {
@@ -57,7 +58,15 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
           chunkedLoading: true,
           maxClusterRadius: 60,
           disableClusteringAtZoom: 9,
-          showCoverageOnHover: false,
+          showCoverageOnHover: true,
+          polygonOptions: {
+            fillColor: '#fbbf24',
+            color: '#f59e0b',
+            weight: 2,
+            opacity: 0.8,
+            fillOpacity: 0.15,
+            dashArray: '4, 4'
+          },
           iconCreateFunction: clusterIconCreate
         })
       : null
@@ -67,14 +76,8 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
     for (const inv of investments) {
       const color = sectorColor(inv.area_en)
 
-      const tooltipHtml = `<div style="font-size:12px">
-        <strong>${inv.investor ?? 'Unknown'}</strong><br/>
-        ${inv.country ?? ''} · ${inv.year ?? ''}<br/>
-        ${inv.area_en ?? ''} · ${inv.project_type}<br/>
-        ${inv.investment_musd ? `US$ ${inv.investment_musd} MM` : ''}
-      </div>`
-
-      const onClick = () => console.log('clicked investment:', inv.id, inv)
+      const tooltipHtml = buildInvestmentTooltip(inv, lang)
+      const popupHtml = buildInvestmentPopup(inv, lang)
 
       if (inv.geometry_type === 'point') {
         const [lat, lng] = inv.coordinates
@@ -88,7 +91,7 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
         }) as MarkerWithArea
         marker._area = inv.area_en
         marker.bindTooltip(tooltipHtml, { sticky: true })
-        marker.on('click', onClick)
+        marker.bindPopup(popupHtml, { maxWidth: 340, className: 'mapa-investment-popup' })
         pointLayer.addLayer(marker)
       } else {
         const polyline = L.polyline(inv.coordinates, {
@@ -99,7 +102,7 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
           renderer: svgRenderer
         })
         polyline.bindTooltip(tooltipHtml, { sticky: true })
-        polyline.on('click', onClick)
+        polyline.bindPopup(popupHtml, { maxWidth: 340, className: 'mapa-investment-popup' })
         polyline.addTo(lineLayer)
       }
     }
@@ -113,10 +116,21 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
         const donut = buildDonutSvg(tallies, total, { size: 140, innerRatio: 0.6, showLabel: false })
         const legend = buildLegendHtml(tallies, total)
         const html = `<div style="display:flex;align-items:center;gap:10px">${donut}<div>${legend}</div></div>`
-        c.bindTooltip(html, { sticky: false, direction: 'top', opacity: 1, offset: [0, -10] }).openTooltip()
+        const iconEl = (c as unknown as { _icon?: HTMLElement })._icon
+        if (iconEl) iconEl.classList.add('mapa-cluster-hovered')
+        const tooltipOffset: [number, number] = [0, -(c.getChildCount() >= 100 ? 56 : c.getChildCount() >= 20 ? 48 : 40) / 2 - 10]
+        c.bindTooltip(html, {
+          sticky: false,
+          direction: 'top',
+          opacity: 1,
+          offset: tooltipOffset,
+          className: 'mapa-cluster-tooltip'
+        }).openTooltip()
       })
       clusterGroup.on('clustermouseout', (e: L.LeafletEvent) => {
         const c = (e as unknown as { layer: L.MarkerCluster }).layer
+        const iconEl = (c as unknown as { _icon?: HTMLElement })._icon
+        if (iconEl) iconEl.classList.remove('mapa-cluster-hovered')
         c.closeTooltip()
         c.unbindTooltip()
       })
@@ -128,13 +142,13 @@ function InvestmentMarkers({ investments, cluster }: { investments: Investment[]
       map.removeLayer(pointLayer)
       map.removeLayer(lineLayer)
     }
-  }, [investments, map, cluster])
+  }, [investments, map, cluster, lang])
 
   return null
 }
 
 export default function MapView() {
-  const { t } = useTranslation()
+  const { t, i18n } = useTranslation()
   const [geo, setGeo] = useState<CountryFeatureCollection | null>(null)
   const [investments, setInvestments] = useState<Investment[]>([])
   const [loading, setLoading] = useState(true)
@@ -242,7 +256,7 @@ export default function MapView() {
               onEachFeature={onEachFeature}
             />
           )}
-          {filtered.length > 0 && <InvestmentMarkers investments={filtered} cluster={cluster} />}
+          {filtered.length > 0 && <InvestmentMarkers investments={filtered} cluster={cluster} lang={i18n.language} />}
         </MapContainer>
         {!loading && !error && <SectorLegend sectors={sectors} />}
       </div>
