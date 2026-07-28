@@ -96,49 +96,17 @@ const stats = {
   groupsAsPoint: 0,
   groupsAsLine: 0,
   maxWaypoints: 0,
-  vectorOverlayUsed: 0,
   vectorUnresolvedDefaultedToPoint: 0,
   ownershipFromMap: 0,
   ownershipUnknownNoMatch: 0,
   locationTitleCased: 0
 }
 
-const LEGACY_DATA_DIR = resolve(REPO_ROOT, 'legacy/data')
-const buildLegacyVectorOverlay = () => {
-  const map = new Map()
-  if (!existsSync(LEGACY_DATA_DIR)) return map
-  const files = readdirSync(LEGACY_DATA_DIR).filter(f => f.endsWith('.json') && !f.includes('latam') && !f.includes('sankey'))
-  for (const f of files) {
-    let data
-    try { data = JSON.parse(readFileSync(join(LEGACY_DATA_DIR, f), 'utf8')) } catch { continue }
-    if (!Array.isArray(data)) continue
-    for (const r of data) {
-      if (r.Id_Investment === undefined || r.Id_Investment === null) continue
-      const key = String(parseInt(String(r.Id_Investment), 10))
-      const v = r.Vector
-      if (v === 'Punto' || v === 'Vector') {
-        const existing = map.get(key)
-        if (existing && existing !== v) continue
-        map.set(key, v)
-      }
-    }
-  }
-  return map
-}
-
-const legacyVectorOverlay = buildLegacyVectorOverlay()
-console.log(`Legacy vector overlay loaded: ${legacyVectorOverlay.size} ids`)
-
-const resolveVector = (rawVector, rawId) => {
-  // Overlay legado keyeado por id NUMÉRICO (base vieja). Con los ids nuevos
-  // ALPHA3-NNNN el parseInt da NaN → el overlay no aplica y se usa el Vector de
-  // la fila (la base por país ya trae Vector limpio). Ver deuda documentada §8.
-  const idNum = parseInt(String(rawId), 10)
-  const legacy = Number.isNaN(idNum) ? undefined : legacyVectorOverlay.get(String(idNum))
-  if (legacy) {
-    if (rawVector !== legacy) stats.vectorOverlayUsed++
-    return legacy
-  }
+const resolveVector = (rawVector) => {
+  // `Vector` lo exige el esquema y lo valida la CI, así que la fila llega con el
+  // valor bueno. Hubo un overlay que reparaba esta columna desde el proyecto
+  // anterior; se retiró al quedar en cero usos, porque dependía de una carpeta
+  // que no se versiona (en el build de producción cargaba vacío en silencio).
   if (rawVector === 'Punto' || rawVector === 'Vector') return rawVector
   stats.vectorUnresolvedDefaultedToPoint++
   return 'Punto'
@@ -344,7 +312,7 @@ const cleanRow = row => {
     has_research: hasResearch,
     research_cases: cases,
     vector_raw: row.Vector ?? null,
-    vector_resolved: resolveVector(row.Vector, id),
+    vector_resolved: resolveVector(row.Vector),
     path_raw: row.Path ?? null
   }
 }

@@ -11,7 +11,7 @@
 // Uso:
 //   node scripts/check_investor_coverage.mjs [investments.json] [investors_map.json]
 //   (defaults: public/data/*)
-import { readFileSync, writeFileSync, existsSync } from 'node:fs'
+import { mkdirSync, readFileSync, writeFileSync, existsSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import XLSX from 'xlsx'
@@ -20,7 +20,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
 const invPath = resolve(process.cwd(), process.argv[2] || resolve(REPO_ROOT, 'public/data/investments.json'))
 const mapPath = resolve(process.cwd(), process.argv[3] || resolve(REPO_ROOT, 'public/data/investors_map.json'))
-const OUT = resolve(REPO_ROOT, 'docs/sprint_5/cobertura_inversores.xlsx')
+const OUT = resolve(REPO_ROOT, 'reports/cobertura_inversores.xlsx')
 
 if (!existsSync(invPath) || !existsSync(mapPath)) {
   console.error(`Falta ${!existsSync(invPath) ? invPath : mapPath}. Correr el ETL primero.`)

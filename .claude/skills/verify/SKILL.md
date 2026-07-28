@@ -34,7 +34,7 @@ const browser = await chromium.launch({ channel: 'msedge', headless: true })
 Tres tamaños cubren los bugs que aparecen sólo a cierto ancho:
 
 ```js
-{ width: 1536, height: 730, deviceScaleFactor: 1.25 }                       // el notebook de Felipe
+{ width: 1536, height: 730, deviceScaleFactor: 1.25 }                       // notebook
 { width: 360, height: 640, deviceScaleFactor: 2, isMobile: true, hasTouch: true }  // teléfono
 { width: 320, height: 568, deviceScaleFactor: 2, isMobile: true, hasTouch: true }  // sólo si algo va justo
 ```
@@ -61,6 +61,6 @@ screenshot con antialiasing no distingue "pegado" de "encima por 3 px".
 
 - Búsqueda de inversores (incluye members de consorcios — hint "incluye: …").
 - Selección de inversor → URL `inv=` → nodos en diagrama (screenshot).
-- Filtros Propiedad (`own=`) y Consorcios (`cons=only|none`).
+- Filtros Propiedad (`own=`) y Consorcios (`cons=only|none`, si llega a existir).
 - Reload con params combinados → badges de los botones conservan estado.
 - Params basura (`?cons=garbage&own=NOPE`) → no crash, fallback a default.

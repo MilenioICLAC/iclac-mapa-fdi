@@ -11,8 +11,17 @@ dist-ssr
 *.log
 .netlify
 
-# Internal docs (cotizaciones, planes de sprint, UAT) — no se versionan
-docs/
+# Documentos de trabajo internos: no se versionan. Las excepciones de abajo sí,
+# porque el repositorio tiene que poder explicarse solo.
+# (Ojo: tiene que ser `docs/*` y no `docs/`. Si se excluye el directorio, git no
+#  puede volver a incluir un archivo de adentro y las negaciones no hacen nada.)
+docs/*
+!docs/estado.md
+!docs/traspaso.md
+
+# Salidas de los scripts de reporte
+reports/*
+!reports/.gitkeep
 
 # Legacy reference code (Vue / IMFD) — local only, no versionar
 legacy/

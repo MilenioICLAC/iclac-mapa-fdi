@@ -3,7 +3,7 @@
 //
 //   1. data/sources/geo/borders.geojson  — SEMILLA DISPONIBLE: todos los países
 //      del registro cuya geometría existe en la fuente Natural Earth
-//      (legacy/data/america.geojson). Es lo que el VALIDADOR consulta para el
+//      (data/sources/geo/america.geojson). Es lo que el VALIDADOR consulta para el
 //      chequeo "sin borde": con esto, la geometría deja de ser un gate para los
 //      países de la región (la tenemos nosotros).
 //
@@ -22,7 +22,7 @@
 //     que estén marcados para publicar.
 //   - con dirDatos: además exige pasar validación (filtro en build).
 //
-// Idempotente. Fuente Natural Earth: legacy/data/america.geojson (iso_a3/iso_n3/name).
+// Idempotente. Fuente Natural Earth: data/sources/geo/america.geojson (iso_a3/iso_n3/name).
 import XLSX from 'xlsx'
 import { readFileSync, writeFileSync, mkdirSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { resolve, dirname, basename } from 'node:path'
@@ -32,7 +32,14 @@ import { loadRegistry } from './lib/load_registry.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const REPO_ROOT = resolve(__dirname, '..')
-const SOURCE = resolve(REPO_ROOT, 'legacy/data/america.geojson')
+// Fuente Natural Earth, versionada en el repo (304 KB). Antes se leía de la
+// carpeta `legacy/`, que no se versiona: el script funcionaba en la máquina de
+// quien la tuviera y en ninguna otra.
+const SOURCE_CANDIDATES = [
+  resolve(REPO_ROOT, 'data/sources/geo/america.geojson'),
+  resolve(REPO_ROOT, 'legacy/data/america.geojson')
+]
+const SOURCE = SOURCE_CANDIDATES.find((p) => existsSync(p)) ?? SOURCE_CANDIDATES[0]
 const CURRENT_MAP = resolve(REPO_ROOT, 'public/data/south-america.geojson')
 const SEED_OUT = resolve(REPO_ROOT, 'data/sources/geo/borders.geojson')
 const MAP_OUT = CURRENT_MAP

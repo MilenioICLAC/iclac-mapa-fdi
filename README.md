@@ -1,149 +1,101 @@
-# mapa_FDI
+# Repositorio Regional de Inversiones Chinas en América Latina
 
-Repositorio Regional de Inversiones Chinas en América Latina — frontend.
+Sitio del repositorio de inversiones de ICLAC. Publica la base como dos instrumentos sobre los mismos
+datos y los mismos filtros: un **mapa** y un diagrama de **tendencias**. En español, inglés y chino.
 
-Reescritura para ICLAC. Reemplaza la implementación anterior (Vue 3 / IMFD).
+Este mismo repositorio contiene **los datos, el validador y la aplicación**. Subir una planilla
+corregida es lo único que hace falta para actualizar el sitio.
 
-## Stack
+---
 
-- React 18 + Vite + TypeScript (strict)
-- react-router-dom 6
-- react-i18next (es / en / cn)
-- Leaflet 1.9 + react-leaflet
-- D3 v7
-- ECharts 5
-- Tailwind CSS 3
-- Hosting: Netlify
+## Para quien mantiene los datos
 
-## Requisitos
+No hace falta programar ni instalar nada. El trabajo es sobre archivos de Excel.
 
-- Node ≥ 20 (ver `.nvmrc`)
-- npm ≥ 10
+### Actualizar un país
 
-## Setup
+1. Editar el archivo del país en `data/sources/countries/` (por ejemplo `chile.xlsx`) y subirlo al
+   repositorio, reemplazando el anterior.
+2. Al subirlo, la validación corre sola y publica un **informe** con el resultado país por país:
+
+   **https://nucleomilenioiclac.github.io/iclac-mapa-fdi/**
+
+   El informe dice qué está correcto, qué conviene revisar y qué impide que un país entre al sitio.
+   Está escrito para leerse sin conocimientos técnicos.
+3. Si el país pasa y está marcado para publicar, el sitio se reconstruye solo con los datos nuevos.
+
+Qué columnas debe tener cada archivo y qué se espera en cada una: `data/schema/schema.md`.
+
+### Publicar o retener un país
+
+Que un archivo esté **correcto** y que se **publique** son dos cosas distintas, a propósito: un país
+puede estar listo y no querer mostrarse todavía.
+
+Se decide en `data/schema/countries.csv`, en la columna `publish`:
+
+```
+alpha3,numeric,name,aliases,filename,publish
+CHL,152,Chile,,CHILE,yes        ← se publica
+HND,340,Honduras,,HONDURAS,no   ← validado, pero no sale en el sitio
+```
+
+Los países retenidos aparecen en el informe como **PASA · RETENIDO**, para que se distinga de un
+error. Para publicar uno, cambiar su celda a `yes`.
+
+> **Ese archivo se edita en el navegador, desde GitHub. No en Excel.** Excel lo guarda con punto y
+> coma en vez de coma y le quita los ceros a la izquierda a los códigos de país; con cualquiera de
+> las dos cosas el sistema deja de reconocer los países. Hay una validación que avisa si ocurre, pero
+> es más fácil no pisar el palito.
+
+---
+
+## Para quien desarrolla
 
 ```bash
 npm install
-npm run dev
+npm run etl      # convierte los XLSX a los JSON que consume el sitio
+npm run dev      # http://localhost:5173
 ```
 
-Abrir `http://localhost:5173`.
-
-## Scripts
-
-| Script | Acción |
+| Comando | Qué hace |
 |---|---|
-| `npm run dev` | Vite dev server (HMR, puerto 5173) |
-| `npm run build` | Typecheck (`tsc --noEmit`) + bundle producción a `dist/` |
-| `npm run preview` | Servir `dist/` localmente para verificación post-build |
-| `npm run typecheck` | Solo TypeScript, sin emitir |
-| `npm run lint` | ESLint sobre `src/` (legacy excluido) |
-| `npm run etl` | Procesa XLSX cliente → `public/data/investments.json` |
-| `npm run conflicts` | Genera XLSX con conflictos de la columna `Vector` para revisión del cliente |
+| `npm run etl` | XLSX → `public/data/*.json`. Corre también en cada build de producción |
+| `npm run build` | Chequeo de tipos y build de producción a `dist/` |
+| `npm run preview` | Sirve `dist/` para verificar contra el build real |
+| `npm test` | Tests de la lógica de filtros y de los validadores |
+| `npm run lint` | eslint. **La CI lo corre sin tolerancia a warnings** |
+| `npm run validate` | Valida los XLSX por país |
+| `npm run validate:countries` | Valida el registro de países |
+| `npm run validate:investors` | Valida la tabla de inversores |
+| `npm run validate:report` | Genera el informe HTML de validación |
 
-## Estructura
+**Antes de dar por terminado un cambio visible, verificarlo en el navegador.** Varios problemas de
+esta clase solo aparecen a cierto ancho de pantalla. Receta en `.claude/skills/verify`.
+
+### Cómo está organizado
 
 ```
-src/
-  App.tsx              # rutas
-  main.tsx             # entrypoint (Leaflet + markercluster CSS)
-  i18n.ts              # config react-i18next
-  index.css            # tailwind directivas + estilos cluster/slider
-  components/
-    Layout.tsx         # header + nav + footer + lang switcher
-    FilterPanel.tsx    # sidebar (país, año, tipo, construcción, estudios)
-    YearRangeSlider.tsx# bar dual-handle + play button
-    SectorLegend.tsx   # legend flotante bottom-right que también filtra
-    ProjectDocsCards.tsx # panel "Repositorio": inversiones por país, estudios destacados, locate
-  hooks/
-    useFilters.ts      # filtros + vista URL-backed (?p=&yMin=&t=&c=&r=&s=&view=)
-  lib/
-    filter.ts          # applyFilters + distinctCountries/Sectors/yearBounds + ViewMode
-    sectors.ts         # paleta colores por sector (de legacy)
-    clusterDonut.ts    # SVG donut + legenda para cluster bubbles
-    projectDocs.ts     # dedupeById + groupByCountry + helpers locale/monto del repositorio
-    popup.ts           # HTML de tooltip + popup por inversión (point/line)
-  views/
-    MapView.tsx        # mapa Leaflet (GeoJSON + clustering + markers/lines) + panel Repositorio + locate→popup
-    SankeyView.tsx     # placeholder S5
-    MethodologyView.tsx# placeholder
-  locales/
-    es.json, en.json, cn.json
-  types/
-    data.ts            # tipos (Investment point|line, CountryFeature, LocaleCode)
-public/
-  data/                # GeoJSON estáticos + investments.json (gitignored, regenerado)
-data/
-  source/              # XLSX del cliente (versionado)
-  conflicts/           # XLSX de conflictos para revisión cliente (gitignored)
-scripts/
-  etl.mjs              # XLSX → investments.json
-  export_vector_conflicts.mjs # XLSX de conflictos
-legacy/                # código Vue original — solo referencia, no compilar
-docs/                  # cotización, planes de sprint, auditoría
-.github/workflows/ci.yml  # typecheck + lint + build
+src/            la aplicación (React + TypeScript)
+data/sources/   los archivos que sube el equipo de datos
+data/schema/    el contrato de datos, el registro de países y la tabla de inversores
+scripts/        ETL y validadores; en one-off/, herramientas de auditorías puntuales
+public/data/    lo que consume el navegador (los JSON los genera el ETL)
+docs/estado.md  qué quedó pendiente y de quién depende
 ```
 
-## Mapa y panel Repositorio
+`.claude/CLAUDE.md` explica **por qué** el código está como está: las reglas que no caducan y las
+trampas ya conocidas. Vale leerlo antes de tocar el mapa, los filtros o el Sankey.
 
-`MapView` combina el mapa Leaflet con un panel lateral **Repositorio** (`ProjectDocsCards`):
+### Despliegue
 
-- **Repositorio** (`?view=cards`, default): columna derecha con las inversiones agrupadas por país. Cada ficha muestra sector, inversor, año, monto y — destacado — sus **estudios** (`research_cases`), colapsables. Toggle "Repositorio" en la barra superior lo oculta (`?view=map`), ensanchando el mapa (`invalidateSize` recarga los tiles).
-- **Locate**: el pin de cada ficha centra el mapa en la inversión (`flyTo` / `zoomToShowLayer` si está en cluster) y **abre su popup**.
-- La vista (`view`) y los filtros viven en la URL → compartible/recargable.
+Netlify, construyendo con `npm run etl && npm run build` y publicando `dist/` (ver `netlify.toml`).
+
+Una sola variable de entorno, `VITE_WEB3FORMS_KEY`, para el formulario de Contacto. Se genera en
+web3forms.com escribiendo la dirección de destino, y **la clave queda atada a esa dirección**:
+cambiar el destinatario obliga a generar una clave nueva, no a editar la variable. Sin ella, la vista
+de Contacto degrada sola a un enlace de correo directo.
 
 ## Datos
 
-Pipeline ETL adelantado a S2:
-
-- **Fuente:** `data/source/entrega1_inversiones.xlsx` (XLSX del cliente, versionado)
-- **Script:** `scripts/etl.mjs` (Node + sheetjs)
-- **Salida:** `public/data/investments.json` (gitignored, regenerado)
-- **Comando:** `npm run etl`
-- **Producción:** Netlify ejecuta `npm run etl && npm run build` automáticamente
-
-Auditoría del XLSX en [`docs/auditoria_xlsx_entrega1.md`](docs/auditoria_xlsx_entrega1.md): schema completo, problemas de calidad detectados, normalizaciones aplicadas, preguntas pendientes con cliente.
-
-Pipeline planeado para S5 (validación automática):
-
-1. Cliente edita XLSX en su repo fork
-2. Abre PR
-3. GitHub Action ejecuta validador JS (esquema, tipos, FK)
-4. Merge → Netlify rebuild (incluye `npm run etl`)
-
-## Idiomas
-
-`es` (default), `en`, `cn`. Detección automática vía `navigator.language` con fallback a `es`. Strings en `src/locales/*.json`. Revisor externo confirmado para chino.
-
-## TypeScript
-
-Modo `strict` activo. Tipos compartidos en `src/types/data.ts`. Imports de JSON tipados vía `resolveJsonModule`. Alias `@/*` → `./src/*`.
-
-Si se añade dependencia sin tipos, instalar `@types/<paquete>` o declarar shim en `src/vite-env.d.ts`.
-
-## CI
-
-`.github/workflows/ci.yml` corre en push a `main` y en PRs:
-
-1. `npm ci`
-2. `npm run typecheck`
-3. `npm run lint`
-4. `npm run build`
-
-Build artifact se sube solo desde `main`.
-
-## Despliegue
-
-Netlify lee `netlify.toml`. Build command `npm run build`, publish dir `dist`. SPA redirect (`/* /index.html 200`) configurado.
-
-- `main` → staging (cuenta dev en S1–S4)
-- Transferencia a cuenta ICLAC en S5
-- PRs / ramas → preview deploys automáticos
-
-## Documentación
-
-- [`.claude/CLAUDE.md`](.claude/CLAUDE.md) — contexto del proyecto para asistentes IA
-- [`docs/plan_s1.md`](docs/plan_s1.md) — plan sprint actual
-- [`docs/cotizacion_iclac_fase1_felipe.html`](docs/cotizacion_iclac_fase1_felipe.html) — alcance y precio Fase 1
-- [`legacy/AUDIT.md`](legacy/AUDIT.md) — auditoría del proyecto Vue original (problemas a no replicar)
-- [`legacy/`](legacy/) — código y datos del proyecto original como referencia
+La base es de ICLAC. La cita sugerida está en la pestaña Metodología del sitio, y la base completa se
+descarga desde la pestaña Datos.
