@@ -1,6 +1,7 @@
 {
-  "name": "mapa-fdi",
+  "name": "iclac-mapa-fdi",
   "private": true,
+  "description": "Repositorio Regional de Inversiones Chinas en America Latina: datos, validador y sitio.",
   "version": "0.1.0",
   "type": "module",
   "scripts": {
