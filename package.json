@@ -5,6 +5,7 @@
   "description": "Datos por país del Repositorio ICLAC + validador que genera el informe de validación (GitHub Pages).",
   "scripts": {
     "validate": "node scripts/validate_data.mjs data/sources/countries",
+    "validate:countries": "node scripts/validate_countries.mjs",
     "validate:report": "node scripts/build_validation_report.mjs data/sources/countries --out site/index.html"
   },
   "dependencies": {

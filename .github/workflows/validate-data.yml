@@ -36,6 +36,22 @@ env:
   DATA_DIR: data/sources/countries
 
 jobs:
+  # Registro de países. Job aparte, a propósito: si countries.csv se rompe, el run
+  # tiene que quedar ROJO (define qué países existen y cuáles se publican, y un
+  # archivo roto ahí no es un estado normal). Separado del informe para que el
+  # informe se publique igual y muestre qué está pasando.
+  registro:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - name: Validar registro de países
+        run: node scripts/validate_countries.mjs
+
   report:
     runs-on: ubuntu-latest
     environment:
@@ -54,6 +70,17 @@ jobs:
       - name: Validar archivos de datos
         continue-on-error: true
         run: node scripts/validate_data.mjs "$DATA_DIR"
+
+      # Tabla de inversores (identidad + ownership). Guardado: solo corre si el
+      # archivo y el script están presentes (en el repo de datos puede no estarlo).
+      - name: Validar tabla de inversores
+        continue-on-error: true
+        run: |
+          if [ -f scripts/validate_investors.mjs ] && [ -f data/schema/investors_map.csv ]; then
+            node scripts/validate_investors.mjs
+          else
+            echo "tabla de inversores no presente en este repo — se omite"
+          fi
 
       - name: Generar informe (index.html)
         run: |
