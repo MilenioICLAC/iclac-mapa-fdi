@@ -11,6 +11,9 @@ dist-ssr
 *.log
 .netlify
 
+# Salida del informe de validacion que se publica en GitHub Pages
+site/
+
 # Documentos de trabajo internos: no se versionan. Las excepciones de abajo sí,
 # porque el repositorio tiene que poder explicarse solo.
 # (Ojo: tiene que ser `docs/*` y no `docs/`. Si se excluye el directorio, git no

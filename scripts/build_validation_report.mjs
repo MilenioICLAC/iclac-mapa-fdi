@@ -10,7 +10,7 @@
 // todavía) para mostrar el estado crudo agrupado. El texto de encabezado explica
 // que las causas dominantes son de formato (representación), no de contenido.
 import XLSX from 'xlsx'
-import { existsSync, readdirSync, writeFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, writeFileSync, statSync } from 'node:fs'
 import { basename, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateRows, SECTOR_PAIRS } from './lib/validate.mjs'
@@ -674,6 +674,8 @@ const html = fragment
   : `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe de validación de datos</title><style>${style}</style></head><body>${body}</body></html>`
 
 const dest = outPath ? resolve(process.cwd(), outPath) : resolve(__dirname, '..', 'validation_report.html')
+// El directorio de salida puede no existir (site/ está ignorado y no se versiona).
+mkdirSync(dirname(dest), { recursive: true })
 writeFileSync(dest, html, 'utf8')
 console.log(`Informe: ${dest}`)
 console.log(`Archivos: ${totalFiles} · con observaciones: ${failed} · filas: ${totalRows}`)
