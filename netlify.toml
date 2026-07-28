@@ -1,3 +1,10 @@
+# El build corre el ETL antes de compilar: convierte los XLSX de
+# data/sources/countries/ en los JSON que consume el sitio.
+#
+# Ojo: el ETL usa `xlsx`, que esta en devDependencies porque es
+# herramienta de build y no llega al navegador. Netlify las instala por
+# defecto; si alguien pone NODE_ENV=production o NPM_FLAGS=--production,
+# el build se cae en el primer paso.
 [build]
   command = "npm run etl && npm run build"
   publish = "dist"
