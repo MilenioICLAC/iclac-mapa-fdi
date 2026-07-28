@@ -8,19 +8,12 @@ de administrador que solo alguien de la organización tiene.
 
 ## 1. Hosting en Netlify
 
-El sitio se construye desde este repositorio. La configuración ya está versionada en `netlify.toml`,
-así que no hay nada que ajustar a mano.
+El sitio se despliega desde este repositorio, en la cuenta de Netlify de ICLAC. La configuración está
+versionada en `netlify.toml`, así que no hay nada que ajustar a mano:
 
-**Lo hace un administrador de ICLAC:**
-
-1. Crear una cuenta en netlify.com con una dirección institucional (no personal: la cuenta es la
-   dueña del sitio).
-2. *Add new site* → *Import an existing project* → GitHub → autorizar → elegir este repositorio.
-3. Netlify lee `netlify.toml` y propone la configuración correcta. Verificar que diga:
-   - Build command: `npm run etl && npm run build`
-   - Publish directory: `dist`
-4. Antes del primer deploy, agregar la variable de entorno del formulario de contacto (punto 2).
-5. Desplegar.
+- Build command: `npm run etl && npm run build`
+- Publish directory: `dist`
+- Variable de entorno: `VITE_WEB3FORMS_KEY` (ver punto 2)
 
 Desde ahí, **cada push al repositorio reconstruye el sitio solo**. Subir una planilla corregida es
 todo lo que hace falta para actualizar los datos publicados.
@@ -33,13 +26,12 @@ Si más adelante se quiere un dominio propio (por ejemplo `repositorio.iclac.cl`
 La vista de Contacto usa Web3Forms, que envía el formulario a una dirección de correo sin necesidad
 de servidor propio.
 
-**Lo hace un administrador de ICLAC:**
+**Esto sí necesita a alguien de ICLAC**, porque la clave llega por correo a la dirección de destino:
 
 1. Entrar a web3forms.com y escribir la dirección que debe **recibir** los mensajes (por ejemplo
-   `comunicaciones.iclac@gmail.com`). La clave llega por correo a esa misma dirección.
-2. En Netlify: *Site configuration* → *Environment variables* → agregar
-   `VITE_WEB3FORMS_KEY` con esa clave.
-3. Volver a desplegar para que tome la variable.
+   `comunicaciones.iclac@gmail.com`). La clave llega a esa misma dirección.
+2. Cargarla en Netlify: *Site configuration* → *Environment variables* → `VITE_WEB3FORMS_KEY`.
+3. Volver a desplegar para que la tome.
 
 **La clave queda atada a la dirección de destino.** Cambiar el destinatario más adelante significa
 generar una clave nueva, no editar la variable. Anotarlo donde se guarden las credenciales de la
@@ -59,10 +51,14 @@ No hay que hacer nada, salvo saber que ese enlace es fijo y siempre muestra el e
 
 ## 4. Accesos que conviene revisar
 
+Nada de esto es urgente, pero conviene resolverlo antes de que el proyecto quede en régimen:
+
 - **Quién puede escribir en el repositorio.** Hoy alcanza con quien sube los datos y quien
-  desarrolla; conviene que exista más de un administrador para no depender de una sola persona.
+  desarrolla. Conviene que haya más de un administrador, para no depender de una sola persona para
+  cambiar la rama por defecto o revisar la configuración.
 - **La cuenta de Netlify**, con el mismo criterio.
-- **Dónde se guardan las credenciales** de las dos cosas anteriores más la clave de Web3Forms.
+- **Dónde se guardan las credenciales** de las dos anteriores más la clave de Web3Forms, que hoy no
+  está en ninguna parte del repositorio (y no debe estarlo).
 
 ---
 
