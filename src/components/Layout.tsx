@@ -34,6 +34,12 @@ const NAV: {
 const navLinkClass = ({ isActive }: { isActive: boolean }) =>
   isActive ? 'font-semibold text-gray-900' : 'text-gray-500 hover:text-brand-dark'
 
+// El encabezado de iclac.cl mide 88px en escritorio (logo de 68px + 10px arriba y abajo)
+// y se separa del contenido con sombra, no con borde. Replicamos las dos cosas para que
+// la llegada desde el sitio institucional no se lea como un corte. En teléfono no: ahí
+// cada píxel de alto se lo quita al mapa, y el encabezado se queda compacto.
+const HEADER_SHADOW = 'shadow-[0_5px_10px_0_rgba(50,50,50,0.06)]'
+
 export default function Layout() {
   const { t, i18n } = useTranslation()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -68,14 +74,15 @@ export default function Layout() {
       {/* Presentación del repositorio: sola en la primera carga de la sesión, y a
           demanda desde el botón del header. */}
       <LandingModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <header className="relative z-[1000] border-b border-gray-200 px-4 sm:px-6 py-3">
+      <header className={`relative z-[1000] bg-white px-4 py-3 sm:px-6 md:py-[10px] ${HEADER_SHADOW}`}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <a href="https://iclac.cl/" target="_blank" rel="noopener noreferrer" className="shrink-0">
-              <img src="/icons/iclac.webp" alt="ICLAC" className="h-9 sm:h-10 w-auto object-contain" />
+              {/* 68px en md+ es el alto exacto con que iclac.cl dibuja el mismo logo. */}
+              <img src="/icons/iclac.webp" alt="ICLAC" className="h-9 w-auto object-contain sm:h-10 md:h-[68px]" />
             </a>
             <div className="leading-tight min-w-0">
-              <h1 className="text-[13px] font-semibold leading-tight text-gray-900 sm:text-base">{t('app.subject')}</h1>
+              <h1 className="font-display text-[13px] font-semibold leading-tight text-gray-900 sm:text-base">{t('app.subject')}</h1>
               <p className="hidden text-xs text-gray-500 sm:block sm:truncate">{t('app.kind')}</p>
             </div>
             {/* "Acerca de" beside the title, not in the nav cluster (Margaret UAT):
@@ -96,9 +103,17 @@ export default function Layout() {
             </button>
           </div>
 
-          {/* Desktop cluster: full nav + contextual About + language switch. */}
-          <div className="hidden md:flex items-center gap-4 shrink-0">
-            <nav className="flex gap-4 text-sm">
+          {/* El nav completo aparece en lg, no en md. Medido: los cinco ítems ocupan
+              376px y, al lado del título, entre 768 y 1023px no queda ancho — el h1 se
+              partía en cinco líneas y estiraba el encabezado a 156px, comiéndose el
+              mapa. Es el mismo corte que ya usaba la greca de las vistas editoriales.
+              Ojo: este umbral ya no coincide con `useIsMobile` (md), que sigue
+              gobernando el cromo del mapa. Son dos preguntas distintas. */}
+          <div className="hidden lg:flex items-center gap-4 shrink-0">
+            {/* 13px en Raleway es el tamaño del menú de iclac.cl. Lo que no copiamos son
+                sus mayúsculas con letter-spacing: cinco ítems en tres idiomas no caben, y
+                en chino las mayúsculas no hacen nada. */}
+            <nav className="flex gap-4 font-display text-[13px]">
               {NAV.map(n => (
                 <NavLink
                   key={n.to}
@@ -121,7 +136,7 @@ export default function Layout() {
             onClick={() => setMenuOpen(o => !o)}
             aria-expanded={menuOpen}
             aria-label={menuOpen ? t('common.close') : t('nav.menu')}
-            className="md:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded text-gray-700 hover:bg-brand hover:text-gray-900"
+            className="lg:hidden flex h-9 w-9 shrink-0 items-center justify-center rounded text-gray-700 hover:bg-brand hover:text-gray-900"
           >
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-6 w-6">
               {menuOpen ? (
@@ -134,8 +149,8 @@ export default function Layout() {
         </div>
 
         {menuOpen && (
-          <div className="absolute inset-x-0 top-full z-[1000] flex flex-col gap-1 border-b border-gray-200 bg-white px-4 py-3 shadow-lg md:hidden">
-            <nav className="flex flex-col text-sm">
+          <div className="absolute inset-x-0 top-full z-[1000] flex flex-col gap-1 border-b border-gray-200 bg-white px-4 py-3 shadow-lg lg:hidden">
+            <nav className="flex flex-col font-display text-sm">
               {NAV.map(n => (
                 <NavLink
                   key={n.to}

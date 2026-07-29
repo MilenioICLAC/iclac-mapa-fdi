@@ -2,7 +2,15 @@
 <html lang="es">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <!-- La pagoda del sitio anterior, tal cual venía: un .ico con 16, 32 y 48 px.
+         Es la marca con que el Repositorio ya se reconocía en la pestaña, y su tinta
+         (#377F83) es la misma del botón "Acerca de" del encabezado. -->
+    <link rel="icon" href="/favicon.ico" sizes="16x16 32x32 48x48" />
+    <!-- Para "agregar a pantalla de inicio". No se declara un favicon SVG: Chrome y
+         Firefox prefieren el SVG sobre el .ico, y a 16px el mapa de bits retocado a
+         mano se ve mejor que el vector, cuyos techos miden ahí un solo píxel.
+         Derivado de icons/pagoda.svg; Safari no acepta SVG en apple-touch-icon. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Repositorio FDI Chinas en LATAM</title>
   </head>

@@ -6,6 +6,12 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        // Solo para el encabezado, que es lo que se compara con iclac.cl. El cuerpo
+        // sigue en la fuente del sistema: es un instrumento de lectura densa, no una
+        // página institucional.
+        display: ['Raleway', 'system-ui', 'sans-serif']
+      },
       colors: {
         // Highlight color for hover across the app. Two shades because contrast
         // depends on what sits underneath:

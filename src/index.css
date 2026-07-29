@@ -1,3 +1,10 @@
+/* Raleway es la tipografía del encabezado de iclac.cl. La usamos solo en el header,
+   para que pasar del sitio institucional a esta app no se lea como cambiar de sitio.
+   Autohospedada por npm, no por CDN, y solo el subconjunto latino: el chino cae al
+   sistema, igual que en iclac.cl (Raleway no trae glifos CJK). */
+@import '@fontsource/raleway/latin-400.css';
+@import '@fontsource/raleway/latin-600.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
