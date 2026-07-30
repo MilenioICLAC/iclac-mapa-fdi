@@ -107,9 +107,9 @@ const Card = ({
         )}
       </div>
 
-      {meta && <div className="mt-1 pl-[18px] text-xs text-gray-500">{meta}</div>}
+      {meta && <div className="mt-1 pl-[1.125rem] text-xs text-gray-500">{meta}</div>}
 
-      <div className="mt-0.5 pl-[18px] text-xs text-gray-600">
+      <div className="mt-0.5 pl-[1.125rem] text-xs text-gray-600">
         <span>
           {formatMoney(inv.investment_musd)} {t('list.millions')}
         </span>
@@ -117,7 +117,7 @@ const Card = ({
       </div>
 
       {cases.length > 0 && (
-        <div className="mt-2 pl-[18px]">
+        <div className="mt-2 pl-[1.125rem]">
           <button
             type="button"
             onClick={() => setShowStudies(s => !s)}
@@ -196,7 +196,7 @@ export default function ProjectDocsCards({ investments, lang, onLocate, onIsolat
         <ProjectSearchBox />
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-gray-500">{t('list.sort_by')}</span>
+            <span className="text-[0.6875rem] font-medium text-gray-500">{t('list.sort_by')}</span>
             <MiniSegmented
               items={[
                 { value: 'year', label: t('list.sort_year') },
@@ -207,7 +207,7 @@ export default function ProjectDocsCards({ investments, lang, onLocate, onIsolat
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-gray-500">{t('list.view_as')}</span>
+            <span className="text-[0.6875rem] font-medium text-gray-500">{t('list.view_as')}</span>
             <MiniSegmented
               items={[
                 { value: 'grouped', label: t('list.grouped') },
@@ -246,7 +246,7 @@ export default function ProjectDocsCards({ investments, lang, onLocate, onIsolat
             <button
               type="button"
               onClick={() => toggle(group.country)}
-              className="sticky top-[75px] z-10 flex w-full items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-semibold text-teal-800 shadow-sm"
+              className="sticky top-[4.6875rem] z-10 flex w-full items-center gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2 text-left text-sm font-semibold text-teal-800 shadow-sm"
             >
               <Chevron open={isOpen} />
               {t('list.projects_in', {

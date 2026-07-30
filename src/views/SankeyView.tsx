@@ -333,7 +333,7 @@ export default function SankeyView() {
               {activeCount > 0 && (
                 <span className="rounded-full bg-white/25 px-1.5 leading-tight">{activeCount}</span>
               )}
-              <span aria-hidden className="text-[9px] opacity-70">▲</span>
+              <span aria-hidden className="text-[0.5625rem] opacity-70">▲</span>
             </button>
             <BottomSheet open={filterSheet} onClose={() => setFilterSheet(false)} title={t('filter.title')}>
               <div className="space-y-4 p-4 text-sm">
@@ -406,7 +406,7 @@ export default function SankeyView() {
             />
           </span>
         </div>
-        <p className="text-[11px] text-gray-400">{t('sankey.click_hint')}</p>
+        <p className="text-[0.6875rem] text-gray-400">{t('sankey.click_hint')}</p>
       </div>
 
       {/* Chart fills the remaining box height (flex-1 + min-h-0); no page scroll. */}

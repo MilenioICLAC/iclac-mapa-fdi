@@ -42,7 +42,7 @@ function SectorRows({ sectors, size }: { sectors: string[]; size: 'sm' | 'md' })
               style={{ backgroundColor: sectorColor(s) }}
             />
             <span
-              className={`font-medium text-gray-700 ${size === 'sm' ? 'truncate text-[11px]' : 'text-sm'} ${
+              className={`font-medium text-gray-700 ${size === 'sm' ? 'truncate text-[0.6875rem]' : 'text-sm'} ${
                 active ? '' : 'italic text-gray-400 line-through'
               }`}
               title={s}
@@ -62,9 +62,9 @@ export default function SectorLegend({ sectors }: Props) {
   if (sectors.length === 0) return null
 
   return (
-    <div className="absolute bottom-4 right-4 z-[800] hidden max-w-[220px] rounded-xl border border-white/50 bg-white/95 p-3 shadow-xl backdrop-blur-md md:block">
+    <div className="absolute bottom-4 right-4 z-[800] hidden max-w-[13.75rem] rounded-xl border border-white/50 bg-white/95 p-3 shadow-xl backdrop-blur-md md:block">
       <div className="text-xs font-bold text-gray-800">{t('filter.sectors')}</div>
-      <div className="mb-2 text-[10px] italic text-gray-500">{t('filter.sectors_hint')}</div>
+      <div className="mb-2 text-[0.625rem] italic text-gray-500">{t('filter.sectors_hint')}</div>
       <div className="flex max-h-[40vh] flex-col gap-1 overflow-y-auto">
         <SectorRows sectors={sectors} size="sm" />
       </div>
@@ -88,17 +88,17 @@ export function SectorLegendChip({ sectors }: Props) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`flex shrink-0 items-center gap-1.5 rounded border px-2 py-1 text-[11px] ${
+        className={`flex shrink-0 items-center gap-1.5 rounded border px-2 py-1 text-[0.6875rem] ${
           active ? 'border-gray-900 bg-gray-900 text-white' : 'border-gray-300 bg-white text-gray-700'
         }`}
       >
         {t('filter.sectors')}
         {active && <span className="rounded-full bg-white/25 px-1.5 leading-tight">{filters.sectors.length}</span>}
-        <span aria-hidden className="text-[9px] opacity-70">▲</span>
+        <span aria-hidden className="text-[0.5625rem] opacity-70">▲</span>
       </button>
       <BottomSheet open={open} onClose={() => setOpen(false)} title={t('filter.sectors')}>
         <div className="px-2 pb-4">
-          <p className="px-2 py-1 text-[11px] italic text-gray-500">{t('filter.sectors_hint')}</p>
+          <p className="px-2 py-1 text-[0.6875rem] italic text-gray-500">{t('filter.sectors_hint')}</p>
           <div className="flex flex-col">
             <SectorRows sectors={sectors} size="md" />
           </div>

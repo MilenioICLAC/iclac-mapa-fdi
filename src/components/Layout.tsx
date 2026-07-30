@@ -76,15 +76,15 @@ export default function Layout() {
       {/* Presentación del repositorio: sola en la primera carga de la sesión, y a
           demanda desde el botón del header. */}
       <LandingModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
-      <header className={`relative z-[1000] bg-white px-4 py-3 sm:px-6 md:py-[10px] ${HEADER_SHADOW}`}>
+      <header className={`relative z-[1000] bg-white px-4 py-3 sm:px-6 md:py-[0.625rem] ${HEADER_SHADOW}`}>
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3 min-w-0">
             <a href="https://iclac.cl/" target="_blank" rel="noopener noreferrer" className="shrink-0">
               {/* 68px en md+ es el alto exacto con que iclac.cl dibuja el mismo logo. */}
-              <img src="/icons/iclac.webp" alt="ICLAC" className="h-9 w-auto object-contain sm:h-10 md:h-[68px]" />
+              <img src="/icons/iclac.webp" alt="ICLAC" className="h-9 w-auto object-contain sm:h-10 md:h-[4.25rem]" />
             </a>
             <div className="leading-tight min-w-0">
-              <h1 className="font-display text-[13px] font-semibold leading-tight text-gray-900 sm:text-base">{t('app.subject')}</h1>
+              <h1 className="font-display text-[0.8125rem] font-semibold leading-tight text-gray-900 sm:text-base">{t('app.subject')}</h1>
               <p className="hidden text-xs text-gray-500 sm:block sm:truncate">{t('app.kind')}</p>
             </div>
             {/* "Acerca de" beside the title, not in the nav cluster (Margaret UAT):
@@ -116,7 +116,7 @@ export default function Layout() {
             {/* 13px en Raleway es el tamaño del menú de iclac.cl. Lo que no copiamos son
                 sus mayúsculas con letter-spacing: cinco ítems en tres idiomas no caben, y
                 en chino las mayúsculas no hacen nada. */}
-            <nav className="flex gap-4 font-display text-[13px]">
+            <nav className="flex gap-4 font-display text-[0.8125rem]">
               {NAV.map(n => (
                 <NavLink
                   key={n.to}

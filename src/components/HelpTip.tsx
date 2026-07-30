@@ -69,7 +69,7 @@ export default function HelpTip({ text, label, width = WIDTH }: { text: string; 
         }}
         aria-expanded={open}
         aria-label={label ?? t('common.help')}
-        className={`flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-semibold leading-none transition-colors ${
+        className={`flex h-4 w-4 items-center justify-center rounded-full border text-[0.625rem] font-semibold leading-none transition-colors ${
           open
             ? 'border-[#093b4d] bg-[#093b4d] text-white hover:border-brand-dark hover:bg-brand-dark'
             : 'border-gray-400 text-gray-500 hover:border-brand-dark hover:text-brand-dark'
@@ -88,7 +88,7 @@ export default function HelpTip({ text, label, width = WIDTH }: { text: string; 
             ref={tipRef}
             role="tooltip"
             style={{ top: at.top, left: at.left, width }}
-            className="fixed z-[1200] block space-y-2 rounded-lg border border-gray-200 bg-white p-3 text-[11px] font-normal leading-relaxed text-gray-600 shadow-lg"
+            className="fixed z-[1200] block space-y-2 rounded-lg border border-gray-200 bg-white p-3 text-[0.6875rem] font-normal leading-relaxed text-gray-600 shadow-lg"
           >
             {/* Newlines are paragraph breaks: these tips run to two beats — what the
                 thing is, then what the control does with it. */}

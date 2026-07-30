@@ -7,7 +7,9 @@ leerse.
 Las reglas de código que no caducan están en `.claude/CLAUDE.md`. El contrato de datos, en
 `data/schema/schema.md`.
 
-**Última actualización:** 2026-07-29.
+**Última actualización:** 2026-07-30.
+
+El sitio está publicado en **https://app.iclac.cl**. Cómo quedó montado, en `docs/traspaso.md`.
 
 ---
 
@@ -66,13 +68,15 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
 
 ## 2. Trabajo técnico pendiente
 
-### 2.1 Bloqueante para una vista
+### 2.1 Despliegue y CI
 
-- **Clave de Web3Forms para el formulario de Contacto.** Se genera en web3forms.com escribiendo la
-  dirección de destino, y **la clave queda atada a esa dirección**: cambiar el destinatario obliga a
-  generar una clave nueva, no a editar una variable. Va en `VITE_WEB3FORMS_KEY` (archivo `.env` en
-  local, variables de entorno en Netlify). Sin la clave, la vista degrada sola a un enlace de correo
-  directo, así que no rompe nada.
+- **`validate-data` todavía no corre en `main`.** Su última ejecución fue el 28-07 en la rama vieja
+  `iclac-mapa-fdi`, así que el informe de Pages sigue saliendo de ahí y el job `registro` (el que
+  valida `countries.csv`) **nunca se ha ejecutado**. GitHub no aplica el filtro `paths:` cuando un
+  push *crea* una rama, que es lo que pasó al traspasar. Se destraba una sola vez: Actions →
+  validate-data → Run workflow → `main`. Después vuelve a dispararse solo con cada subida de datos.
+- **Borrar la rama `iclac-mapa-fdi`** una vez que el informe de Pages se republique desde `main`.
+  Quedó como resto del traspaso y `main` ya la contiene entera.
 
 ### 2.2 Interfaz
 
@@ -103,6 +107,13 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
   Revisar si es un consorcio real o un doble conteo entre matriz y filial.
 - **Conversión de geodatos a TopoJSON o simplificación adicional.** No urge: el archivo actual pesa
   200 KB.
+- **`public/data/mx.json` se publica y no lo usa nadie.** Son 790 KB de geometría de México que
+  ninguna parte de la aplicación pide: su único consumidor es `scripts/one-off/merge_geo.mjs`, que no
+  forma parte de ninguna cadena. Todo lo que está en `public/` se sirve al mundo, así que ese archivo
+  debería moverse a `data/sources/geo/` y ajustarse la ruta en ese script.
+- **`south-america.geojson` ya no es solo Sudamérica.** Desde que entró Centroamérica el nombre
+  quedó mentiroso. Renombrarlo toca el ETL, `build_borders` y el `fetch` del mapa, así que conviene
+  hacerlo de una vez y no a medias.
 - Borrar `data/schema/investors_map.csv.bak` cuando ya no haga falta.
 
 ---

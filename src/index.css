@@ -33,6 +33,31 @@ html, body, #root {
   }
 }
 
+/* Laptop de 15,6": la interfaz se dibuja al 80%.
+   Entre 1024 y 1279 px el layout de escritorio ya está entero (panel de filtros de
+   288 px + listado de 512), y entre los dos le dejan al mapa 465 px de 1280: la caja
+   de totales envuelve a tres líneas y la leyenda tapa un octavo de lo que queda. El
+   cliente lo resolvía bajando el zoom del navegador al 80%, o sea agrandando el
+   viewport en píxeles CSS. Esto es lo mismo, pero de fábrica.
+
+   Se hace con el tamaño de fuente RAÍZ, no con `transform: scale` ni con `zoom`:
+   Tailwind expresa spacing y tipografía en `rem`, así que basta mover la raíz para
+   que el layout entero escale en proporción. Las otras dos vías rompen cosas que este
+   proyecto ya sufrió: `transform` invalida el `position: fixed` de todo lo que quede
+   adentro (por eso los popovers están portalizados a <body>) y las dos falsean el
+   `getBoundingClientRect` con que Leaflet calcula el encuadre.
+
+   En porcentaje y no en px para no pisar el tamaño de fuente que el usuario haya
+   configurado en su navegador: se reduce respecto de SU tamaño, no de 16px.
+
+   Ojo: solo escala lo que está en `rem`. Si se agrega una clase arbitraria en px
+   (`text-[13px]`), esa medida se queda fija y rompe la proporción. Van en rem. */
+@media (min-width: 1024px) and (max-width: 1279px) {
+  html {
+    font-size: 80%;
+  }
+}
+
 .mapa-cluster-icon {
   background: transparent !important;
   border: none !important;

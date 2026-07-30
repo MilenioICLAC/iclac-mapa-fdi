@@ -228,7 +228,7 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
         <ProjectSearchBox />
         <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1.5">
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-gray-500">{t('list.sort_by')}</span>
+            <span className="text-[0.6875rem] font-medium text-gray-500">{t('list.sort_by')}</span>
             <MiniSegmented
               items={[
                 { value: 'year', label: t('list.sort_year') },
@@ -239,7 +239,7 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
             />
           </div>
           <div className="flex items-center gap-1.5">
-            <span className="text-[11px] font-medium text-gray-500">{t('list.view_as')}</span>
+            <span className="text-[0.6875rem] font-medium text-gray-500">{t('list.view_as')}</span>
             <MiniSegmented
               items={[
                 { value: 'grouped', label: t('list.grouped') },

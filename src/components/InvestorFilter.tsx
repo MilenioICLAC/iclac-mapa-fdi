@@ -54,16 +54,16 @@ export default function InvestorFilter({ options, selected, onChange, metric }: 
           className="w-full rounded border border-gray-300 px-2 py-1 text-sm focus:border-teal-500 focus:outline-none"
         />
         <div className="mt-1 flex items-center justify-between gap-2">
-          <p className="min-w-0 truncate text-[11px] text-gray-400">
+          <p className="min-w-0 truncate text-[0.6875rem] text-gray-400">
             {t(metric === 'money' ? 'sankey.unit_money' : 'sankey.unit_count')}
           </p>
           <div className="flex shrink-0 items-center gap-2">
             {selected.length > 0 && (
-              <button onClick={() => onChange([])} className="text-[11px] text-gray-500 underline hover:text-brand-dark">
+              <button onClick={() => onChange([])} className="text-[0.6875rem] text-gray-500 underline hover:text-brand-dark">
                 {t('common.clear')}
               </button>
             )}
-            <div className="flex overflow-hidden rounded border border-gray-300 text-[11px]">
+            <div className="flex overflow-hidden rounded border border-gray-300 text-[0.6875rem]">
               {(['name', 'value'] as const).map((s, i) => (
                 <button
                   key={s}
@@ -98,7 +98,7 @@ export default function InvestorFilter({ options, selected, onChange, metric }: 
                 </span>
               </div>
               {o.memberNames && (
-                <p className="ml-6 truncate text-[11px] text-gray-400" title={o.memberNames.join(', ')}>
+                <p className="ml-6 truncate text-[0.6875rem] text-gray-400" title={o.memberNames.join(', ')}>
                   {t('sankey.consortium_members')}: {o.memberNames.join(', ')}
                 </p>
               )}

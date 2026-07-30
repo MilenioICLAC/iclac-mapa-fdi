@@ -88,12 +88,22 @@ trampas ya conocidas. Vale leerlo antes de tocar el mapa, los filtros o el Sanke
 
 ### Despliegue
 
+En producción: **https://app.iclac.cl**
+
 Netlify, construyendo con `npm run etl && npm run build` y publicando `dist/` (ver `netlify.toml`).
+Cada push a `main` reconstruye el sitio. El dominio llega con un CNAME de `app` a
+`map-fdi.netlify.app`, en la zona DNS de `iclac.cl` que se administra en iHosting.
 
 Una sola variable de entorno, `VITE_WEB3FORMS_KEY`, para el formulario de Contacto. Se genera en
 web3forms.com escribiendo la dirección de destino, y **la clave queda atada a esa dirección**:
 cambiar el destinatario obliga a generar una clave nueva, no a editar la variable. Sin ella, la vista
 de Contacto degrada sola a un enlace de correo directo.
+
+**Cambiar cualquier variable `VITE_*` exige volver a desplegar.** Vite las hornea como texto literal
+dentro del bundle al construir, así que editarlas en el panel de Netlify no altera un despliegue ya
+hecho. En Netlify: *Trigger deploy* → *Clear cache and deploy site*. El síntoma de olvidarlo es una
+variable correcta en el panel y un sitio que se comporta como si no existiera; `ContactView.tsx` deja
+un aviso en la consola del navegador justamente para eso.
 
 ## Datos
 

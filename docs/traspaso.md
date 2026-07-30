@@ -8,37 +8,44 @@ de administrador que solo alguien de la organización tiene.
 
 ## 1. Hosting en Netlify
 
-El sitio se despliega desde este repositorio, en la cuenta de Netlify de ICLAC. La configuración está
-versionada en `netlify.toml`, así que no hay nada que ajustar a mano:
+Montado. El sitio está publicado en **https://app.iclac.cl**, desde este repositorio y en la cuenta
+de Netlify de ICLAC. La configuración está versionada en `netlify.toml`, así que no hay nada que
+ajustar a mano:
 
 - Build command: `npm run etl && npm run build`
 - Publish directory: `dist`
 - Variable de entorno: `VITE_WEB3FORMS_KEY` (ver punto 2)
 
-Desde ahí, **cada push al repositorio reconstruye el sitio solo**. Subir una planilla corregida es
-todo lo que hace falta para actualizar los datos publicados.
+**Cada push al repositorio reconstruye el sitio solo.** Subir una planilla corregida es todo lo que
+hace falta para actualizar los datos publicados.
 
-Si más adelante se quiere un dominio propio (por ejemplo `repositorio.iclac.cl`), se configura en
-*Domain management* y requiere agregar un registro DNS donde esté alojado el dominio de ICLAC.
+El dominio apunta con un registro **CNAME** de `app` a `map-fdi.netlify.app`, en la zona DNS de
+`iclac.cl`, que se administra en iHosting junto al sitio institucional. El certificado HTTPS lo emite
+y lo renueva Netlify solo.
+
+Si más adelante se quiere otro subdominio, se agrega en *Domain management* y se repite ese CNAME en
+el Zone Editor del cPanel. **No usar la herramienta de subdominios del cPanel:** crea un registro A
+apuntando al servidor de iHosting, que no puede convivir con el CNAME.
 
 ## 2. Clave del formulario de Contacto
 
-La vista de Contacto usa Web3Forms, que envía el formulario a una dirección de correo sin necesidad
-de servidor propio.
+Montado. La vista de Contacto usa Web3Forms, que reenvía el formulario a una dirección de correo sin
+necesidad de servidor propio. La clave está cargada en Netlify como `VITE_WEB3FORMS_KEY` y los
+mensajes llegan a `comunicaciones.iclac@gmail.com`.
 
-**Esto sí necesita a alguien de ICLAC**, porque la clave llega por correo a la dirección de destino:
+Dos cosas para cuando haya que cambiarla:
 
-1. Entrar a web3forms.com y escribir la dirección que debe **recibir** los mensajes (por ejemplo
-   `comunicaciones.iclac@gmail.com`). La clave llega a esa misma dirección.
-2. Cargarla en Netlify: *Site configuration* → *Environment variables* → `VITE_WEB3FORMS_KEY`.
-3. Volver a desplegar para que la tome.
+**La clave queda atada a la dirección de destino.** Cambiar el destinatario significa generar una
+clave nueva en web3forms.com desde el buzón nuevo, no editar la variable. La clave se saca del panel
+de la cuenta en ese sitio; el correo con que se supone que llega no siempre aparece.
 
-**La clave queda atada a la dirección de destino.** Cambiar el destinatario más adelante significa
-generar una clave nueva, no editar la variable. Anotarlo donde se guarden las credenciales de la
-organización.
+**Editar la variable no basta: hay que volver a desplegar.** El valor se hornea dentro del JavaScript
+en el momento de construir el sitio, así que un despliegue ya hecho no la toma, por más que la
+variable esté correcta en el panel. En Netlify: *Deploys* → *Trigger deploy* → *Clear cache and
+deploy site*.
 
-Mientras la variable no exista, la vista no se rompe: muestra un enlace de correo directo en lugar
-del formulario.
+Si la variable falta, la vista no se rompe: muestra un enlace de correo directo en lugar del
+formulario.
 
 ## 3. Informe de validación en GitHub Pages
 

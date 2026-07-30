@@ -11,7 +11,7 @@ export default function MiniSegmented<T extends string>({
   onPick: (v: T) => void
 }) {
   return (
-    <div className="flex overflow-hidden rounded border border-gray-300 text-[11px]">
+    <div className="flex overflow-hidden rounded border border-gray-300 text-[0.6875rem]">
       {items.map((it, i) => (
         <button
           key={it.value}

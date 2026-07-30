@@ -529,6 +529,15 @@ export default function MapView() {
         // real geometry arrives; maxBounds is set there too, since it moves with it.
         bounds={REGION_FALLBACK}
         maxZoom={MAX_ZOOM}
+        // El zoom por defecto de Leaflet salta de a niveles enteros, y cada nivel es
+        // el DOBLE de escala. Como el encuadre inicial es un fit, eso hacía que el
+        // tamaño con que se dibuja la región dependiera de en qué escalón cayera el
+        // viewport: entre dos pantallas parecidas, en una la región llena la caja y en
+        // la otra queda a la mitad. Con snap de 1/4 de nivel el encuadre es el mismo
+        // en todas. `zoomDelta` queda en 1 para que la rueda y los botones sigan
+        // moviéndose de a un nivel: lo que se afina es el encuadre, no el control.
+        zoomSnap={0.25}
+        zoomDelta={1}
         // Viscosity 0.7 rubber-bands the drag back instead of stopping it dead
         // against an invisible wall.
         maxBoundsViscosity={0.7}
@@ -626,7 +635,7 @@ export default function MapView() {
                   se comía el monto, en los tres tamaños de teléfono medidos. */}
               <div
                 ref={totalsRef}
-                className="absolute left-2 right-2 top-2 z-[800] rounded-lg border border-white/50 bg-white/95 text-[11px] shadow-md backdrop-blur-md md:left-4 md:right-auto md:top-4 md:max-w-[calc(100%-9rem)] md:text-sm"
+                className="absolute left-2 right-2 top-2 z-[800] rounded-lg border border-white/50 bg-white/95 text-[0.6875rem] shadow-md backdrop-blur-md md:left-4 md:right-auto md:top-4 md:max-w-[calc(100%-9rem)] md:text-sm"
               >
                 <div className="px-2.5 py-1.5 sm:px-3">
                   <span className="font-medium">{t('filter.investments_count', { count: agg.count })}</span>
@@ -653,7 +662,7 @@ export default function MapView() {
                       type="button"
                       onClick={() => setFilters({ focusId: null })}
                       title={t('filter.isolated_exit')}
-                      className="ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-gray-900 px-2 py-0.5 text-[11px] font-medium text-white hover:bg-brand-dark"
+                      className="ml-2 inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-gray-900 px-2 py-0.5 text-[0.6875rem] font-medium text-white hover:bg-brand-dark"
                     >
                       {t('filter.isolated')}
                       <span aria-hidden>×</span>
@@ -691,7 +700,7 @@ export default function MapView() {
                 <button
                   type="button"
                   onClick={openList}
-                  className="flex shrink-0 items-center gap-1.5 rounded border border-gray-300 bg-white px-2 py-1 text-[11px] text-gray-700"
+                  className="flex shrink-0 items-center gap-1.5 rounded border border-gray-300 bg-white px-2 py-1 text-[0.6875rem] text-gray-700"
                 >
                   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-4 w-4">
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 5.25h16.5M3.75 9.75h16.5M3.75 14.25h16.5M3.75 18.75h16.5" />

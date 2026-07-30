@@ -209,6 +209,26 @@ O sea que **la tablet tiene estado propio**: riel de filtros y listado como capa
 como escritorio. Al tocar una clase `md:` o `lg:` en el mapa o en los dos asides, decidir primero cuál
 de las dos preguntas es.
 
+### Entre 1024 y 1279 px la interfaz se dibuja al 80%
+
+Una regla de CSS, en `index.css`: `html { font-size: 80% }` en esa banda. Es el laptop de 15,6", donde
+el layout de escritorio ya está entero pero el ancho no da: panel de 288 + listado de 512 le dejaban
+al mapa 465 px de 1280. El cliente lo resolvía bajando el zoom del navegador al 80%; esto es lo mismo,
+de fábrica. Medido a 1168 px: el mapa pasa de ~420 a 513.
+
+**La consecuencia es que toda medida va en `rem`.** Tailwind ya lo hace (`w-72` = 18rem, `text-xs` =
+0,75rem), así que mover la raíz escala el layout entero en proporción. Pero una clase arbitraria en px
+—`text-[13px]`, `h-[68px]`— **se queda fija y rompe la proporción justo en esa banda**. Por eso no hay
+ninguna en `src/`: se convirtieron todas (÷16, o sea sin cambio visual fuera de la banda). Si hace
+falta un valor arbitrario, va en `rem`.
+
+No se usa `transform: scale` ni `zoom` para esto. `transform` invalida el `position: fixed` de todo lo
+que quede adentro —el mismo motivo por el que lo flotante está portalizado a `<body>`— y las dos
+falsean el `getBoundingClientRect` con que Leaflet calcula el encuadre.
+
+El porcentaje es relativo al tamaño de fuente que el usuario tenga configurado en su navegador, no a
+16 px fijos. Contra: el texto más chico de la interfaz queda en 8 px dentro de esa banda.
+
 ## Móvil: nada flota sobre el mapa
 
 **Regla: en teléfono el cromo del mapa no flota, se apoya.** La caja de totales, el botón del listado

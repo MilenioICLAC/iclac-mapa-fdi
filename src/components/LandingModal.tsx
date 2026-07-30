@@ -55,7 +55,7 @@ export default function LandingModal({ open, onClose }: { open: boolean; onClose
             return (
               <div key={code} lang={code === 'cn' ? 'zh' : code} className="md:contents">
                 <h2
-                  className="mb-3 flex items-center justify-center border-y-[3px] px-2 py-2.5 text-center text-[13px] font-semibold leading-snug text-[#093b4d]"
+                  className="mb-3 flex items-center justify-center border-y-[0.1875rem] px-2 py-2.5 text-center text-[0.8125rem] font-semibold leading-snug text-[#093b4d]"
                   style={{ borderColor: rule }}
                 >
                   {tl('landing.title')}

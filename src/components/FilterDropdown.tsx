@@ -43,7 +43,7 @@ export default function FilterDropdown({ label, count = 0, badge, children }: Pr
         ) : (
           active && <span className="rounded-full bg-white/25 px-1.5 leading-tight">{count}</span>
         )}
-        <span className="text-[9px] opacity-70">▼</span>
+        <span className="text-[0.5625rem] opacity-70">▼</span>
       </button>
       {open && (
         <div className="absolute left-0 z-30 mt-1 w-80 overflow-hidden rounded-lg border border-gray-200 bg-white shadow-lg">

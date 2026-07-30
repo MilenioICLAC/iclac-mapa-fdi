@@ -28,7 +28,7 @@ export default function ToolInfo({
         onClick={() => setOpen(true)}
         aria-label={title}
         title={title}
-        className={`flex h-4 w-4 items-center justify-center rounded-full border text-[10px] font-semibold leading-none transition-colors ${
+        className={`flex h-4 w-4 items-center justify-center rounded-full border text-[0.625rem] font-semibold leading-none transition-colors ${
           open
             ? 'border-[#093b4d] bg-[#093b4d] text-white'
             : 'border-gray-400 text-gray-500 hover:border-brand-dark hover:text-brand-dark'
@@ -39,11 +39,11 @@ export default function ToolInfo({
 
       <InfoModal open={open} onClose={() => setOpen(false)} label={title}>
         <div className="p-6 pt-12 sm:p-8 sm:pt-12">
-          <div className="mb-4 flex items-center gap-2.5 border-b-[3px] border-[#093b4d] pb-3 pr-8 text-[#093b4d]">
+          <div className="mb-4 flex items-center gap-2.5 border-b-[0.1875rem] border-[#093b4d] pb-3 pr-8 text-[#093b4d]">
             <Icon className="h-6 w-6 shrink-0" />
             <h2 className="text-base font-semibold leading-snug">{title}</h2>
           </div>
-          <div className="space-y-3 text-justify text-[13px] leading-relaxed text-gray-700">
+          <div className="space-y-3 text-justify text-[0.8125rem] leading-relaxed text-gray-700">
             {text.split('\n').filter(Boolean).map((p, i) => (
               <p key={i}>{p}</p>
             ))}

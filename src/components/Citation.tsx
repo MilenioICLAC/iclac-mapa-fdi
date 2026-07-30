@@ -35,11 +35,11 @@ export default function Citation({ text }: { text: string }) {
   return (
     <div className="mt-5 border-t border-gray-100 pt-4">
       <div className="mb-2 flex items-center justify-between gap-3">
-        <span className="text-[10px] font-semibold uppercase tracking-wider text-gray-500">{t('common.citation')}</span>
+        <span className="text-[0.625rem] font-semibold uppercase tracking-wider text-gray-500">{t('common.citation')}</span>
         <button
           type="button"
           onClick={copy}
-          className="flex shrink-0 items-center gap-1.5 rounded border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-600 transition-colors hover:border-brand-dark hover:text-brand-dark"
+          className="flex shrink-0 items-center gap-1.5 rounded border border-gray-300 px-2 py-1 text-[0.6875rem] font-medium text-gray-600 transition-colors hover:border-brand-dark hover:text-brand-dark"
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} className="h-3.5 w-3.5">
             {copied ? (
@@ -54,7 +54,7 @@ export default function Citation({ text }: { text: string }) {
           <span aria-live="polite">{copied ? t('common.copied') : t('common.copy')}</span>
         </button>
       </div>
-      <p className="border-l-[3px] border-[#377F83] pl-3 text-[12px] italic leading-relaxed text-gray-600">{text}</p>
+      <p className="border-l-[0.1875rem] border-[#377F83] pl-3 text-[0.75rem] italic leading-relaxed text-gray-600">{text}</p>
     </div>
   )
 }

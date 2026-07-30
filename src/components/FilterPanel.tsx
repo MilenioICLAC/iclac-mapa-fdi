@@ -314,7 +314,7 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
           }}
         />
         {filters.construction === 'only' && (
-          <p className="mt-1 text-[11px] leading-snug text-gray-400">{t('filter.type_off_only')}</p>
+          <p className="mt-1 text-[0.6875rem] leading-snug text-gray-400">{t('filter.type_off_only')}</p>
         )}
       </PlainSection>
 
