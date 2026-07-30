@@ -1,7 +1,8 @@
-import { useState, type ReactNode } from 'react'
+import { useEffect, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useFilters } from '@/hooks/useFilters'
-import { useIsMobile } from '@/hooks/useMediaQuery'
+import { useIsCompact } from '@/hooks/useMediaQuery'
+import { useJumpScroll } from '@/hooks/useJumpScroll'
 import { CONSTRUCTION_FILTERS, type ResearchFilter } from '@/lib/filter'
 import { byLocalizedCountry, localizedCountry } from '@/lib/countries'
 import type { CompanyOption } from '@/lib/sankey'
@@ -18,12 +19,20 @@ type Props = {
   companies: CompanyOption[]
 }
 
-// Shared 20×20 stroke icons. One viewBox, consistent weight across the rail.
-const icon = (path: ReactNode) => (
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className="h-5 w-5">
-    {path}
-  </svg>
-)
+// Shared stroke icons. One viewBox, consistent weight across the rail.
+//
+// Componentes y no nodos fijos: el mismo glifo se dibuja a 20px en el riel y a 16px
+// junto al título de su sección en el panel abierto, y el guiño necesita poder
+// agregarle una clase. Un ReactNode ya construido no admite ninguna de las dos.
+type IconProps = { className?: string }
+const icon = (path: ReactNode) =>
+  function Icon({ className = 'h-5 w-5' }: IconProps) {
+    return (
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.6} className={className}>
+        {path}
+      </svg>
+    )
+  }
 const IconChevronLeft = icon(<path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5" />)
 const IconChevronRight = icon(<path strokeLinecap="round" strokeLinejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5" />)
 const IconGlobe = icon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Zm0 0c2.5-2.3 3.75-5.3 3.75-9S14.5 5.3 12 3m0 18c-2.5-2.3-3.75-5.3-3.75-9S9.5 5.3 12 3M3.5 9h17M3.5 15h17" />)
@@ -36,15 +45,55 @@ const IconBank = icon(<path strokeLinecap="round" strokeLinejoin="round" d="M12 
 
 // Rail entries mirror the panel sections top-to-bottom (flat, no groups — the
 // order follows Margareth's UAT list).
-const RAIL: { key: string; node: ReactNode }[] = [
-  { key: 'filter.country', node: IconGlobe },
-  { key: 'filter.year', node: IconCalendar },
-  { key: 'filter.project_type', node: IconTag },
-  { key: 'filter.construction', node: IconBuilding },
-  { key: 'filter.case_studies', node: IconDoc },
-  { key: 'filter.company', node: IconBriefcase },
-  { key: 'sankey.ownership', node: IconBank }
+//
+// Es la MISMA lista que titula las secciones del panel abierto: el ícono del riel y
+// el de la sección salen de acá, así no pueden separarse. `key` es además el destino
+// del salto (`data-filter-key` en la sección).
+const RAIL: { key: string; Icon: (p: IconProps) => ReactNode }[] = [
+  { key: 'filter.country', Icon: IconGlobe },
+  { key: 'filter.year', Icon: IconCalendar },
+  { key: 'filter.project_type', Icon: IconTag },
+  { key: 'filter.construction', Icon: IconBuilding },
+  { key: 'filter.case_studies', Icon: IconDoc },
+  { key: 'filter.company', Icon: IconBriefcase },
+  { key: 'sankey.ownership', Icon: IconBank }
 ]
+
+// Sección no colapsable (año, tipo, construcción, estudios). Lleva el mismo par
+// ícono + rótulo que el botón de las colapsables, para que las siete entradas del
+// riel se reconozcan igual una vez abierto el panel, y es destino de salto como
+// ellas. `help` es el (?) que va pegado al rótulo, no debajo.
+function PlainSection({
+  sectionKey,
+  Icon,
+  label,
+  jump,
+  help,
+  children
+}: {
+  sectionKey: string
+  Icon: (p: IconProps) => ReactNode
+  label: string
+  jump: number
+  help?: ReactNode
+  children: ReactNode
+}) {
+  const ref = useJumpScroll<HTMLElement>(jump)
+  return (
+    <section ref={ref} data-filter-key={sectionKey}>
+      <div className="mb-1 flex items-center gap-1.5">
+        {/* key remonta el svg, y sin remontar la animación no vuelve a correr cuando
+            se toca dos veces el mismo ícono del riel. */}
+        <span key={jump} className={`shrink-0 ${jump ? 'filtro-guino' : 'text-gray-500'}`}>
+          <Icon className="h-4 w-4" />
+        </span>
+        <label className="block text-xs font-medium text-gray-600">{label}</label>
+        {help}
+      </div>
+      {children}
+    </section>
+  )
+}
 
 const OWNERSHIP_VALUES = ['Central SOE', 'Local SOE', 'POE', 'MIXED', 'UNKNOWN'] as const
 
@@ -97,10 +146,28 @@ function Segmented<T extends string>({
 export default function FilterPanel({ countries, yearMin, yearMax, companies }: Props) {
   const { t, i18n } = useTranslation()
   const { filters, setFilters, reset } = useFilters()
-  const isMobile = useIsMobile()
   // Collapsed by default on phones so the map gets the full width; the thin rail
   // stays as the affordance to reopen. Desktop keeps the panel open.
-  const [collapsed, setCollapsed] = useState(isMobile)
+  // Tablet arranca igual que teléfono: 288px de panel sobre 800 dejaban el mapa en
+  // una tira, y el riel de 48px conserva las siete entradas a un toque.
+  const isCompact = useIsCompact()
+  const [collapsed, setCollapsed] = useState(isCompact)
+  // Sección a la que apuntaba el ícono del riel que se tocó. El token distingue dos
+  // clics sobre el MISMO ícono, que si no se leerían como un solo estado y no
+  // volverían a animar. Se limpia solo: el guiño es un aviso, no un estado.
+  const [jump, setJump] = useState<{ key: string; token: number } | null>(null)
+
+  // El guiño es un aviso, no un estado: se apaga solo. El plazo cubre la animación
+  // (520ms) con aire para el scroll. El scroll no se hace acá: lo pide cada sección
+  // con `useJumpScroll`, que es la que sabe cuándo su alto es el definitivo.
+  useEffect(() => {
+    if (!jump) return
+    const clear = setTimeout(() => setJump(null), 700)
+    return () => clearTimeout(clear)
+  }, [jump])
+
+  // 0 = sin guiño. La sección apuntada recibe el token, que al cambiar remonta su ícono.
+  const jumpFor = (key: string) => (jump?.key === key ? jump.token : 0)
 
   if (collapsed) {
     return (
@@ -111,18 +178,23 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
           aria-label={t('filter.expand')}
           className="flex h-9 w-9 items-center justify-center rounded text-gray-700 hover:bg-brand hover:text-gray-900"
         >
-          {IconChevronRight}
+          <IconChevronRight />
         </button>
         <div className="my-1 h-px w-6 bg-gray-200" />
         {RAIL.map(r => (
           <button
             key={r.key}
-            onClick={() => setCollapsed(false)}
+            // Abre el panel Y lleva a la sección de este ícono: el riel no es un
+            // botón de "abrir" repetido siete veces, cada ícono tiene destino.
+            onClick={() => {
+              setCollapsed(false)
+              setJump(j => ({ key: r.key, token: (j?.token ?? 0) + 1 }))
+            }}
             title={t(r.key)}
             aria-label={t(r.key)}
             className="flex h-9 w-9 items-center justify-center rounded text-gray-500 hover:bg-brand hover:text-gray-900"
           >
-            {r.node}
+            <r.Icon />
           </button>
         ))}
       </aside>
@@ -141,13 +213,16 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
 
   return (
     <>
-      {/* Mobile: dim the map behind the drawer; tap to close. */}
+      {/* Teléfono y tablet: el panel es una capa, así que atenúa el mapa detrás y el
+          toque afuera cierra. El corte es lg, no md: en tablet el panel tampoco le
+          quita ancho al mapa. `max-w-xs` es lo que evita un drawer de 680px en una
+          tablet de 800 (85vw), donde el ancho útil del panel no necesita crecer. */}
       <div
-        className="fixed inset-0 z-[855] bg-black/30 md:hidden"
+        className="fixed inset-0 z-[855] bg-black/30 lg:hidden"
         onClick={() => setCollapsed(true)}
         aria-hidden
       />
-      <aside className="absolute inset-y-0 left-0 z-[860] w-[85vw] max-w-xs shadow-2xl shrink-0 overflow-y-auto border-r border-gray-200 bg-white p-4 space-y-5 text-sm md:static md:z-auto md:w-72 md:max-w-none md:shadow-none">
+      <aside className="absolute inset-y-0 left-0 z-[860] w-[85vw] max-w-xs shadow-2xl shrink-0 overflow-y-auto border-r border-gray-200 bg-white p-4 space-y-5 text-sm lg:static lg:z-auto lg:w-72 lg:max-w-none lg:shadow-none">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-1.5">
           <button
@@ -156,7 +231,7 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
             aria-label={t('filter.collapse')}
             className="-ml-1 flex h-7 w-7 items-center justify-center rounded text-gray-500 hover:bg-brand hover:text-gray-900"
           >
-            {IconChevronLeft}
+            <IconChevronLeft />
           </button>
           <h3 className="font-semibold text-base">{t('filter.title')}</h3>
         </div>
@@ -171,6 +246,9 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
 
       <CollapsibleSection
         label={t('filter.country')}
+        Icon={IconGlobe}
+        sectionKey="filter.country"
+        jump={jumpFor('filter.country')}
         summary={
           allCountries ? t('common.all') : t('filter.n_selected', { count: selectedCountries.length })
         }
@@ -195,8 +273,12 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
         </div>
       </CollapsibleSection>
 
-      <section>
-        <label className="block text-xs font-medium text-gray-600 mb-2">{t('filter.year')}</label>
+      <PlainSection
+        sectionKey="filter.year"
+        Icon={IconCalendar}
+        label={t('filter.year')}
+        jump={jumpFor('filter.year')}
+      >
         <YearRangeSlider
           min={yearMin}
           max={yearMax}
@@ -204,10 +286,14 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
           valueMax={yMax}
           onChange={(vMin, vMax) => setFilters({ yearMin: vMin, yearMax: vMax })}
         />
-      </section>
+      </PlainSection>
 
-      <section>
-        <label className="block text-xs font-medium text-gray-600 mb-1">{t('filter.project_type')}</label>
+      <PlainSection
+        sectionKey="filter.project_type"
+        Icon={IconTag}
+        label={t('filter.project_type')}
+        jump={jumpFor('filter.project_type')}
+      >
         {/* Dead while construction is on 'only': acquisition and greenfield are the
             two types being filtered out wholesale, so leaving the buttons live would
             offer a choice that changes nothing. */}
@@ -224,26 +310,32 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
         {filters.construction === 'only' && (
           <p className="mt-1 text-[11px] leading-snug text-gray-400">{t('filter.type_off_only')}</p>
         )}
-      </section>
+      </PlainSection>
 
-      <section>
-        {/* Three states, same segmented control as Tipo / Estudios. A checkbox could
-            only exclude or include; there was no way to look at the construction
-            projects on their own. The (?) carries the methodology's reason these are
-            not FDI, which is what the three labels raise. */}
-        <div className="mb-1 flex items-center gap-1.5">
-          <label className="block text-xs font-medium text-gray-600">{t('filter.construction')}</label>
-          <HelpTip text={t('filter.construction_help')} label={t('filter.construction')} />
-        </div>
+      {/* Three states, same segmented control as Tipo / Estudios. A checkbox could
+          only exclude or include; there was no way to look at the construction
+          projects on their own. The (?) carries the methodology's reason these are
+          not FDI, which is what the three labels raise. */}
+      <PlainSection
+        sectionKey="filter.construction"
+        Icon={IconBuilding}
+        label={t('filter.construction')}
+        jump={jumpFor('filter.construction')}
+        help={<HelpTip text={t('filter.construction_help')} label={t('filter.construction')} />}
+      >
         <Segmented
           items={CONSTRUCTION_FILTERS.map(c => ({ value: c, label: t(`filter.construction_${c}`) }))}
           isActive={c => filters.construction === c}
           onPick={c => setFilters({ construction: c })}
         />
-      </section>
+      </PlainSection>
 
-      <section>
-        <label className="block text-xs font-medium text-gray-600 mb-1">{t('filter.case_studies')}</label>
+      <PlainSection
+        sectionKey="filter.case_studies"
+        Icon={IconDoc}
+        label={t('filter.case_studies')}
+        jump={jumpFor('filter.case_studies')}
+      >
         <Segmented
           items={(['all', 'yes', 'no'] as ResearchFilter[]).map(opt => ({
             value: opt,
@@ -252,10 +344,13 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
           isActive={opt => filters.research === opt}
           onPick={opt => setFilters({ research: opt })}
         />
-      </section>
+      </PlainSection>
 
       <CollapsibleSection
         label={t('filter.company')}
+        Icon={IconBriefcase}
+        sectionKey="filter.company"
+        jump={jumpFor('filter.company')}
         summary={
           filters.investors.length === 0 ? t('common.all') : t('filter.n_selected', { count: filters.investors.length })
         }
@@ -272,6 +367,9 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
 
       <CollapsibleSection
         label={t('sankey.ownership')}
+        Icon={IconBank}
+        sectionKey="sankey.ownership"
+        jump={jumpFor('sankey.ownership')}
         summary={
           filters.ownership.length === 0 ? t('common.all') : t('filter.n_selected', { count: filters.ownership.length })
         }

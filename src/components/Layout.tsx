@@ -70,7 +70,9 @@ export default function Layout() {
   )
 
   return (
-    <div className="h-screen flex flex-col overflow-hidden">
+    // h-full y no h-screen: el alto real de la ventana lo fija #root en index.css
+    // (100dvh donde exista), porque 100vh en teléfono incluye la barra del navegador.
+    <div className="h-full flex flex-col overflow-hidden">
       {/* Presentación del repositorio: sola en la primera carga de la sesión, y a
           demanda desde el botón del header. */}
       <LandingModal open={aboutOpen} onClose={() => setAboutOpen(false)} />
@@ -106,9 +108,10 @@ export default function Layout() {
           {/* El nav completo aparece en lg, no en md. Medido: los cinco ítems ocupan
               376px y, al lado del título, entre 768 y 1023px no queda ancho — el h1 se
               partía en cinco líneas y estiraba el encabezado a 156px, comiéndose el
-              mapa. Es el mismo corte que ya usaba la greca de las vistas editoriales.
-              Ojo: este umbral ya no coincide con `useIsMobile` (md), que sigue
-              gobernando el cromo del mapa. Son dos preguntas distintas. */}
+              mapa. Es el mismo corte que ya usaba la greca de las vistas editoriales,
+              y el de `useIsCompact`: hasta 1023px nada se queda con ancho propio, ni el
+              nav ni el panel de filtros ni el listado. Lo que NO sigue este umbral es
+              el cromo del mapa (`useIsMobile`, md), que en tablet sí cabe flotando. */}
           <div className="hidden lg:flex items-center gap-4 shrink-0">
             {/* 13px en Raleway es el tamaño del menú de iclac.cl. Lo que no copiamos son
                 sus mayúsculas con letter-spacing: cinco ítems en tres idiomas no caben, y

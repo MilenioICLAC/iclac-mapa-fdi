@@ -15,6 +15,24 @@ html, body, #root {
   font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
 }
 
+/* En teléfono la barra de direcciones del navegador no se descuenta de 100vh: el
+   alto de la app se pasaba de la ventana y el pie (y en el mapa, la barra de
+   acciones) quedaban abajo del borde, inalcanzables sin scroll. `dvh` es el alto
+   que queda de verdad. Va acá y no en el <div> del Layout porque la cadena
+   html > body > #root ya reparte el alto por porcentaje: se corrige en la raíz y
+   todo lo de abajo hereda bien.
+
+   Dinámico y no `svh` a propósito: la app no scrollea a nivel de página
+   (overflow-hidden), así que el navegador no colapsa su barra y el valor no
+   oscila; si algún día lo hiciera, seguir la ventana es lo correcto.
+
+   @supports por los navegadores sin dvh (Safari < 15.4), que se quedan con vh. */
+@supports (height: 100dvh) {
+  html {
+    height: 100dvh;
+  }
+}
+
 .mapa-cluster-icon {
   background: transparent !important;
   border: none !important;
@@ -113,6 +131,27 @@ html, body, #root {
   .sangria-greca::before,
   .sangria-greca::after {
     display: none;
+  }
+}
+
+/* Guiño del ícono de la sección a la que se llegó desde el riel de filtros. El clic
+   en el riel abre el panel entero, así que sin esto no queda dicho a qué sección
+   apuntaba el ícono que se tocó: el giro corto hacia los dos lados lo señala sin
+   mover el layout. La tinta acompaña al giro y se apaga sola (FilterPanel limpia el
+   destino), así que con `prefers-reduced-motion` queda un resaltado que igual avisa. */
+@keyframes filtro-guino {
+  0%, 100% { transform: rotate(0deg); }
+  20% { transform: rotate(-12deg); }
+  55% { transform: rotate(12deg); }
+  80% { transform: rotate(-5deg); }
+}
+.filtro-guino {
+  color: #00776e;
+  animation: filtro-guino 520ms ease-in-out;
+}
+@media (prefers-reduced-motion: reduce) {
+  .filtro-guino {
+    animation: none;
   }
 }
 

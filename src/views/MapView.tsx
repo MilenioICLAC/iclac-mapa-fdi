@@ -10,7 +10,7 @@ import { intlLocale, localizedCountry } from '@/lib/countries'
 import { aggregateInvestments, applyFilters, distinctCountries, distinctSectors, yearBounds } from '@/lib/filter'
 import { distinctCompanies, type InvestorMap } from '@/lib/sankey'
 import { useFilters } from '@/hooks/useFilters'
-import { useIsMobile } from '@/hooks/useMediaQuery'
+import { useIsCompact } from '@/hooks/useMediaQuery'
 import FilterPanel from '@/components/FilterPanel'
 import SectorLegend, { SectorLegendChip } from '@/components/SectorLegend'
 import ProjectDocsCards from '@/components/ProjectDocsCards'
@@ -316,12 +316,30 @@ function RegionLimits({ bounds, topInset }: { bounds: L.LatLngBounds; topInset: 
   return null
 }
 
-function InvalidateSize({ trigger }: { trigger: unknown }) {
+// Leaflet solo sabe el tamaño que midió al montar: si la caja cambia y nadie le
+// avisa, no pide los tiles del área nueva y queda una franja gris.
+//
+// Observa la caja en vez de enumerar qué la cambia. La lista de causas ya eran
+// cuatro (abrir el listado, Fichas↔Tabla que lo lleva de 24rem a 32rem, la barra
+// de acciones pasando a dos filas, colapsar el panel de filtros) y dos vivían en
+// estado que MapView no ve: `collapsed` es interno de FilterPanel. Un trigger
+// enumerado se queda corto cada vez que se agrega un control.
+function AutoInvalidateSize() {
   const map = useMap()
   useEffect(() => {
-    const id = requestAnimationFrame(() => map.invalidateSize())
-    return () => cancelAnimationFrame(id)
-  }, [trigger, map])
+    const container = map.getContainer()
+    // rAF: el observer avisa durante el layout y invalidateSize vuelve a medir.
+    let frame = 0
+    const ro = new ResizeObserver(() => {
+      cancelAnimationFrame(frame)
+      frame = requestAnimationFrame(() => map.invalidateSize())
+    })
+    ro.observe(container)
+    return () => {
+      cancelAnimationFrame(frame)
+      ro.disconnect()
+    }
+  }, [map])
   return null
 }
 
@@ -475,17 +493,19 @@ export default function MapView() {
     () => new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(agg.totalMusd),
     [agg.totalMusd]
   )
-  // 'table'/'cards' = list open (default 'table', Margareth UAT). On phones the
-  // panel is a full overlay, so it stays closed on load until the user opens it.
-  const isMobile = useIsMobile()
-  const [mobileListOpened, setMobileListOpened] = useState(false)
-  const showList = filters.view !== 'map' && (!isMobile || mobileListOpened)
+  // 'table'/'cards' = list open (default 'table', Margareth UAT). Hasta 1023px el
+  // listado es una capa a pantalla completa, no una columna, así que arranca cerrado:
+  // abrir tapando el mapa entero de entrada esconde la herramienta que se vino a ver.
+  // Desde lg el listado convive con el mapa y sigue abierto por defecto.
+  const isCompact = useIsCompact()
+  const [overlayListOpened, setOverlayListOpened] = useState(false)
+  const showList = filters.view !== 'map' && (!isCompact || overlayListOpened)
   const openList = () => {
-    setMobileListOpened(true)
+    setOverlayListOpened(true)
     if (filters.view === 'map') setFilters({ view: 'table' })
   }
   const closeList = () => {
-    setMobileListOpened(false)
+    setOverlayListOpened(false)
     setFilters({ view: 'map' })
   }
 
@@ -540,9 +560,7 @@ export default function MapView() {
             target={target}
           />
         )}
-        {/* La barra de acciones de móvil pasa de una a dos filas al entrar en modo
-            agregado, y eso cambia el alto de la caja del mapa: Leaflet necesita saberlo. */}
-        <InvalidateSize trigger={`${showList}-${filters.pieByCountry}`} />
+        <AutoInvalidateSize />
       </MapContainer>
       <SectorLegend sectors={sectors} />
     </>
@@ -684,8 +702,11 @@ export default function MapView() {
             </div>
             {showList && (
               <aside
-                className={`absolute inset-0 z-[840] w-full shrink-0 overflow-y-auto border-l border-gray-200 bg-gray-50 md:static md:z-auto ${
-                  filters.view === 'table' ? 'md:w-[32rem]' : 'md:w-96'
+                // Capa a pantalla completa hasta 1023px (teléfono y tablet), columna
+                // desde lg. En tablet el par 32rem + panel de filtros dejaba el mapa
+                // en unos 200px.
+                className={`absolute inset-0 z-[840] w-full shrink-0 overflow-y-auto border-l border-gray-200 bg-gray-50 lg:static lg:z-auto ${
+                  filters.view === 'table' ? 'lg:w-[32rem]' : 'lg:w-96'
                 }`}
               >
                 <div className="sticky top-0 z-10 flex items-center justify-between gap-2 border-b border-gray-200 bg-gray-50 px-3 py-2">

@@ -155,7 +155,21 @@ Antes de escribir uno nuevo, revisar estos (todos en `src/components/`):
   popover. `max-h-[70vh]` y scroll propio.
 - `SectorLegend.tsx` — exporta **dos** componentes: `SectorLegend` (caja flotante, `hidden md:block`)
   y `SectorLegendChip` (chip + hoja, `md:hidden`). Las filas son el mismo control interno.
-- `CollapsibleSection.tsx`, `CheckList.tsx`, `InvestorFilter.tsx`, `YearRangeSlider.tsx`, `icons.tsx`.
+- `CollapsibleSection.tsx` — sección del panel de filtros. Acepta `Icon` (el mismo del riel) y `jump`,
+  el salto que llega desde el riel: abre la sección y hace guiñar su ícono.
+- `CheckList.tsx`, `InvestorFilter.tsx`, `YearRangeSlider.tsx`, `icons.tsx`.
+
+**El riel del panel de filtros y las siete secciones salen de la misma lista** (`RAIL` en
+`FilterPanel.tsx`), así el ícono del riel y el del título no pueden separarse. Cada ícono del riel
+tiene **destino**: abre el panel, abre esa sección y la trae a la vista con un guiño
+(`.filtro-guino`, un giro corto, que respeta `prefers-reduced-motion`). El riel no es un botón de
+«abrir» repetido siete veces.
+
+**El scroll al destino lo pide la sección, no el panel** (`useJumpScroll`). Medido: pidiéndolo desde
+el panel en el frame siguiente al clic, el contenido todavía medía lo mismo que la caja
+(`scrollHeight` 547 == `clientHeight` 547) porque el acordeón destino abre en su propio efecto, y sin
+nada que scrollear el navegador no hace nada. Esperar a que el alto «se estabilice» tampoco sirve: en
+la primera apertura se queda dos frames en 547 antes de crecer. La sección sí sabe cuándo abrió.
 
 **Los valores de la base que se muestran traducidos viven en `lib/`**, no en cada componente:
 `lib/sectors.ts` + `sector.*`, `lib/countries.ts` + `country.*`. La clave es el **valor exacto en
@@ -175,9 +189,22 @@ deja la lista arbitraria en los otros dos idiomas.
 popover que cierra por clic afuera necesita chequear también su propio nodo, que ya no está dentro
 del ref del disparador.
 
-## Móvil: nada flota sobre el mapa
+## Dos cortes, dos preguntas distintas
 
-El corte es `md` (767 px, `useIsMobile`), el mismo del panel de filtros y del menú del encabezado.
+No hay un solo umbral de «móvil». Confundirlos fue lo que dejó a la tablet heredando media mitad de
+cada layout: el panel de filtros y el listado le robaban dos tercios del ancho, y el cromo del mapa se
+apoyaba en una barra pese a que ahí sí cabe flotando.
+
+| Hook | Corte | Pregunta que contesta | Qué gobierna |
+|---|---|---|---|
+| `useIsCompact` | ≤ 1023 px (`lg`) | ¿quién puede quedarse con ancho propio? | Panel de filtros y listado son **capas** y arrancan cerrados. Mismo corte que el nav del encabezado y la greca editorial. |
+| `useIsMobile` | ≤ 767 px (`md`) | ¿qué cabe flotando sobre el mapa? | El cromo del mapa y los márgenes del Sankey. |
+
+O sea que **la tablet tiene estado propio**: riel de filtros y listado como capa, pero cromo flotante
+como escritorio. Al tocar una clase `md:` o `lg:` en el mapa o en los dos asides, decidir primero cuál
+de las dos preguntas es.
+
+## Móvil: nada flota sobre el mapa
 
 **Regla: en teléfono el cromo del mapa no flota, se apoya.** La caja de totales, el botón del listado
 y la leyenda eran tres cajas flotantes sobre 312 px de ancho útil, y el botón del listado se comía el
@@ -189,8 +216,12 @@ monto en los tres tamaños medidos (360, 390 y 414). Ahora:
   Leaflet. `displayControls` se define una vez y se renderiza en los dos sitios.
 - La barra entra en una fila a 360 px con `gap-1` y `px-1.5`: los tres controles suman 294 px sobre
   296 disponibles. Con `gap-1.5` se pasaba por 2 px y «Lista» caía a una segunda fila.
-- La barra pasa a dos filas en modo agregado, así que el alto del mapa cambia: por eso el `trigger`
-  de `InvalidateSize` incluye `filters.pieByCountry`.
+- La barra pasa a dos filas en modo agregado, así que el alto del mapa cambia. Leaflet se entera solo
+  (ver abajo), no hay que declarar la causa.
+
+**El alto de la ventana lo fija `#root` en `index.css`, no `h-screen`.** En teléfono la barra de
+direcciones del navegador no se descuenta de `100vh`, así que el pie quedaba abajo del borde. La raíz
+usa `100dvh` bajo `@supports`, y el Layout hereda con `h-full`. No volver a `h-screen`.
 
 **Etiquetas del Sankey en móvil:** el margen derecho por defecto de ECharts (`right: '20%'`) es donde
 se dibujan las etiquetas de la última columna; en un teléfono son unos 70 px y los nombres salían
@@ -210,6 +241,11 @@ Zona sensible, con dos trampas ya conocidas:
   descarta el padding en silencio. Se resuelve desplazando el **centro** en píxeles proyectados
   (`framedView`) y metiendo el mismo offset en `maxBounds`. El alto de la caja se mide del DOM
   (`totalsRef`), porque envuelve a dos líneas en pantallas angostas.
+- **A Leaflet se le avisa del cambio de tamaño observando la caja, no enumerando causas.**
+  `AutoInvalidateSize` es un `ResizeObserver` sobre el contenedor. Antes era un `trigger` con la lista
+  de lo que cambia el ancho, y la lista se quedaba corta: faltaban Fichas↔Tabla (el listado va de
+  24rem a 32rem) y colapsar el panel de filtros, cuyo estado ni vive en `MapView`. El síntoma es una
+  franja gris donde el mapa creció y nadie pidió los tiles.
 - `RegionLimits` reencuadra en cada `resize` **hasta el primer gesto del usuario** (`pointerdown` o
   `wheel` del contenedor, no eventos de Leaflet, que dispara nuestro propio fit).
 - `MAX_ZOOM = 8` (nivel provincia) es una decisión editorial: las coordenadas de la base tienen
