@@ -80,8 +80,13 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
   hoja); en escritorio sigue siendo la leyenda flotante, y no es evidente que sea accionable.
 - **Fichas: los grupos por país parten colapsados.** En la vista de Tabla se revirtió a pedido; para
   Fichas falta confirmar cuál es el comportamiento deseado.
-- **Riel de filtros detrás del listado en móvil:** quedan 48 px visibles al abrir el listado. Es
-  cosmético.
+- **Riel de filtros detrás del listado en teléfono y tablet:** quedan 48 px visibles al abrir el
+  listado. Es cosmético.
+- **El alto de la ventana en teléfono está sin confirmar en un aparato real.** La app usa `100dvh`
+  para que la barra de direcciones del navegador no se coma el pie de página. Un navegador sin barra
+  (el headless con que se verifica) no puede reproducir el problema, así que la corrección se midió
+  pero no se vio fallar. Abrir el sitio en un teléfono y confirmar que el pie y la barra de acciones
+  del mapa quedan alcanzables sin scroll.
 - **Pantallas de poca altura** (unos 475 px): se probó un punto de corte para encoger los logos, sin
   confirmar.
 - **El texto chino de Metodología** conviene contrastarlo con el del sitio anterior. Hay una
@@ -123,4 +128,4 @@ Figuras posibles con los datos que ya existen, ninguna decidida:
 | La estructura de los archivos de datos cambia entre entregas | El contrato de `schema.md` más el validador en cada push |
 | La tabla de inversores queda sin mantenedor | Degradación elegante: un inversor nuevo cae a propiedad desconocida y queda listado, el sitio no se rompe |
 | Sobreconteo de montos en inversiones multipunto | El monto se cuenta una vez por inversión, no por fila, y construcción queda fuera del total por defecto. Hay tests que lo cubren |
-| Las revisiones se hacen solo en pantalla grande | Varios problemas aparecen solo a 360 px de ancho. Revisar en teléfono antes de dar por buena una vista |
+| Las revisiones se hacen solo en pantalla grande | Varios problemas aparecen solo a 360 px de ancho, y otros solo entre 768 y 1023 (tablet, que no es ni un teléfono grande ni un escritorio angosto). Revisar en los tres antes de dar por buena una vista |

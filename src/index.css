@@ -136,21 +136,42 @@ html, body, #root {
 
 /* Guiño del ícono de la sección a la que se llegó desde el riel de filtros. El clic
    en el riel abre el panel entero, así que sin esto no queda dicho a qué sección
-   apuntaba el ícono que se tocó: el giro corto hacia los dos lados lo señala sin
-   mover el layout. La tinta acompaña al giro y se apaga sola (FilterPanel limpia el
-   destino), así que con `prefers-reduced-motion` queda un resaltado que igual avisa. */
-@keyframes filtro-guino {
+   apuntaba el ícono que se tocó.
+   Son dos capas sobre el mismo elemento: un disco `brand` que aparece detrás del
+   glifo (el trazo solo cambiando de tinta quedaba demasiado sutil) y el giro corto
+   hacia los dos lados.
+   El glifo pasa a gray-900 mientras está sobre el disco: `text-white` sobre brand da
+   2,96:1. La tinta viaja en el keyframe y no en la regla para que vuelva a gray-500
+   con el mismo desvanecido que el fondo.
+
+   LOS TIEMPOS ESTÁN ATADOS AL SCROLL, no elegidos por gusto. El guiño y el viaje del
+   panel hasta la sección arrancan juntos, y el scroll suave tarda unos 250ms: con el
+   disco lleno entre 124 y 341ms, buena parte del destello pasaba mientras la sección
+   todavía se estaba moviendo y llegaba apagándose. Ahora el disco vive 1100ms y está
+   lleno entre 275 y 770ms, o sea después de que la sección aterrizó, y el giro entra
+   con 150ms de atraso por lo mismo. Si se cambia una duración acá, hay que mover
+   también el plazo con que FilterPanel limpia el destino (1300ms), que es lo que
+   quita la clase: tiene que ser el último en pasar. */
+@keyframes filtro-guino-disco {
+  0% { background-color: rgba(0, 168, 156, 0); color: #6b7280; }
+  25%, 70% { background-color: rgba(0, 168, 156, 1); color: #111827; }
+  100% { background-color: rgba(0, 168, 156, 0); color: #6b7280; }
+}
+@keyframes filtro-guino-glifo {
   0%, 100% { transform: rotate(0deg); }
   20% { transform: rotate(-12deg); }
   55% { transform: rotate(12deg); }
   80% { transform: rotate(-5deg); }
 }
 .filtro-guino {
-  color: #00776e;
-  animation: filtro-guino 520ms ease-in-out;
+  animation: filtro-guino-disco 1100ms ease-out;
 }
+.filtro-guino svg {
+  animation: filtro-guino-glifo 900ms ease-in-out 150ms;
+}
+/* Se reduce el movimiento, no el aviso: queda el disco entrando y saliendo. */
 @media (prefers-reduced-motion: reduce) {
-  .filtro-guino {
+  .filtro-guino svg {
     animation: none;
   }
 }

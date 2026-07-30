@@ -82,9 +82,13 @@ function PlainSection({
   return (
     <section ref={ref} data-filter-key={sectionKey}>
       <div className="mb-1 flex items-center gap-1.5">
-        {/* key remonta el svg, y sin remontar la animación no vuelve a correr cuando
-            se toca dos veces el mismo ícono del riel. */}
-        <span key={jump} className={`shrink-0 ${jump ? 'filtro-guino' : 'text-gray-500'}`}>
+        {/* El span es el disco del guiño: 24px alrededor de un glifo de 16px, con
+            `-my-1` para que el chip no estire la fila. key lo remonta, y sin remontar
+            la animación no vuelve a correr al tocar dos veces el mismo ícono del riel. */}
+        <span
+          key={jump}
+          className={`-my-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-500 ${jump ? 'filtro-guino' : ''}`}
+        >
           <Icon className="h-4 w-4" />
         </span>
         <label className="block text-xs font-medium text-gray-600">{label}</label>
@@ -157,12 +161,14 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
   // volverían a animar. Se limpia solo: el guiño es un aviso, no un estado.
   const [jump, setJump] = useState<{ key: string; token: number } | null>(null)
 
-  // El guiño es un aviso, no un estado: se apaga solo. El plazo cubre la animación
-  // (520ms) con aire para el scroll. El scroll no se hace acá: lo pide cada sección
-  // con `useJumpScroll`, que es la que sabe cuándo su alto es el definitivo.
+  // El guiño es un aviso, no un estado: se apaga solo. Este plazo es lo que quita la
+  // clase `.filtro-guino`, así que tiene que ser el ÚLTIMO en pasar: 1100ms del disco
+  // + 150ms de atraso del giro. Si se acorta, el destello se corta de golpe.
+  // El scroll no se hace acá: lo pide cada sección con `useJumpScroll`, que es la que
+  // sabe cuándo su alto es el definitivo.
   useEffect(() => {
     if (!jump) return
-    const clear = setTimeout(() => setJump(null), 700)
+    const clear = setTimeout(() => setJump(null), 1300)
     return () => clearTimeout(clear)
   }, [jump])
 

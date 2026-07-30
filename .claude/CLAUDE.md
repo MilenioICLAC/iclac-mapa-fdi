@@ -161,9 +161,14 @@ Antes de escribir uno nuevo, revisar estos (todos en `src/components/`):
 
 **El riel del panel de filtros y las siete secciones salen de la misma lista** (`RAIL` en
 `FilterPanel.tsx`), así el ícono del riel y el del título no pueden separarse. Cada ícono del riel
-tiene **destino**: abre el panel, abre esa sección y la trae a la vista con un guiño
-(`.filtro-guino`, un giro corto, que respeta `prefers-reduced-motion`). El riel no es un botón de
-«abrir» repetido siete veces.
+tiene **destino**: abre el panel, abre esa sección y la trae a la vista con un guiño. El riel no es un
+botón de «abrir» repetido siete veces.
+
+El guiño (`.filtro-guino`) son **dos capas**: un disco `brand` de 24 px detrás del glifo y el giro
+corto a ambos lados. Solo el cambio de tinta del trazo quedaba demasiado sutil para leerse. El glifo
+va a `gray-900` mientras está sobre el disco, nunca blanco. `prefers-reduced-motion` apaga el giro y
+deja el disco: se reduce el movimiento, no el aviso. El disco es el `<span>` contenedor con `-my-1`,
+que es lo que evita que el chip estire las filas del panel.
 
 **El scroll al destino lo pide la sección, no el panel** (`useJumpScroll`). Medido: pidiéndolo desde
 el panel en el frame siguiente al clic, el contenido todavía medía lo mismo que la caja

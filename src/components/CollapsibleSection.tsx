@@ -43,9 +43,13 @@ export default function CollapsibleSection({
         className="-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-1.5 rounded px-1 py-1.5 text-left hover:bg-brand hover:text-gray-900"
       >
         {Icon && (
-          // key remonta el svg: sin remontar, la animación no vuelve a correr al
-          // tocar dos veces el mismo ícono del riel.
-          <span key={jump} className={`shrink-0 ${jump ? 'filtro-guino' : 'text-gray-500'}`}>
+          // El span es el disco del guiño: 24px alrededor de un glifo de 16px, con
+          // `-my-1` para que el chip no estire la fila. key lo remonta, y sin remontar
+          // la animación no vuelve a correr al tocar dos veces el mismo ícono del riel.
+          <span
+            key={jump}
+            className={`-my-1 flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-gray-500 ${jump ? 'filtro-guino' : ''}`}
+          >
             <Icon className="h-4 w-4" />
           </span>
         )}
