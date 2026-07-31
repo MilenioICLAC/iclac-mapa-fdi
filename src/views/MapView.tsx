@@ -7,7 +7,8 @@ import type { Layer, LeafletMouseEvent, Path, PathOptions } from 'leaflet'
 import type { CountryFeatureCollection, CountryProperties, Investment, ResearchCase } from '@/types/data'
 import { sectorColor } from '@/lib/sectors'
 import { intlLocale, localizedCountry } from '@/lib/countries'
-import { aggregateInvestments, applyFilters, distinctCountries, distinctSectors, yearBounds } from '@/lib/filter'
+import { aggregateInvestments, applyFilters, countKeyFor, distinctCountries, distinctSectors, yearBounds } from '@/lib/filter'
+import { formatUsd } from '@/lib/money'
 import { distinctCompanies, type InvestorMap } from '@/lib/sankey'
 import { useFilters } from '@/hooks/useFilters'
 import { useIsCompact } from '@/hooks/useMediaQuery'
@@ -123,9 +124,6 @@ const medianCenter = (items: Investment[]): [number, number] => {
 
 const donutSize = (total: number): number => (total >= 100 ? 56 : total >= 20 ? 48 : 40)
 
-const musdFormatter = new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 })
-const fmtMusd = (n: number): string => `US$ ${musdFormatter.format(n)} MM`
-
 // Compact center label for money mode. investment_musd is in millions USD →
 // multiply to real USD and let Intl format per locale (es "billón" ≠ en "billion",
 // zh uses 亿). Avoids hardcoding an ambiguous "B". `intlLocale` traduce nuestra
@@ -146,12 +144,16 @@ function InvestmentMarkers({
   pieByCountry,
   pieMetric,
   lang,
+  countKey,
   target
 }: {
   investments: Investment[]
   pieByCountry: boolean
   pieMetric: PieMetric
   lang: string
+  // Cabecera del tooltip del donut: cuenta lo mismo que la caja de totales, así que
+  // tiene que decirle lo mismo (inversiones / entradas / proyectos de construcción).
+  countKey: string
   target: LocateTarget | null
 }) {
   const map = useMap()
@@ -195,7 +197,13 @@ function InvestmentMarkers({
           })
         })
         const donutBig = buildDonutSvg(tallies, total, { size: 140, innerRatio: 0.6, showLabel: false })
-        const legend = buildLegendHtml(tallies, total, lang, pieMetric === 'money' ? fmtMusd : undefined)
+        const legend = buildLegendHtml(
+          tallies,
+          total,
+          lang,
+          pieMetric === 'money' ? (n: number) => formatUsd(n, lang) : undefined,
+          countKey
+        )
         // El título del tooltip es el país traducido; la clave del grupo sigue
         // siendo el valor crudo de la base.
         const countryLabel = localizedCountry(country, lang)
@@ -250,7 +258,7 @@ function InvestmentMarkers({
       map.removeLayer(group)
       registry.clear()
     }
-  }, [investments, map, pieByCountry, pieMetric, lang])
+  }, [investments, map, pieByCountry, pieMetric, lang, countKey])
 
   // Locate: pan/zoom to the target investment and open its popup.
   useEffect(() => {
@@ -489,10 +497,8 @@ export default function MapView() {
   const region = useMemo(() => regionOf(geo), [geo])
 
   const agg = useMemo(() => aggregateInvestments(filtered), [filtered])
-  const totalValue = useMemo(
-    () => new Intl.NumberFormat('es-CL', { maximumFractionDigits: 0 }).format(agg.totalMusd),
-    [agg.totalMusd]
-  )
+  const totalValue = formatUsd(agg.totalMusd, i18n.language)
+  const countKey = countKeyFor(filters.construction)
   // 'table'/'cards' = list open (default 'table', Margareth UAT). Hasta 1023px el
   // listado es una capa a pantalla completa, no una columna, así que arranca cerrado:
   // abrir tapando el mapa entero de entrada esconde la herramienta que se vino a ver.
@@ -566,6 +572,7 @@ export default function MapView() {
             pieByCountry={filters.pieByCountry}
             pieMetric={filters.pieMetric}
             lang={i18n.language}
+            countKey={countKey}
             target={target}
           />
         )}
@@ -638,9 +645,9 @@ export default function MapView() {
                 className="absolute left-2 right-2 top-2 z-[800] rounded-lg border border-white/50 bg-white/95 text-[0.6875rem] shadow-md backdrop-blur-md md:left-4 md:right-auto md:top-4 md:max-w-[calc(100%-9rem)] md:text-sm"
               >
                 <div className="px-2.5 py-1.5 sm:px-3">
-                  <span className="font-medium">{t('filter.investments_count', { count: agg.count })}</span>
+                  <span className="font-medium">{t(countKey, { count: agg.count })}</span>
                   <span className="mx-2">·</span>
-                  <span className="font-medium">{t('filter.total_value', { value: totalValue })}</span>
+                  <span className="font-medium">{totalValue}</span>
                   {agg.withoutAmount > 0 && (
                     <span className="ml-2 text-gray-500">
                       ({t('filter.without_amount', { count: agg.withoutAmount })})

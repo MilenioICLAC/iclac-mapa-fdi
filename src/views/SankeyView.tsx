@@ -11,7 +11,8 @@ import type { Investment } from '@/types/data'
 import type { InvestorMap, SankeyMetric } from '@/lib/sankey'
 import { buildSankeyData, distinctCompanies } from '@/lib/sankey'
 import { sectorColor } from '@/lib/sectors'
-import { activeFilterCount, aggregateInvestments, applyFilters, distinctSectors, distinctCountries, yearBounds } from '@/lib/filter'
+import { activeFilterCount, aggregateInvestments, applyFilters, countKeyFor, distinctSectors, distinctCountries, yearBounds } from '@/lib/filter'
+import { formatUsd } from '@/lib/money'
 import { useFilters } from '@/hooks/useFilters'
 import { byLocalizedCountry, intlLocale, localizedCountry } from '@/lib/countries'
 import { useIsMobile } from '@/hooks/useMediaQuery'
@@ -129,10 +130,11 @@ export default function SankeyView() {
     () => new Intl.NumberFormat(intlLocale(i18n.language), { maximumFractionDigits: 0 }),
     [i18n.language]
   )
-  const totalValue = useMemo(() => fmt.format(agg.totalMusd), [agg.totalMusd, fmt])
+  const totalValue = formatUsd(agg.totalMusd, i18n.language)
+  const countKey = countKeyFor(filters.construction)
   const fmtVal = useCallback(
-    (v: number): string => (metric === 'money' ? `US$ ${fmt.format(v)} MM` : fmt.format(v)),
-    [metric, fmt]
+    (v: number): string => (metric === 'money' ? formatUsd(v, i18n.language) : fmt.format(v)),
+    [metric, fmt, i18n.language]
   )
 
   const option = useMemo<EChartsOption>(
@@ -389,9 +391,9 @@ export default function SankeyView() {
 
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-1.5 text-xs sm:text-sm">
-          <span className="font-medium">{t('filter.investments_count', { count: agg.count })}</span>
+          <span className="font-medium">{t(countKey, { count: agg.count })}</span>
           <span className="mx-2">·</span>
-          <span className="font-medium">{t('filter.total_value', { value: totalValue })}</span>
+          <span className="font-medium">{totalValue}</span>
           {agg.withoutAmount > 0 && (
             <span className="ml-2 text-gray-500">({t('filter.without_amount', { count: agg.withoutAmount })})</span>
           )}

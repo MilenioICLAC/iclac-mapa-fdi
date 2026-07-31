@@ -63,9 +63,6 @@ export const localizedDetail = (inv: Investment, lang: Lang): string =>
 export const localizedArea = (inv: Investment, lang: Lang): string =>
   i18n.t(`sector.${inv.area_en}`, { lng: lang, defaultValue: inv.area_en ?? inv.area_es ?? '' })
 
-export const formatMoney = (n: number | null): string =>
-  n === null ? '—' : n.toLocaleString('en-US')
-
 /**
  * URL navegable de una citación, o null si el campo `Link` no trae una.
  *

@@ -83,7 +83,10 @@ export const buildLegendHtml = (
   tallies: SectorTally[],
   totalCount: number,
   lang: string,
-  fmtValue: (n: number) => string = n => String(n)
+  fmtValue: (n: number) => string = n => String(n),
+  // Con construcción incluida no son «inversiones»: la clave la decide `countKeyFor`,
+  // que es la misma que rotula la caja de totales.
+  countKey: string = 'filter.investments_count'
 ): string => {
   const total = tallies.reduce((a, b) => a + b.count, 0) || 1
   const rows = tallies
@@ -99,7 +102,7 @@ export const buildLegendHtml = (
       </div>`
     })
     .join('')
-  const header = i18n.t('filter.investments_count', { lng: lang, count: totalCount })
+  const header = i18n.t(countKey, { lng: lang, count: totalCount })
   return `<div style="min-width:200px">
     <div style="font-weight:600;margin-bottom:4px;font-size:12px">${header}</div>
     ${rows}

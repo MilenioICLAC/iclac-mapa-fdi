@@ -10,6 +10,17 @@ export type ConstructionFilter = 'exclude' | 'include' | 'only'
 
 export const CONSTRUCTION_FILTERS: ConstructionFilter[] = ['exclude', 'include', 'only']
 
+/**
+ * Clave i18n del contador de la caja de totales, que depende de qué se está contando.
+ *
+ * Llamarle «inversiones» a todo era falso con construcción incluida: esas filas son
+ * justo lo que la metodología cuenta aparte de la IED, así que el 450 de «include» no
+ * son 450 inversiones. Con `only` tampoco hace falta el genérico: ahí se sabe exactamente
+ * qué son.
+ */
+export const countKeyFor = (c: ConstructionFilter): string =>
+  c === 'include' ? 'filter.entries_count' : c === 'only' ? 'filter.construction_count' : 'filter.investments_count'
+
 // 'map' = list closed; 'cards' / 'table' = list open in that format.
 export type ViewMode = 'cards' | 'table' | 'map'
 

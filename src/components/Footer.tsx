@@ -5,13 +5,27 @@ type Logo = { src: string; alt: string; href?: string }
 
 // ICLAC logo lives in the header; the footer carries only partner logos.
 // Image assets live in /public/icons/ — supplied from the legacy project.
+//
+// MinCiencia + ANID reemplaza al logo anterior (Ministerio de Economía + milenio,
+// 2026-07-30): el ministerio que lo firmaba ya no es el que corresponde. La marca
+// «milenio» sale del pie con él, porque el archivo institucional nuevo no la trae.
+//
+// De las tres variantes que entrega ANID se usa `PLUMA`, la monocroma en #1c335a.
+// La de color traía el único bloque sólido saturado de la fila (medido: 95% de píxeles
+// cromáticos, igual que CECHAP, pero en rojo pleno en vez de texto azul) y se llevaba
+// la vista. La salida NO es teñir la de color con `filter: grayscale()`: eso altera un
+// logo institucional, y el manual de estas marcas no lo permite. La propia agencia
+// publica la variante monocroma justamente para este caso.
+//
+// `PLUMA-BLANCO` es la tercera y no sirve acá: es blanca entera (`fill: #fff`) sobre
+// un pie blanco. Está pensada para fondos oscuros.
 const PARTNERS: Logo[] = [
   { src: '/icons/theDialogue.webp', alt: 'The Dialogue', href: 'https://www.thedialogue.org/' },
   { src: '/icons/cechap.webp', alt: 'CECHAP', href: 'https://cechap.up.edu.pe/' },
   {
-    src: '/icons/milenio.webp',
-    alt: 'Núcleo Milenio',
-    href: 'https://anid.cl/centros-e-investigacion-asociativa/nucleos-milenio/'
+    src: '/icons/minciencia-anid.svg',
+    alt: 'Ministerio de Ciencia, Tecnología, Conocimiento e Innovación · ANID',
+    href: 'https://anid.cl/'
   },
   { src: '/icons/ceach.webp', alt: 'CEACH' },
   { src: '/icons/camaraArgentinaChina.webp', alt: 'Cámara Argentino China' },

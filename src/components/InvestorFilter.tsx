@@ -1,5 +1,6 @@
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { formatUsd } from '@/lib/money'
 import { matchesCompany } from '@/lib/sankey'
 import type { CompanyOption, SankeyMetric } from '@/lib/sankey'
 
@@ -92,7 +93,7 @@ export default function InvestorFilter({ options, selected, onChange, metric }: 
                 <span className="min-w-0 flex-1 truncate text-gray-800" title={o.name}>{o.name}</span>
                 <span
                   className="shrink-0 tabular-nums text-xs text-gray-500"
-                  title={metric === 'money' ? `US$ ${fmt.format(o.total)} MM` : `${fmt.format(o.count)}`}
+                  title={metric === 'money' ? formatUsd(o.total, i18n.language) : `${fmt.format(o.count)}`}
                 >
                   {v > 0 ? fmt.format(v) : '—'}
                 </span>

@@ -1,6 +1,7 @@
 import type { Investment } from '@/types/data'
 import i18n from '@/i18n'
 import { sectorColor } from './sectors'
+import { formatUsd } from './money'
 import { studyHref } from './projectDocs'
 
 const escape = (s: string | null | undefined): string => {
@@ -10,11 +11,6 @@ const escape = (s: string | null | undefined): string => {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;')
-}
-
-const formatMoney = (n: number | null | undefined): string => {
-  if (n === null || n === undefined) return '—'
-  return `US$ ${n.toLocaleString('en-US')} MM`
 }
 
 type Lang = 'es' | 'en' | 'cn' | string
@@ -83,7 +79,7 @@ export const buildInvestmentTooltip = (inv: Investment, lang: Lang): string => {
 
   return `<div style="font-family:system-ui,sans-serif;min-width:140px;max-width:220px">
     ${sectorBadge(color, area ?? '')}
-    <div style="font-size:12px;color:#374151;margin-top:3px">${inv.year ?? '—'} · ${formatMoney(inv.investment_musd)}</div>
+    <div style="font-size:12px;color:#374151;margin-top:3px">${inv.year ?? '—'} · ${formatUsd(inv.investment_musd, lang)}</div>
   </div>`
 }
 
@@ -135,7 +131,7 @@ export const buildInvestmentPopup = (inv: Investment, lang: Lang): string => {
         <tr><td style="padding:2px 0;color:#6b7280;width:70px">${L.investor}</td><td style="padding:2px 0;font-weight:600">${escape(inv.investor) || '—'}</td></tr>
         <tr><td style="padding:2px 0;color:#6b7280">${L.year}</td><td style="padding:2px 0">${inv.year ?? '—'}</td></tr>
         <tr><td style="padding:2px 0;color:#6b7280">${L.type}</td><td style="padding:2px 0">${escape(localizedProjectType(inv, lang))}</td></tr>
-        <tr><td style="padding:2px 0;color:#6b7280">${L.amount}</td><td style="padding:2px 0;font-weight:600">${formatMoney(inv.investment_musd)}</td></tr>
+        <tr><td style="padding:2px 0;color:#6b7280">${L.amount}</td><td style="padding:2px 0;font-weight:600">${formatUsd(inv.investment_musd, lang)}</td></tr>
       </tbody>
     </table>
     ${research}

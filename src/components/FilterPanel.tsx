@@ -112,20 +112,31 @@ const toggleInArray = (arr: string[], v: string): string[] =>
 
 // Shared segmented control for type / case studies / map mode. Joined buttons,
 // active = dark fill. Multi-select (type) and single-select (others) both use it.
+//
+// `vertical` apila los botones en vez de repartirlos en una fila. Existe por
+// Construcción: una etiqueta de una palabra («Sin», «Con», «Solo») no dice sin qué,
+// y la frase entera no cabe tres veces en los 256px útiles del panel. Apilado, cada
+// opción es una oración completa y el control se explica sin nota al pie.
 type SegItem<T extends string> = { value: T; label: string }
 function Segmented<T extends string>({
   items,
   isActive,
   onPick,
-  disabled = false
+  disabled = false,
+  vertical = false
 }: {
   items: SegItem<T>[]
   isActive: (v: T) => boolean
   onPick: (v: T) => void
   disabled?: boolean
+  vertical?: boolean
 }) {
   return (
-    <div className={`flex overflow-hidden rounded border border-gray-300 text-xs ${disabled ? 'opacity-40' : ''}`}>
+    <div
+      className={`overflow-hidden rounded border border-gray-300 text-xs ${vertical ? 'block' : 'flex'} ${
+        disabled ? 'opacity-40' : ''
+      }`}
+    >
       {items.map((it, i) => (
         <button
           key={it.value}
@@ -134,7 +145,9 @@ function Segmented<T extends string>({
           disabled={disabled}
           // Hover highlight differs by state on purpose: the active button is dark
           // with white text, so a light hover made its label vanish.
-          className={`flex-1 px-2 py-1.5 ${i > 0 ? 'border-l border-gray-300' : ''} ${
+          className={`${vertical ? 'block w-full px-2.5 py-1.5 text-left' : 'flex-1 px-2 py-1.5'} ${
+            i > 0 ? (vertical ? 'border-t border-gray-300' : 'border-l border-gray-300') : ''
+          } ${
             isActive(it.value)
               ? `bg-gray-900 text-white ${disabled ? '' : 'hover:bg-brand-dark'}`
               : `bg-white text-gray-700 ${disabled ? '' : 'hover:bg-brand hover:text-gray-900'}`
@@ -329,7 +342,11 @@ export default function FilterPanel({ countries, yearMin, yearMax, companies }: 
         jump={jumpFor('filter.construction')}
         help={<HelpTip text={t('filter.construction_help')} label={t('filter.construction')} />}
       >
+        {/* Apilado, no en fila: cada opción es una frase entera («Sin proyectos de
+            construcción»), que es lo único que se lee sin abrir el (?). En fila no
+            entran, y abreviadas a «Sin / Con / Solo» no dicen sin qué. */}
         <Segmented
+          vertical
           items={CONSTRUCTION_FILTERS.map(c => ({ value: c, label: t(`filter.construction_${c}`) }))}
           isActive={c => filters.construction === c}
           onPick={c => setFilters({ construction: c })}

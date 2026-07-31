@@ -2,7 +2,8 @@ import { Fragment, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Investment, ResearchCase } from '@/types/data'
 import { sectorColor } from '@/lib/sectors'
-import { flatList, formatMoney, groupByCountry, localizedArea, localizedDetail, studyHref, type CardSort } from '@/lib/projectDocs'
+import { flatList, groupByCountry, localizedArea, localizedDetail, studyHref, type CardSort } from '@/lib/projectDocs'
+import { formatUsd } from '@/lib/money'
 import { byLocalizedCountry, localizedCountry } from '@/lib/countries'
 import { useFilters } from '@/hooks/useFilters'
 import MiniSegmented from './MiniSegmented'
@@ -112,7 +113,7 @@ function InvRow({
           </span>
         </td>
         <td className="whitespace-nowrap px-2 py-2 align-top text-right tabular-nums text-gray-700">
-          {inv.investment_musd == null ? '—' : `${formatMoney(inv.investment_musd)} MM`}
+          {formatUsd(inv.investment_musd, lang)}
         </td>
         {variant === 'grouped' && (
           <td className="px-2 py-2 align-top text-gray-700">

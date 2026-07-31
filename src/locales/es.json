@@ -20,7 +20,7 @@
   },
   "contact": {
     "title": "Contáctenos",
-    "description": "Agradecemos sus reacciones y contribuciones al Repositorio. Escríbanos por este formulario y le responderán los representantes de ICLAC y el Diálogo Interamericano.",
+    "description": "Agradecemos sus reacciones y contribuciones al Repositorio. Escríbanos por este formulario y le responderán los representantes de ICLAC.",
     "form": {
       "name": "Nombre",
       "email": "Correo electrónico",
@@ -35,7 +35,7 @@
       "or_email": "O escríbanos directamente a",
       "bot": "No complete este campo"
     },
-    "description_mailto": "Agradecemos sus reacciones y contribuciones al Repositorio. Escríbanos directamente por correo a los representantes de ICLAC y el Diálogo Interamericano."
+    "description_mailto": "Agradecemos sus reacciones y contribuciones al Repositorio. Escríbanos directamente por correo a los representantes de ICLAC."
   },
   "footer": {
     "tagline": "Repositorio Regional de Inversiones Chinas en América Latina",
@@ -54,7 +54,7 @@
     },
     "trends": {
       "title": "Tendencias regionales",
-      "body": "En el diagrama mostramos las inversiones chinas por empresa, país y sector. La figura puede utilizarse para detectar tendencias regionales o identificar tendencias específicas por país. El ancho de las líneas representa la métrica elegida arriba: número de proyectos o monto en US$ MM. Las líneas más gruesas corresponden a aquellas empresas chinas que han invertido en la mayor cantidad de proyectos en los países representados y a aquellos sectores que tienen el mayor porcentaje de proyectos asociados.\nCada empresa aparece una sola vez: las filiales se cuentan bajo su matriz y las variantes del mismo nombre se unifican. Se muestran las 20 mayores; el resto se junta en «Otros». Un clic en cualquier nodo filtra por él, y los filtros de país, sector y año se comparten con el mapa."
+      "body": "En el diagrama mostramos las inversiones chinas por empresa, país y sector. La figura puede utilizarse para detectar tendencias regionales o identificar tendencias específicas por país. El ancho de las líneas representa la métrica elegida arriba: número de proyectos o monto invertido. Las líneas más gruesas corresponden a aquellas empresas chinas que han invertido en la mayor cantidad de proyectos en los países representados y a aquellos sectores que tienen el mayor porcentaje de proyectos asociados.\nCada empresa aparece una sola vez: las filiales se cuentan bajo su matriz y las variantes del mismo nombre se unifican. Se muestran las 20 mayores; el resto se junta en «Otros». Un clic en cualquier nodo filtra por él, y los filtros de país, sector y año se comparten con el mapa."
     }
   },
   "sankey": {
@@ -106,10 +106,10 @@
     "project_type": "Tipo",
     "construction": "Construcción",
     "type_off_only": "No aplica mientras se muestre solo construcción.",
-    "construction_exclude": "Excluir",
-    "construction_include": "Incluir",
-    "construction_only": "Solo",
-    "construction_help": "Obras públicas donde empresas chinas ejecutan el proyecto y cobran por el trabajo, pero no quedan como dueñas: la infraestructura es del Estado o de un contratista privado. No calzan con la definición de IED de la OCDE, así que la metodología del Repositorio las cuenta aparte.\nPor eso el total parte excluyéndolas. Con «Incluir», la cifra de arriba pasa a ser IED más construcción; con «Solo», el mapa muestra únicamente estos proyectos.",
+    "construction_exclude": "Sin proyectos de construcción",
+    "construction_include": "Con proyectos de construcción",
+    "construction_only": "Solo proyectos de construcción",
+    "construction_help": "Los proyectos de construcción son contratos de obra pública en los que empresas chinas participan en el diseño, el suministro de materiales o la ejecución material del proyecto, pero no conservan participación ni propiedad sobre él. No califican como IED según la definición de la OCDE, pero se incluyen en nuestros datos para mostrar la magnitud completa de la participación china en el desarrollo de infraestructura de la región.\nLos proyectos de construcción quedan excluidos del mapa por defecto. Elija «Con proyectos de construcción» para sumarlos a las cifras de arriba, o «Solo proyectos de construcción» para ver únicamente estos.",
     "case_studies": "Estudios",
     "sectors": "Sectores",
     "sectors_hint": "Clic para filtrar",
@@ -119,7 +119,8 @@
     "greenfield": "Greenfield",
     "clear_all": "Limpiar filtros",
     "investments_count": "{{count}} inversiones",
-    "total_value": "US$ {{value}} MM",
+    "entries_count": "{{count}} entradas",
+    "construction_count": "{{count}} proyectos de construcción",
     "without_amount": "{{count}} sin monto",
     "isolated": "1 inversión aislada",
     "isolated_exit": "Quitar aislamiento",
@@ -155,7 +156,6 @@
     "area": "Sector",
     "amount": "Monto (US$)",
     "location": "Localidad",
-    "millions": "millones",
     "studies": "Estudios",
     "details": "Detalles",
     "studies_network": "Algunos recursos en chino solo son accesibles para los usuarios dentro de China.",

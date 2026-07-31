@@ -2,7 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { Investment } from '@/types/data'
 import { sectorColor } from '@/lib/sectors'
-import { flatList, formatMoney, groupByCountry, localizedDetail, studyHref, type CardSort } from '@/lib/projectDocs'
+import { flatList, groupByCountry, localizedDetail, studyHref, type CardSort } from '@/lib/projectDocs'
+import { formatUsd } from '@/lib/money'
 import { byLocalizedCountry, localizedCountry } from '@/lib/countries'
 import { useFilters } from '@/hooks/useFilters'
 import MiniSegmented from './MiniSegmented'
@@ -111,7 +112,7 @@ const Card = ({
 
       <div className="mt-0.5 pl-[1.125rem] text-xs text-gray-600">
         <span>
-          {formatMoney(inv.investment_musd)} {t('list.millions')}
+          {formatUsd(inv.investment_musd, lang)}
         </span>
         {inv.location && <span className="text-gray-400"> · {inv.location}</span>}
       </div>
