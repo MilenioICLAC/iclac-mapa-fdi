@@ -172,6 +172,30 @@ const RULE_HELP = {
     fix: 'No requiere acción de tu lado: la propiedad se resuelve en la tabla de inversores, no en esta base. Aviso informativo.',
     tipo: 'a-resolver-nuestro-lado'
   },
+  'fila/sin-puntaje-confiabilidad': {
+    titulo: 'Inversión sin puntaje de confiabilidad',
+    causa: 'La columna reliability_score está vacía en todas las filas de esa inversión: nadie registró cuántas fuentes independientes la respaldan.',
+    fix: 'Asignar el puntaje 0-5 de la rúbrica (es el número de fuentes confiables independientes más uno) y dejar la nota en reliability_notes. Ojo: sin puntaje la inversión se publica igual, así que un vacío deja entrar al mapa algo que nadie evaluó.',
+    tipo: 'contenido'
+  },
+  'fila/puntaje-confiabilidad-invalido': {
+    titulo: 'reliability_score fuera de la rúbrica',
+    causa: 'El valor no es un entero de 0 a 5 (texto, decimal o fuera de rango).',
+    fix: 'Corregir a un entero entre 0 y 5 según la rúbrica.',
+    tipo: 'formato'
+  },
+  'fila/puntaje-confiabilidad-inconsistente': {
+    titulo: 'Puntajes distintos en la misma inversión',
+    causa: 'Las filas de una misma inversión traen reliability_score distintos. El puntaje es de la inversión, no del punto.',
+    fix: 'Dejar el mismo puntaje en todas las filas de ese Id_Investment.',
+    tipo: 'contenido'
+  },
+  'archivo/sin-columna-confiabilidad': {
+    titulo: 'Falta la columna reliability_score',
+    causa: 'El archivo no trae la columna del puntaje de confiabilidad.',
+    fix: 'Agregarla y completarla según la rúbrica 0-5. Sin ella, ninguna inversión del archivo pasa por el chequeo de evidencia.',
+    tipo: 'formato'
+  },
   'fila/inversor-sin-mapear': {
     titulo: 'Inversor nuevo, sin clasificar todavía',
     causa: 'El nombre no está en la tabla de inversores, donde vive la identidad de la empresa y su tipo de propiedad.',

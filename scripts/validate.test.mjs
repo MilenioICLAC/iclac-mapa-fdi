@@ -384,6 +384,56 @@ describe('geometría compartida', () => {
   })
 })
 
+describe('confiabilidad (reliability_score, nunca bloquea)', () => {
+  const scored = (over = {}) => makeRow({ reliability_score: 4, ...over })
+
+  it('archivo sin la columna: un aviso de archivo, no uno por fila', () => {
+    const r = run([makeRow(), makeRow({ Id_Investment: 'CHL-0002', Id_Seq: 2 })])
+    const w = warningsOf(r).filter((x) => x.rule === 'archivo/sin-columna-confiabilidad')
+    expect(w).toHaveLength(1)
+    expect(rules(warningsOf(r))).not.toContain('fila/sin-puntaje-confiabilidad')
+    expect(r.stats.passed).toBe(true)
+  })
+
+  it('inversión sin puntaje avisa UNA vez, aunque tenga muchos puntos', () => {
+    const rows = [
+      scored(),
+      scored({ Id_Investment: 'CHL-0002', Id_Seq: 2, reliability_score: null, Vector: 'Vector', Path: 1, Coordinates: '-33.0, -71.0' }),
+      scored({ Id_Investment: 'CHL-0002', Id_Seq: 2, reliability_score: null, Vector: 'Vector', Path: 1, Coordinates: '-33.1, -71.1' }),
+      scored({ Id_Investment: 'CHL-0002', Id_Seq: 2, reliability_score: null, Vector: 'Vector', Path: 1, Coordinates: '-33.2, -71.2' })
+    ]
+    const w = warningsOf(run(rows)).filter((x) => x.rule === 'fila/sin-puntaje-confiabilidad')
+    expect(w).toHaveLength(1)
+    expect(w[0].message).toContain('CHL-0002')
+  })
+
+  it('el puntaje no bota el archivo ni invalida la fila', () => {
+    const r = run([scored({ reliability_score: null })])
+    expect(errorsOf(r)).toEqual([])
+    expect(r.stats.passed).toBe(true)
+    expect(r.stats.validPct).toBe(100)
+  })
+
+  it('valor fuera de la rúbrica avisa', () => {
+    const r = run([scored({ reliability_score: 7 }), scored({ Id_Investment: 'CHL-0002', Id_Seq: 2, reliability_score: 'alto' })])
+    expect(rules(warningsOf(r)).filter((x) => x === 'fila/puntaje-confiabilidad-invalido')).toHaveLength(2)
+  })
+
+  it('puntajes distintos entre filas de la misma inversión avisan', () => {
+    const rows = [
+      scored({ Vector: 'Vector', Path: 1, reliability_score: 4 }),
+      scored({ Vector: 'Vector', Path: 1, reliability_score: 2, Coordinates: '-33.1, -71.1' })
+    ]
+    const w = warningsOf(run(rows)).filter((x) => x.rule === 'fila/puntaje-confiabilidad-inconsistente')
+    expect(w).toHaveLength(1)
+  })
+
+  it('inversión con puntaje válido no genera aviso', () => {
+    const r = run([scored({ reliability_score: 0 }), scored({ Id_Investment: 'CHL-0002', Id_Seq: 2, reliability_score: 5 })])
+    expect(rules(warningsOf(r)).some((x) => x.startsWith('fila/puntaje') || x === 'fila/sin-puntaje-confiabilidad')).toBe(false)
+  })
+})
+
 describe('umbral', () => {
   it('96% válidas pasa, 94% falla (umbral 95)', () => {
     const mk = (n, bad) =>

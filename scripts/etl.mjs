@@ -22,8 +22,27 @@ const REPO_ROOT = resolve(__dirname, '..')
 const DEFAULT_INPUT = resolve(REPO_ROOT, 'data/sources/countries')
 const DEFAULT_OUTPUT = resolve(REPO_ROOT, 'public/data/investments.json')
 
-const inputPath = process.argv[2] || DEFAULT_INPUT
-const outputPath = process.argv[3] || DEFAULT_OUTPUT
+// Los posicionales se leen SALTANDO las banderas: `npm run etl -- --include-unpublished`
+// deja la bandera en argv[2] y, tomándola como ruta, el ETL intentaba abrir un archivo
+// llamado `--include-unpublished`.
+const positionals = process.argv.slice(2).filter(a => !a.startsWith('--'))
+const inputPath = positionals[0] || DEFAULT_INPUT
+const outputPath = positionals[1] || DEFAULT_OUTPUT
+
+// Umbral de confiabilidad (metodología ICLAC, guía de reliability score del 31-07):
+// el puntaje es el número de fuentes independientes más uno, y "todo lo que quede en
+// 0, 1 o 2 debe volver a revisarse antes de publicarse". El corte es ése: **sale del
+// sitio todo lo que tenga score ≤ 2**, o sea lo que no llega a dos fuentes confiables
+// independientes, y esas inversiones se publican aparte en el anexo de evidencia
+// limitada. `minScore` es el puntaje MÍNIMO que se publica, así que ≤2 fuera = 3.
+// Configurable porque el corte es editorial: `--min-score=0` apaga el filtro.
+const MIN_SCORE_DEFAULT = 3
+const minScoreArg = process.argv.find(a => a.startsWith('--min-score='))
+const minScore = minScoreArg ? Number(minScoreArg.split('=')[1]) : MIN_SCORE_DEFAULT
+if (!Number.isFinite(minScore)) {
+  console.error(`--min-score espera un número; recibí "${minScoreArg}"`)
+  process.exit(1)
+}
 
 const PROJECT_TYPE_CANONICAL = {
   'Adquisición': 'Adquisición',
@@ -99,7 +118,12 @@ const stats = {
   vectorUnresolvedDefaultedToPoint: 0,
   ownershipFromMap: 0,
   ownershipUnknownNoMatch: 0,
-  locationTitleCased: 0
+  locationTitleCased: 0,
+  // Confiabilidad. `rowsNoScore` son filas sin puntaje asignado: NO se retienen,
+  // porque "sin revisar" no es lo mismo que "revisado y sin evidencia".
+  rowsBelowMinScore: 0,
+  rowsNoScore: 0,
+  annexInvestments: 0
 }
 
 const resolveVector = (rawVector) => {
@@ -278,6 +302,14 @@ const cleanRow = row => {
   if (cases.length > 0) hasResearch = true
 
   const investor = cleanStr(row.Investor) ?? cleanStr(row.investor)
+  // Las fuentes son atributo de la inversión, no del punto: constantes en todas las
+  // filas de un id (verificado, 0 ids con variación). Se leen hasta 5 porque la guía
+  // de confiabilidad las contempla, aunque la base hoy trae 3 columnas.
+  const sources = []
+  for (let i = 1; i <= 5; i++) {
+    const s = cleanStr(row[`source${i}`])
+    if (s) sources.push(s)
+  }
   const jointVentureFlag =
     (row.Joint_Venture ?? row['Joint Venture']) === 'Yes' ||
     (row.Joint_Venture ?? row['Joint Venture']) === 'yes'
@@ -313,7 +345,14 @@ const cleanRow = row => {
     research_cases: cases,
     vector_raw: row.Vector ?? null,
     vector_resolved: resolveVector(row.Vector),
-    path_raw: row.Path ?? null
+    path_raw: row.Path ?? null,
+    // Sólo para las descargas y el filtro de confiabilidad: no viajan a
+    // investments.json, que lo carga cada visitante.
+    reliability_score: parseNumber(row.reliability_score),
+    reliability_notes: cleanStr(row.reliability_notes),
+    sources,
+    province_iso: cleanStr(row.Province_ISO),
+    has_news: RESEARCH_YES.has(String(row.News ?? '').trim())
   }
 }
 
@@ -377,22 +416,35 @@ for (const r of rawRows) {
   if (c) cleaned.push(c)
 }
 
-const pointOnlyRows = cleaned.filter(r => r.vector_resolved === 'Punto')
-const groupableRows = cleaned.filter(r => r.vector_resolved === 'Vector')
-
-const candidateGroups = new Map()
-for (const r of groupableRows) {
-  const key = `${r.id}|${r.path_raw ?? ''}`
-  if (!candidateGroups.has(key)) candidateGroups.set(key, [])
-  candidateGroups.get(key).push(r)
+// --- Compuerta de confiabilidad. Es la TERCERA compuerta del pipeline, después de
+// validación y publicación, y responde otra pregunta: "¿la evidencia alcanza?".
+// La contesta la metodología (rúbrica 0-5), no el validador ni el cliente.
+// Fila sin puntaje = todavía no revisada: pasa, y se cuenta aparte.
+const passesScore = r => r.reliability_score === null || r.reliability_score >= minScore
+const cleanedMain = []
+const cleanedAnnex = []
+for (const r of cleaned) {
+  if (r.reliability_score === null) stats.rowsNoScore++
+  if (passesScore(r)) cleanedMain.push(r)
+  else { cleanedAnnex.push(r); stats.rowsBelowMinScore++ }
 }
 
-const output = []
+// Agrupa filas → registros de geometría. Una fila `Punto` es un registro; las filas
+// `Vector` con el mismo `id|Path` son los waypoints de una línea. `countStats` deja
+// fuera del contador global al anexo, que se arma con el mismo código.
+const buildOutput = (rows, { countStats = true } = {}) => {
+  const pointOnlyRows = rows.filter(r => r.vector_resolved === 'Punto')
+  const groupableRows = rows.filter(r => r.vector_resolved === 'Vector')
 
-for (const r of pointOnlyRows) {
-  stats.groupsTotal++
-  stats.groupsAsPoint++
-  output.push({
+  const candidateGroups = new Map()
+  for (const r of groupableRows) {
+    const key = `${r.id}|${r.path_raw ?? ''}`
+    if (!candidateGroups.has(key)) candidateGroups.set(key, [])
+    candidateGroups.get(key).push(r)
+  }
+
+  // Las columnas que no dependen de la geometría se copian de la primera fila del grupo.
+  const record = (r, extra) => ({
     id: r.id,
     year: r.year,
     country: r.country,
@@ -412,94 +464,88 @@ for (const r of pointOnlyRows) {
     has_research: r.has_research,
     research_cases: r.research_cases,
     vector_raw: r.vector_raw,
-    geometry_type: 'point',
-    coordinates: r.coords
+    reliability_score: r.reliability_score,
+    reliability_notes: r.reliability_notes,
+    sources: r.sources,
+    province_iso: r.province_iso,
+    has_news: r.has_news,
+    ...extra
   })
+
+  const out = []
+
+  for (const r of pointOnlyRows) {
+    if (countStats) { stats.groupsTotal++; stats.groupsAsPoint++ }
+    out.push(record(r, { geometry_type: 'point', coordinates: r.coords }))
+  }
+
+  for (const [, groupRows] of candidateGroups) {
+    if (groupRows.length === 1) {
+      const r = groupRows[0]
+      if (countStats) { stats.groupsTotal++; stats.groupsAsPoint++ }
+      out.push(record(r, { geometry_type: 'point', coordinates: r.coords }))
+      continue
+    }
+
+    if (countStats) {
+      stats.groupsTotal++
+      stats.groupsAsLine++
+      if (groupRows.length > stats.maxWaypoints) stats.maxWaypoints = groupRows.length
+    }
+
+    const first = groupRows[0]
+    let mergedHasResearch = false
+    const allCases = []
+    for (const r of groupRows) {
+      if (r.has_research) mergedHasResearch = true
+      allCases.push(...r.research_cases)
+    }
+    // Cada waypoint del vector repite las citaciones de la inversión: acá es donde más
+    // duplicados aparecen. Misma regla que en cleanRow (ver citationKey).
+    const mergedCases = dedupCases(allCases)
+
+    out.push(
+      record(first, {
+        has_research: mergedHasResearch,
+        research_cases: mergedCases,
+        geometry_type: 'line',
+        coordinates: groupRows.map(r => r.coords)
+      })
+    )
+  }
+
+  return out
 }
 
-for (const [, rows] of candidateGroups) {
-  if (rows.length === 1) {
-    const r = rows[0]
-    stats.groupsTotal++
-    stats.groupsAsPoint++
-    output.push({
-      id: r.id,
-      year: r.year,
-      country: r.country,
-      investor: r.investor,
-      area_en: r.area_en,
-      area_es: r.area_es,
-      detail_es: r.detail_es,
-      detail_en: r.detail_en,
-      investment_musd: r.investment_musd,
-      location: r.location,
-      project_type: r.project_type,
-      is_construction: r.is_construction,
-      is_joint_venture: r.is_joint_venture,
-      origin_of_seller: r.origin_of_seller,
-      ownership: r.ownership,
-      stake: r.stake,
-      has_research: r.has_research,
-      research_cases: r.research_cases,
-      vector_raw: r.vector_raw,
-      geometry_type: 'point',
-      coordinates: r.coords
-    })
-    continue
+const output = buildOutput(cleanedMain)
+const annexOutput = buildOutput(cleanedAnnex, { countStats: false })
+stats.annexInvestments = new Set(annexOutput.map(r => r.id)).size
+
+// Estudios de caso por inversión, deduplicados. Se juntan los de TODOS los grupos de
+// geometría del mismo id: una inversión con dos tramos puede traer citas distintas en
+// cada uno, y quedarse con las del primer grupo perdía las del resto.
+const casesById = records => {
+  const byId = new Map()
+  for (const row of records) {
+    if (!row.has_research || !Array.isArray(row.research_cases) || !row.research_cases.length) continue
+    if (!byId.has(row.id)) byId.set(row.id, [])
+    byId.get(row.id).push(...row.research_cases)
   }
-
-  const id = rows[0].id
-  stats.groupsTotal++
-  stats.groupsAsLine++
-  if (rows.length > stats.maxWaypoints) stats.maxWaypoints = rows.length
-
-  const first = rows[0]
-  let mergedHasResearch = false
-  const allCases = []
-  for (const r of rows) {
-    if (r.has_research) mergedHasResearch = true
-    allCases.push(...r.research_cases)
-  }
-  // Cada waypoint del vector repite las citaciones de la inversión: acá es donde más
-  // duplicados aparecen. Misma regla que en cleanRow (ver citationKey).
-  const mergedCases = dedupCases(allCases)
-
-  output.push({
-    id,
-    year: first.year,
-    country: first.country,
-    investor: first.investor,
-    area_en: first.area_en,
-    area_es: first.area_es,
-    detail_es: first.detail_es,
-    detail_en: first.detail_en,
-    investment_musd: first.investment_musd,
-    location: first.location,
-    project_type: first.project_type,
-    is_construction: first.is_construction,
-    is_joint_venture: first.is_joint_venture,
-    origin_of_seller: first.origin_of_seller,
-    ownership: first.ownership,
-    stake: first.stake,
-    has_research: mergedHasResearch,
-    research_cases: mergedCases,
-    vector_raw: first.vector_raw,
-    geometry_type: 'line',
-    coordinates: rows.map(r => r.coords)
-  })
+  const out = {}
+  for (const [id, cases] of byId) out[id] = dedupCases(cases)
+  return out
 }
 
 // Split payload: research_cases is heavy (~13 MB, 71% of the file) and repeats
 // across the multi-site rows of each investment. Strip it from investments.json
 // (map/sankey never render it) and emit it deduped-by-id in research.json, which
 // the Fichas panel / popups load and join on id. See docs/generales/pipeline_datos.md.
-const researchById = {}
-for (const row of output) {
-  if (row.has_research && Array.isArray(row.research_cases) && row.research_cases.length && !researchById[row.id]) {
-    researchById[row.id] = row.research_cases
-  }
-}
-const leanOutput = output.map(({ research_cases, ...rest }) => rest)
+const researchById = casesById(output)
+// Las columnas de procedencia (puntaje, fuentes, notas) son de las descargas: en el
+// JSON del sitio serían peso muerto para cada visitante, porque no se renderizan.
+const leanOutput = output.map(
+  ({ research_cases, reliability_score, reliability_notes, sources, province_iso, has_news, ...rest }) => rest
+)
 const researchPath = resolve(dirname(outputPath), 'research.json')
 
 mkdirSync(dirname(outputPath), { recursive: true })
@@ -516,40 +562,139 @@ for (const [k, v] of [...sectorMap.entries()].sort((a, b) => b[1] - a[1])) {
 console.log(`\nOutput: ${outputPath}`)
 console.log(`File size: ${(JSON.stringify(leanOutput).length / 1024).toFixed(1)} KB`)
 
-// --- Descarga pública en XLSX. Se arma acá, en build, y no en el navegador: los datos
+// --- Descargas públicas en XLSX. Se arman acá, en build, y no en el navegador: los datos
 // ya están unidos en memoria, el cliente se ahorra ~430 KB de SheetJS en el bundle y el
 // archivo que baja el público es exactamente el que produjo este ETL.
-// `coordinates` se abre en lat/lng porque una celda con "[-23.4,-66.7]" no sirve para
-// nada en una planilla; los estudios de caso van en su propia hoja, unidos por id.
-const xlsxPath = resolve(dirname(outputPath), 'iclac_inversiones_china_latam.xlsx')
-const sheetRows = leanOutput.map(({ coordinates, ...rest }) => ({
-  ...rest,
-  lat: Array.isArray(coordinates) ? coordinates[0] : null,
-  lng: Array.isArray(coordinates) ? coordinates[1] : null
-}))
-const caseRows = []
-for (const [id, cases] of Object.entries(researchById)) {
-  for (const c of cases) caseRows.push({ id_investment: id, case_study: c.caso ?? '', link: c.link ?? '' })
+//
+// TRES HOJAS DE DATOS, UNA UNIDAD CADA UNA (cambio del 31-07). Antes `investments` traía
+// una fila por punto —6.920 filas para 450 inversiones, una sola de ellas con 5.144—, así
+// que sumar la columna de monto sin deduplicar daba una cifra inflada, y las 70 inversiones
+// de traza lineal salían con lat/lng vacíos porque `coordinates[0]` era un par anidado.
+// Ahora: `investments` una fila por inversión, `sites` la geometría completa (12.446
+// vértices en vez de 6.754 coordenadas publicadas), `case_studies` los estudios. Se unen
+// por `id`. De paso el archivo pesa la mitad: los textos largos dejan de repetirse.
+const CITATION =
+  'Francisco Urdinez and Margaret Myers (2024) "Regional Repository of Chinese Investments in Latin America", ICLAC and Inter-American Dialogue.'
+
+const buildWorkbook = (records, { readmeExtras = [] } = {}) => {
+  const byId = new Map()
+  const siteRows = []
+  for (const r of records) {
+    if (!byId.has(r.id)) {
+      byId.set(r.id, {
+        id: r.id,
+        year: r.year,
+        country: r.country,
+        investor: r.investor,
+        ownership: r.ownership,
+        area_en: r.area_en,
+        area_es: r.area_es,
+        detail_es: r.detail_es,
+        detail_en: r.detail_en,
+        investment_musd: r.investment_musd,
+        location: r.location,
+        province_iso: r.province_iso,
+        project_type: r.project_type,
+        is_construction: r.is_construction,
+        is_joint_venture: r.is_joint_venture,
+        origin_of_seller: r.origin_of_seller,
+        stake: r.stake,
+        has_research: r.has_research,
+        has_news: r.has_news,
+        reliability_score: r.reliability_score,
+        source1: r.sources[0] ?? null,
+        source2: r.sources[1] ?? null,
+        source3: r.sources[2] ?? null,
+        source4: r.sources[3] ?? null,
+        source5: r.sources[4] ?? null,
+        reliability_notes: r.reliability_notes,
+        geometry_type: r.geometry_type,
+        n_sites: 0
+      })
+    }
+    const inv = byId.get(r.id)
+    inv.has_research = inv.has_research || r.has_research
+    // Una inversión con un tramo lineal y puntos sueltos no es ninguno de los dos.
+    if (inv.geometry_type !== r.geometry_type) inv.geometry_type = 'mixed'
+    inv.n_sites++
+    const vertices = r.geometry_type === 'line' ? r.coordinates : [r.coordinates]
+    vertices.forEach(([lat, lng], i) => {
+      siteRows.push({ id_investment: r.id, site_n: inv.n_sites, vertex_n: i + 1, lat, lng })
+    })
+  }
+  const invRows = [...byId.values()]
+
+  // Columnas que quedarían enteras en blanco (source4-5 hoy, notas en la base principal)
+  // se sacan: una planilla con columnas vacías se lee como dato faltante y no como
+  // columna que no aplica.
+  const emptyCols = Object.keys(invRows[0] ?? {}).filter(k => invRows.every(r => r[k] === null || r[k] === undefined))
+  const trimmed = invRows.map(r => {
+    const o = {}
+    for (const [k, v] of Object.entries(r)) if (!emptyCols.includes(k)) o[k] = v
+    return o
+  })
+
+  const caseRows = []
+  for (const [id, cases] of Object.entries(casesById(records))) {
+    for (const c of cases) caseRows.push({ id_investment: id, case_study: c.caso ?? '', link: c.link ?? '' })
+  }
+
+  const readme = [
+    { field: 'dataset', value: 'Regional Repository of Chinese Investments in Latin America' },
+    { field: 'source', value: 'ICLAC + Inter-American Dialogue' },
+    { field: 'generated', value: new Date().toISOString().slice(0, 10) },
+    ...readmeExtras,
+    { field: 'investments', value: trimmed.length },
+    { field: 'sites', value: siteRows.length },
+    { field: 'case_studies', value: caseRows.length },
+    { field: 'citation', value: CITATION },
+    {
+      field: 'structure',
+      value:
+        'Sheet "investments": one row per investment (id is unique, amounts are safe to sum). Sheet "sites": one row per mapped coordinate, join on id_investment. Sheet "case_studies": one row per study, join on id_investment.'
+    },
+    {
+      field: 'reliability_score',
+      value:
+        'Ordinal 0-5: number of independent reliable sources confirming the investment, plus one. 5 = four or more primary sources; 2 = one reliable source; 0 = doubtful. ICLAC methodology.'
+    },
+    { field: 'investment_musd', value: 'Investment amount in millions of USD.' }
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(readme), 'README')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(trimmed), 'investments')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(siteRows), 'sites')
+  XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(caseRows), 'case_studies')
+  return { wb, investments: trimmed.length, sites: siteRows.length, cases: caseRows.length }
 }
-const readme = [
-  { field: 'dataset', value: 'Regional Repository of Chinese Investments in Latin America' },
-  { field: 'source', value: 'ICLAC + Inter-American Dialogue' },
-  { field: 'generated', value: new Date().toISOString().slice(0, 10) },
-  { field: 'investments', value: sheetRows.length },
-  { field: 'case_studies', value: caseRows.length },
-  {
-    field: 'citation',
-    value:
-      'Francisco Urdinez and Margaret Myers (2024) "Regional Repository of Chinese Investments in Latin America", ICLAC and Inter-American Dialogue.'
-  },
-  { field: 'note', value: 'One row per site: multi-site investments repeat the id and the full amount. Dedupe by id before summing.' }
-]
-const wb = XLSX.utils.book_new()
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(readme), 'README')
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sheetRows), 'investments')
-XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(caseRows), 'case_studies')
-XLSX.writeFile(wb, xlsxPath)
-console.log(`XLSX público: ${xlsxPath} (${sheetRows.length} filas + ${caseRows.length} estudios)`)
+
+const xlsxPath = resolve(dirname(outputPath), 'iclac_inversiones_china_latam.xlsx')
+const main = buildWorkbook(output, {
+  readmeExtras: [
+    {
+      field: 'scope',
+      value: `Investments with reliability_score >= ${minScore}, or not yet scored. Those below the threshold are published separately in the limited-evidence annex.`
+    }
+  ]
+})
+XLSX.writeFile(main.wb, xlsxPath)
+console.log(`XLSX público: ${xlsxPath} (${main.investments} inversiones · ${main.sites} sitios · ${main.cases} estudios)`)
+
+// --- Anexo de evidencia limitada. Mismas hojas y mismas columnas que la base principal,
+// para que se puedan concatenar. Se emite siempre, aunque quede vacío: un archivo que
+// desaparece del sitio cuando no hay filas rompe el enlace publicado.
+const annexPath = resolve(dirname(outputPath), 'iclac_anexo_evidencia_limitada.xlsx')
+const annex = buildWorkbook(annexOutput, {
+  readmeExtras: [
+    {
+      field: 'scope',
+      value: `Investments recorded in the ICLAC base whose documentary evidence falls below the repository threshold (reliability_score < ${minScore}): no independent source confirms the amount or the type of transaction. Published for traceability. NOT included in the main dataset, the map, or the aggregate figures.`
+    }
+  ]
+})
+XLSX.writeFile(annex.wb, annexPath)
+console.log(`XLSX anexo: ${annexPath} (${annex.investments} inversiones · ${annex.sites} sitios · ${annex.cases} estudios)`)
 
 // --- investors_map.json: emit the map already loaded above (source of truth for
 // both the Sankey and the ownership derived into investments.json). Keyed by

@@ -14,9 +14,13 @@
   },
   "downloads": {
     "title": "Our data",
-    "description": "<p>Chile's Millennium Nucleus on the Impacts of China in Latin America and the Caribbean (ICLAC), the Inter-American Dialogue, and our partners are pleased to make our Chinese foreign direct investment data available to researchers and other users of the Repository.</p><p>The full dataset —every investment across all countries in a single file— is available for download above. As we add new countries, they will be incorporated into the same dataset.</p><p>We welcome you to submit contributions or corrections through the Contact page. We are grateful for your help keeping our data as accurate and up to date as possible.</p>",
+    "description": "<p>Chile's Millennium Nucleus on the Impacts of China in Latin America and the Caribbean (ICLAC), the Inter-American Dialogue, and our partners are pleased to make our Chinese foreign direct investment data available to researchers and other users of the Repository.</p><p>The full dataset —every investment across all countries in a single file— is available for download above. As we add new countries, they will be incorporated into the same dataset.</p><p>The file has three data sheets: <em>investments</em>, one row per investment; <em>sites</em>, the coordinates of every mapped site; and <em>case_studies</em>, the associated studies. All three join on the investment identifier.</p><p>We welcome you to submit contributions or corrections through the Contact page. We are grateful for your help keeping our data as accurate and up to date as possible.</p>",
     "link": "Download full dataset",
-    "format": "XLSX format · every investment (with case studies), all countries"
+    "format": "XLSX format · one row per investment, plus the sites and case study sheets",
+    "annex_title": "Annex: limited evidence",
+    "annex_description": "<p>Investments recorded in the base whose documentary evidence falls below the Repository threshold: no independent source confirms the amount or the type of transaction. Some are announced projects that were never carried out: memoranda of understanding, tenders that were never awarded, or works that never broke ground. They are published separately, with their reliability score and their sources, so that the record stays complete and traceable.</p><p>They are not part of the full dataset, nor of the figures shown in the map and Trends.</p>",
+    "annex_link": "Download the annex",
+    "annex_format": "XLSX format · same sheets and columns as the full dataset"
   },
   "contact": {
     "title": "Contact Us",

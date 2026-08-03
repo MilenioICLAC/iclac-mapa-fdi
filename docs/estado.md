@@ -7,7 +7,7 @@ leerse.
 Las reglas de código que no caducan están en `.claude/CLAUDE.md`. El contrato de datos, en
 `data/schema/schema.md`.
 
-**Última actualización:** 2026-07-30.
+**Última actualización:** 2026-07-31.
 
 El sitio está publicado en **https://app.iclac.cl**. Cómo quedó montado, en `docs/traspaso.md`.
 
@@ -25,10 +25,16 @@ Hace falta designar quién la mantiene. Mientras tanto el sitio no se rompe: un 
 propiedad desconocida y aparece listado por el validador y por
 `node scripts/check_investor_coverage.mjs`.
 
-Tres empresas esperan un veredicto de propiedad, marcadas con `REVISAR` en el CSV: Texhong/Danasun
-(dos empresas en una misma celda, capital chino-hongkonés), Chaoyang Petroleum (vehículo registrado
-en las Islas Vírgenes Británicas) y American Recycling (nombre no chino). Las tres pertenecen a
-países que hoy no se publican, así que no corren prisa.
+Quedan cuatro empresas sin propiedad determinada, y **ninguna aparece hoy en el sitio**: Texhong/
+Danasun (dos empresas en una misma celda, capital chino-hongkonés), Chaoyang Petroleum (vehículo
+registrado en las Islas Vírgenes Británicas) y American Recycling (nombre no chino) son de países
+retenidos; Maverick Motos salió con la compuerta de confiabilidad y la revisión externa no le
+encontró vínculo con un inversor chino.
+
+Las otras 14 que estaban sin determinar se resolvieron el 31-07 con los veredictos de la revisión
+externa, que llevaban una semana en `docs/sprint_5/ownership_review_ywedits.xlsx` sin cargarse
+(`node scripts/one-off/apply_ownership_unknown_verdicts.mjs`). **La categoría «Undetermined» del
+filtro de propiedad quedó en cero inversiones.**
 
 ### 1.2 Qué países nuevos se publican
 
@@ -60,6 +66,16 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
   a 2025. Es una línea por idioma en `common.citation_text`.
 - **Investigación y noticias:** falta definir si las noticias van en una columna aparte o se
   excluyen.
+- **`Research`/`News` no reflejan `source1..3`:** 290 de las 465 inversiones tienen los dos flags en
+  `No` y a la vez fuentes cargadas (US$103.824 MM; Brasil 145, Chile 42, Argentina 36). Son dos
+  sistemas de documentación que nunca se cruzaron, y el sitio lee solo el viejo, así que esas
+  inversiones se ven sin respaldo aunque lo tengan. La pregunta es metodológica: ¿una URL en
+  `source*` cuenta como noticia o estudio, o son dimensiones distintas? Planilla del caso en
+  `docs/sprint_5/research_news_vs_sources_31072026.xlsx`, regenerable con
+  `node scripts/one-off/export_research_news_gap.mjs`. Nada modificado de nuestro lado.
+- **Umbral de confiabilidad:** el corte deja fuera del sitio todo lo que tenga
+  `reliability_score ≤ 2`, o sea lo que no llega a dos fuentes confiables independientes, y se puede
+  mover con `--min-score`. Falta que ICLAC lo confirme.
 - **Consorcio y joint venture no son lo mismo:** un consorcio son varias empresas chinas asociadas;
   un joint venture tiene socio local. El dato existe para los dos; falta decidir cuál de los dos se
   ofrece como filtro en el sitio.
@@ -99,6 +115,11 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
 
 ### 2.3 Datos y pipeline
 
+- **La pestaña Datos ofrece dos archivos desde el 31-07** y el ETL los arma en cada build: el dataset
+  completo y el «Anexo: evidencia limitada», con las inversiones de `reliability_score ≤ 2` (hoy 64,
+  US$9.424 MM). Los dos tienen las mismas cuatro hojas —`README`, `investments` (una fila por inversión), `sites` (una por
+  coordenada), `case_studies`— para que se puedan concatenar. Si alguien cambia la forma de las filas
+  del ETL, cambian las dos descargas y el texto de la pestaña que las describe.
 - **Notificación por correo cuando la validación falla.** Hoy el resultado se ve en el informe de
   Pages y en la pestaña Actions. Sin decidir entre la notificación nativa de GitHub, un comentario
   con mención, o correo saliente.

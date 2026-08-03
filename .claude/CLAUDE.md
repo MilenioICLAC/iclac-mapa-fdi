@@ -48,12 +48,15 @@ Entender esto explica la mitad de las decisiones del repositorio.
 3. **Netlify reconstruye** el sitio. El ETL transforma los XLSX en los JSON que consume el frontend.
 4. **Solo entran al sitio los países que pasan la validación y están marcados para publicar.**
 
-El punto 4 son dos compuertas distintas, y confundirlas costó rehacer trabajo:
+El punto 4 son **tres** compuertas distintas, y confundirlas costó rehacer trabajo:
 
 | Compuerta | Pregunta | La contesta | Vive en |
 |---|---|---|---|
 | Validación | ¿el dato está bien? | el validador, mecánicamente | reglas de `schema.md` |
 | Publicación | ¿lo mostramos ya? | ICLAC, por decisión editorial | columna `publish` de `data/schema/countries.csv` |
+| Confiabilidad | ¿la evidencia alcanza? | la metodología, por rúbrica | `reliability_score` de la base + `minScore` del ETL |
+
+Las dos primeras son por **país**; la tercera es por **inversión**.
 
 Un país con `publish=no` **se sigue validando** y aparece en el informe como «PASA · RETENIDO», pero
 el ETL no lo ingesta y `build_borders` no le arma el polígono (si no, quedaría un país vacío
@@ -138,7 +141,10 @@ panel. Las combinaciones de la tabla dan entre 5,4:1 y 6:1, medidas en navegador
 
 Antes de escribir uno nuevo, revisar estos (todos en `src/components/`):
 
-- `Segmented` (dentro de `FilterPanel.tsx`) — botones unidos, activo en oscuro. Acepta `disabled`.
+- `Segmented` (dentro de `FilterPanel.tsx`) — botones unidos, activo en oscuro. Acepta `disabled` y
+  `vertical`, que apila en vez de repartir en fila. Vertical existe por Construcción: en 256 px útiles
+  (205 en la banda del 80%) no entran tres frases, y abreviadas a «Sin / Con / Solo» no dicen sin qué.
+  Apilado cada opción es una oración entera y el control no necesita nota al pie.
 - `MiniSegmented.tsx` — la misma idea en chico, para las cabeceras del listado y del mapa.
 - `ProjectSearchBox.tsx` — buscador del listado. Lo usan Fichas **y** Tabla; escribe `filters.query`.
 - `HelpTip.tsx` — el `(?)` chico, para **un control**. Abre por **clic**, no hover (en touch no hay
@@ -186,6 +192,16 @@ falla ruidosamente: `localeCompare(a, b, 'cn')` cae a orden de codepoint, que no
 trazos (la lista de países salía 乌拉圭 antes que 阿根廷). Para cualquier `Intl` pasar `intlLocale(lang)`
 de `lib/countries.ts`. Y **ordenar por el nombre mostrado**, no por el crudo: ordenar por el inglés
 deja la lista arbitraria en los otros dos idiomas.
+
+**Ningún locale se escribe a mano, y los montos salen todos de `lib/money.ts`.** Un locale literal en
+un `Intl` o en un `toLocaleString` no falla: formatea, y formatea mal en los otros dos idiomas. Estuvo
+publicado: la caja de totales del mapa tenía `'es-CL'` fijo, así que en inglés mostraba `US$ 229.022 MM`
+—que en inglés es 229 coma cero dos dos— mientras Tendencias, que sí usaba el idioma activo, decía
+`229,022` para la misma cifra. Los popups y el listado tenían `'en-US'` fijo y hacían lo simétrico en
+español (`US$ 2,530 MM` para 2.530 millones, que se lee 2,53). Cinco lugares con el locale a mano, dos
+apuntando a lados opuestos. `money.ts` recibe el idioma y usa `compactDisplay: 'long'`, o sea que
+**la unidad la elige el idioma**: el chino agrupa en 亿 (10⁸) y no en el corte occidental de 10⁹.
+La base guarda `Investment` en **millones de USD**; el sitio nunca muestra esa cifra cruda.
 
 **Todo lo flotante va portalizado a `<body>`.** `position: fixed` solo es relativo al viewport si
 **ningún** ancestro tiene `transform`, `filter` o `backdrop-filter`. La caja de totales del mapa usa
@@ -292,11 +308,23 @@ Antes de agregar un umbral geográfico nuevo: preguntarse si esa referencia ya e
 ## Colores por sector
 
 ```
-Energy:        rgba(153,17,17,1)      Infrastructure: rgba(255,169,42,1)
-Manufacturing: rgba(95,25,58,1)       Agroindustry:   rgba(245,106,14,1)
-Mining:        rgba(9,49,77,1)        Finance:        rgba(173,77,14,1)
-RealEstate:    rgba(53,107,126,1)     ICT:            rgba(12,202,188,1)
+Energy:        rgba(198,42,75,1)      Infrastructure: rgba(221,119,75,1)
+Manufacturing: rgba(125,46,103,1)     Agroindustry:   rgba(24,108,5,1)
+Mining:        rgba(5,115,160,1)      Finance:        rgba(176,129,197,1)
+RealEstate:    rgba(60,57,182,1)      ICT:            rgba(81,124,254,1)
 ```
+
+**Los ocho son un conjunto, no ocho decisiones sueltas.** Cambiar uno solo rompe el
+conjunto: la paleta anterior tenía Energy y Finance a ΔE 11,4 en **visión normal** (piso
+15), y bajo protanopia cuatro sectores colapsaban al mismo verde oliva. Esta se generó
+maximizando la separación del par más parecido sujeto a banda de luminosidad, piso de
+croma, contraste ≥ 3:1 contra el basemap y ΔE ≥ 15 contra `brand`, para que ningún sector
+se confunda con el hover. Antes de tocar un color, correr el validador de la skill
+`dataviz` sobre los ocho: `node scripts/validate_palette.js "<hex,…>" --mode light --pairs
+all` (**`--pairs all`, no el default**: en un mapa cualquier par puede quedar contiguo).
+Que la paleta cargue al azul es forzado, no estético — bajo daltonismo el arco cálido
+colapsa. Los ocho valores viven en tres archivos que van en lockstep: `lib/sectors.ts`,
+este bloque y la tabla de `data/schema/sectores.md`.
 
 ## Convenciones
 
@@ -340,10 +368,14 @@ que se arrastraban y conviene no reintroducir:
 Los que forman parte de la operación:
 
 - `npm run etl` (`scripts/etl.mjs`) — XLSX → `public/data/investments.json`. Corre en cada build. Lee
-  el directorio de países y **filtra por las dos compuertas**: validación (`--no-filter` la salta) y
-  publicación (`--include-unpublished` la salta). También emite la descarga pública
-  `public/data/iclac_inversiones_china_latam.xlsx`, que es el archivo que sirve la pestaña Datos: si
-  cambia la forma de las filas, cambia la descarga.
+  el directorio de países y **filtra por las tres compuertas**: validación (`--no-filter` la salta),
+  publicación (`--include-unpublished` la salta) y confiabilidad (`--min-score=N`, default 3, o sea
+  **sale del sitio todo lo que tenga score ≤ 2**; `--min-score=0` la apaga). Las banderas se leen aparte de los posicionales, así que
+  `npm run etl -- --include-unpublished` funciona sin pasar rutas. También emite **las dos descargas**
+  que sirve la pestaña Datos: `iclac_inversiones_china_latam.xlsx` y
+  `iclac_anexo_evidencia_limitada.xlsx`, con las mismas cuatro hojas —`README`, `investments` (una
+  fila por inversión), `sites` (una fila por coordenada), `case_studies`— para que se concatenen. Si
+  cambia la forma de las filas, cambian las dos descargas.
 - `npm run validate` (`scripts/validate_data.mjs`, núcleo en `scripts/lib/validate.mjs`) — valida los
   XLSX por país contra `data/schema/schema.md`. Corre en GitHub Actions y alimenta el informe de
   Pages. Acepta un directorio o archivos sueltos. El núcleo es **puro**: recibe el registro de

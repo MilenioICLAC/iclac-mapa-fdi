@@ -146,6 +146,9 @@ Obligatoriedad:
 | `News` | enum | **req** | `Yes` \| `No` | `Yes` si el enlace es **noticia** y no estudio — columna aparte de `Research`. Nueva en v1.2 (ya implementada en la entrega 26/06). Ver §6. |
 | `Caso1`…`Caso14` | texto | opt | título del estudio/fuente | Ver §6. |
 | `Link1`…`Link14` | texto | opt | URL (`http…`) | Pareado con `CasoN`. La **URL va aquí**, no en `CasoN`. |
+| `reliability_score` | entero | opt | `0`–`5` | Puntaje de confiabilidad de la rúbrica ICLAC: número de fuentes independientes que confirman la operación, más uno. **Es de la inversión, no del punto**: mismo valor en todas las filas de un `Id_Investment`. **Con `≤ 2` la inversión no entra al sitio**, se publica en el anexo de evidencia limitada. Vacío = todavía sin revisar: entra igual, y el validador lo avisa. |
+| `reliability_notes` | texto | opt | | Por qué ese puntaje y no otro, en español. Qué confirma cada fuente y qué queda sin confirmar. |
+| `source1`…`source5` | texto | opt | URL (`http…`) | Las fuentes que sostienen el puntaje. Igual que el puntaje, se repiten en todas las filas de la inversión. |
 
 ### Columnas que NO deben ir (eliminar antes de entregar)
 
@@ -304,6 +307,9 @@ Research             enum   req   {Yes,No}
 News                 enum   req   {Yes,No}
 Caso1..Caso14        text   opt
 Link1..Link14        text   opt   url-if-present ; pairs-with CasoN
+reliability_score    int    opt   [0,5] ; constante por Id_Investment ; <=2 => anexo
+reliability_notes    text   opt
+source1..source5     text   opt   url-if-present
 ```
 
 Columnas prohibidas (error si aparecen): `Acquisition`, `Greenfield`, `Construction`,

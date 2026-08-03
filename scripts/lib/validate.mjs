@@ -94,6 +94,11 @@ const REQUIRED_SOFT_COLUMNS = ['Id_Seq', 'News']
 const KNOWN_OPTIONAL = new Set([
   'Province_ISO', 'Detail_ES', 'Detail_EN', 'Investment', 'Location',
   'Joint_Venture', 'Origin_Of_Seller', 'Stake',
+  // Confiabilidad: puntaje, nota y fuentes. Opcionales en el contrato, pero
+  // conocidas: sin esto el informe las listaba como "columna extra que el
+  // sistema ignora", justo lo contrario de lo que pasa desde el 31-07.
+  'reliability_score', 'reliability_notes',
+  ...Array.from({ length: 5 }, (_, i) => `source${i + 1}`),
   ...Array.from({ length: 14 }, (_, i) => `Caso${i + 1}`),
   ...Array.from({ length: 14 }, (_, i) => `Link${i + 1}`)
 ])
@@ -287,6 +292,7 @@ export const validateRows = (rows, opts = {}) => {
   // Estado inter-fila
   const rowValid = new Array(rows.length).fill(true)
   const idMeta = new Map() // id -> { country, investor, year, amount, row }
+  const scoreSeen = new Map() // id -> { row, values:Set(reliability_score crudo), investor }
   const lineMeta = new Map() // `${id}|${path}` (Vector) -> { detail, amount, area, row }
   const coordToIds = new Map() // coordKey -> Map(id -> primera fila)
   const investorSeen = new Map() // Investor tal cual viene -> { row, count }
@@ -564,6 +570,16 @@ export const validateRows = (rows, opts = {}) => {
         const m = coordToIds.get(k)
         if (!m.has(id)) m.set(id, excelRow)
       }
+
+      // -- Confiabilidad: se acumula por inversión, no por fila --
+      // El puntaje es atributo de la inversión y se repite en cada punto: avisar
+      // fila por fila llenaría el informe con la misma inversión 600 veces.
+      if (hasCol('reliability_score')) {
+        const raw = cleanStr(row.reliability_score)
+        const prevScore = scoreSeen.get(id)
+        if (!prevScore) scoreSeen.set(id, { row: excelRow, values: new Set([raw]), investor: cleanStr(row.Investor) })
+        else prevScore.values.add(raw)
+      }
     }
   })
 
@@ -584,6 +600,38 @@ export const validateRows = (rows, opts = {}) => {
     const [a, b] = key.split('|')
     push('warning', 'archivo/geometria-compartida', idMeta.get(a)?.row ?? 0, 'Coordinates', `${a} + ${b}`,
       `Las inversiones "${a}" y "${b}" comparten ${shared} coordenadas idénticas: revisar si son la misma operación registrada dos veces (ej: anuncio y cierre) o etapas legítimas del mismo proyecto.`)
+  }
+
+  // ---- Post-pass: confiabilidad (reliability_score) ----
+  // Nunca bloquea: es cola de trabajo del equipo de investigación, igual que la
+  // tabla de inversores. Tres avisos distintos, uno por inversión y no por fila.
+  //
+  // Consecuencia de cada uno, que es lo que hay que dejar claro en el informe:
+  // sin puntaje la inversión SE PUBLICA (el ETL trata "sin revisar" distinto de
+  // "revisada y sin evidencia"), así que un vacío no es inocuo: es una inversión
+  // que entra al mapa sin haber pasado por la rúbrica.
+  if (!hasCol('reliability_score')) {
+    push('warning', 'archivo/sin-columna-confiabilidad', 0, 'reliability_score', null,
+      'Falta la columna "reliability_score": ninguna inversión del archivo pasa por el chequeo de confiabilidad y todas se publican sin evaluar. Ver la guía de reliability score (rúbrica 0-5).')
+  } else {
+    for (const [id, meta] of scoreSeen) {
+      const values = [...meta.values]
+      const filled = values.filter((v) => v !== null)
+      if (filled.length === 0) {
+        push('warning', 'fila/sin-puntaje-confiabilidad', meta.row, 'reliability_score', null,
+          `La inversión "${id}"${meta.investor ? ` (${meta.investor})` : ''} no tiene reliability_score: se publica igual, pero sin pasar por el chequeo de evidencia. Asignar el puntaje 0-5 según la rúbrica.`)
+        continue
+      }
+      const invalid = filled.filter((v) => !/^[0-5]$/.test(v))
+      if (invalid.length) {
+        push('warning', 'fila/puntaje-confiabilidad-invalido', meta.row, 'reliability_score', invalid[0],
+          `reliability_score "${invalid[0]}" en la inversión "${id}": la rúbrica va de 0 a 5, en números enteros.`)
+      }
+      if (new Set(filled).size > 1) {
+        push('warning', 'fila/puntaje-confiabilidad-inconsistente', meta.row, 'reliability_score', filled.join(' / '),
+          `La inversión "${id}" tiene puntajes distintos entre sus filas (${filled.join(', ')}): el puntaje es de la inversión y debe repetirse igual en cada punto.`)
+      }
+    }
   }
 
   // ---- Post-pass: inversores que no están en la tabla de inversores ----

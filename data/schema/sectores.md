@@ -18,14 +18,14 @@ Enum cerrado para `Area_EN` / `Area_ES` en `schema.md`. Dimensión de color, ley
 
 | `Area_EN` | `Area_ES` | Color (rgba) | Nota |
 |---|---|---|---|
-| `Energy` | `Energía` | `rgba(153,17,17,1)` | |
-| `Manufacturing` | `Manufactura` | `rgba(95,25,58,1)` | locale viejo decía "Manufacturas" |
-| `Real Estate` | `Bienes Raíces` | `rgba(53,107,126,1)` | se mantiene (Services rechazado) |
-| `Mining` | `Minería` | `rgba(9,49,77,1)` | |
-| `ICT` | `TIC` | `rgba(12,202,188,1)` | |
-| `Agroindustry` | `Agronegocios` | `rgba(245,106,14,1)` | metodología EN = "agribusiness" |
-| `Finance` | `Finanzas` | `rgba(173,77,14,1)` | |
-| `Infrastructure` | `Infraestructura` | `rgba(255,169,42,1)` | = construction/infrastructure projects; **monto excluido del FDI total** |
+| `Energy` | `Energía` | `rgba(198,42,75,1)` | |
+| `Manufacturing` | `Manufactura` | `rgba(125,46,103,1)` | locale viejo decía "Manufacturas" |
+| `Real Estate` | `Bienes Raíces` | `rgba(60,57,182,1)` | se mantiene (Services rechazado) |
+| `Mining` | `Minería` | `rgba(5,115,160,1)` | |
+| `ICT` | `TIC` | `rgba(81,124,254,1)` | |
+| `Agroindustry` | `Agronegocios` | `rgba(24,108,5,1)` | metodología EN = "agribusiness" |
+| `Finance` | `Finanzas` | `rgba(176,129,197,1)` | |
+| `Infrastructure` | `Infraestructura` | `rgba(221,119,75,1)` | = construction/infrastructure projects; **monto excluido del FDI total** |
 
 ## La 8ª categoría: `Infrastructure` = `Infraestructura` (FDI-excluded)
 
