@@ -7,34 +7,69 @@ leerse.
 Las reglas de código que no caducan están en `.claude/CLAUDE.md`. El contrato de datos, en
 `data/schema/schema.md`.
 
-**Última actualización:** 2026-07-31.
+**Última actualización:** 2026-08-03.
 
 El sitio está publicado en **https://app.iclac.cl**. Cómo quedó montado, en `docs/traspaso.md`.
 
 ---
 
+## 0. Lo que cambia en el sitio en el próximo deploy
+
+**Un consorcio dejó de tener propiedad propia.** Es un acuerdo entre empresas y no una empresa, así
+que su fila lleva `ownership` vacío y el sitio la resuelve desde sus miembros al filtrar. Una
+inversión de consorcio aparece si **cualquiera** de sus miembros es del tipo pedido.
+
+| Filtro | Antes | Ahora |
+|---|---|---|
+| Estatal central | 205 · US$153.717 MM | **220 · US$176.250 MM** |
+| Privada | 106 · US$24.805 MM | 109 · US$26.411 MM |
+| Estatal local | 35 · US$11.572 MM | 42 · US$22.297 MM |
+| Capital mixto | 40 · US$29.504 MM | **21 · US$4.096 MM** |
+
+`MIXED` queda en las 21 inversiones de las 12 empresas de capital genuinamente mixto, que es lo que la
+etiqueta siempre quiso decir. Se le sacó el «/ Joint venture» del rótulo, porque ningún vehículo JV
+cae ahí.
+
+**Consecuencia que hay que decirle a ICLAC:** los cuatro filtros **ya no suman el total** (392 contra
+386), porque 6 inversiones tienen miembros de dos tipos y aparecen en los dos. No es un defecto, es el
+dato. No rompe nada visible, porque ningún lugar de la interfaz desglosa montos por propiedad.
+
+**Falta el aval de ICLAC** y es reversible en un commit.
+
+---
+
 ## 1. Bloqueado en una decisión de ICLAC
 
-### 1.1 Quién mantiene la tabla de inversores
+### 1.1 La tabla de inversores es trabajo nuestro, y se edita con dos comandos
 
 `data/schema/investors_map.csv` traduce el nombre del inversor tal como viene de la fuente a una
-empresa canónica, con su tipo de propiedad. Está poblada y validada, pero **mantenerla es trabajo
-experto** (estructura corporativa china), no de quien carga los datos.
+empresa canónica, con su tipo de propiedad. **Desde el 03-08 mantenerla es responsabilidad declarada
+de la asesoría**, no una tarea sin dueño.
 
-Hace falta designar quién la mantiene. Mientras tanto el sitio no se rompe: un inversor nuevo cae a
-propiedad desconocida y aparece listado por el validador y por
-`node scripts/check_investor_coverage.mjs`.
+**No se edita a mano nunca.** Excel en configuración regional española rompe el CSV, y con 241 filas,
+texto en chino y cadenas de control con comas adentro la regla «se edita en el navegador» se rompe
+sola:
 
-Quedan cuatro empresas sin propiedad determinada, y **ninguna aparece hoy en el sitio**: Texhong/
-Danasun (dos empresas en una misma celda, capital chino-hongkonés), Chaoyang Petroleum (vehículo
-registrado en las Islas Vírgenes Británicas) y American Recycling (nombre no chino) son de países
-retenidos; Maverick Motos salió con la compuerta de confiabilidad y la revisión externa no le
-encontró vínculo con un inversor chino.
+```bash
+npm run investors:export                              # CSV -> docs/investors_table.xlsx
+npm run investors:import -- docs/investors_table.xlsx # dry-run, imprime el diff
+npm run investors:import -- docs/investors_table.xlsx --write
+```
 
-Las otras 14 que estaban sin determinar se resolvieron el 31-07 con los veredictos de la revisión
-externa, que llevaban una semana en `docs/sprint_5/ownership_review_ywedits.xlsx` sin cargarse
-(`node scripts/one-off/apply_ownership_unknown_verdicts.mjs`). **La categoría «Undetermined» del
-filtro de propiedad quedó en cero inversiones.**
+**Prueba de que el circuito no pierde nada:** exportar e importar sin tocar nada da **0 cambios**. Si
+algún día da distinto, algo se está perdiendo en el viaje. El import machaca por `company_id`, no
+borra nunca, no escribe si el resultado no pasa el validador, y absorbe lo que Excel le haga al
+archivo. Detalle completo en `data/schema/investors_map.README.md`.
+
+**Ninguna inversión publicada queda hoy sin propiedad determinada.** El camino fue largo y conviene
+tenerlo: 14 empresas se resolvieron el 31-07 con veredictos de la revisión externa que llevaban una
+semana sin cargarse; el resto salió al implementar el modelo de consorcios y al registrar el primer
+socio no chino. La opción «Sin determinar» **se sacó del filtro** (sigue siendo un valor válido del
+dato, lo que salió es la casilla).
+
+Lo que sí sigue esperando revisión externa son **16 clasificaciones que propusimos nosotros**, más 3
+empresas que la revisión marcó para eliminar. El instrumento y el correo están listos en
+`docs/sprint_5/`.
 
 ### 1.2 Qué países nuevos se publican
 

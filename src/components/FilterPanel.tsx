@@ -99,7 +99,12 @@ function PlainSection({
   )
 }
 
-const OWNERSHIP_VALUES = ['Central SOE', 'Local SOE', 'POE', 'MIXED', 'UNKNOWN'] as const
+// Opciones del filtro. NO es el enum del dato: `UNKNOWN` sigue siendo un valor válido
+// en investors_map.csv, pero no se ofrece como filtro. Es un estado de mantención —hoy
+// lo tiene una sola inversión, por un socio no chino cargado como miembro— y quien
+// mantiene la tabla lo ve ahí, no acá. Sin la opción, esas inversiones siguen saliendo
+// en el mapa sin filtrar; lo que no se puede es aislarlas.
+const OWNERSHIP_VALUES = ['Central SOE', 'Local SOE', 'POE', 'MIXED'] as const
 
 const PROJECT_TYPES = ['Adquisición', 'Greenfield'] as const
 

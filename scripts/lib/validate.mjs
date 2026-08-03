@@ -94,6 +94,10 @@ const REQUIRED_SOFT_COLUMNS = ['Id_Seq', 'News']
 const KNOWN_OPTIONAL = new Set([
   'Province_ISO', 'Detail_ES', 'Detail_EN', 'Investment', 'Location',
   'Joint_Venture', 'Origin_Of_Seller', 'Stake',
+  // Socio no chino: nombre y país. Opcionales y todavía sin llenar (schema v1.6). Van
+  // acá para que un archivo que las traiga no salga en el informe como "columna extra
+  // que el sistema ignora", que es lo contrario de lo que queremos que pase.
+  'Socio_No_Chino', 'Socio_Pais',
   // Confiabilidad: puntaje, nota y fuentes. Opcionales en el contrato, pero
   // conocidas: sin esto el informe las listaba como "columna extra que el
   // sistema ignora", justo lo contrario de lo que pasa desde el 31-07.
@@ -293,6 +297,7 @@ export const validateRows = (rows, opts = {}) => {
   const rowValid = new Array(rows.length).fill(true)
   const idMeta = new Map() // id -> { country, investor, year, amount, row }
   const scoreSeen = new Map() // id -> { row, values:Set(reliability_score crudo), investor }
+  const socioSeen = new Map() // id -> { row, investor, jv:Set(Joint_Venture), socio:Set(nombres), pais:Set(paises) }
   const lineMeta = new Map() // `${id}|${path}` (Vector) -> { detail, amount, area, row }
   const coordToIds = new Map() // coordKey -> Map(id -> primera fila)
   const investorSeen = new Map() // Investor tal cual viene -> { row, count }
@@ -580,6 +585,21 @@ export const validateRows = (rows, opts = {}) => {
         if (!prevScore) scoreSeen.set(id, { row: excelRow, values: new Set([raw]), investor: cleanStr(row.Investor) })
         else prevScore.values.add(raw)
       }
+
+      // Socio no chino: mismo criterio que el puntaje, se agrega por inversión.
+      if (hasCol('Joint_Venture') || hasCol('Socio_No_Chino')) {
+        let meta = socioSeen.get(id)
+        if (!meta) {
+          meta = { row: excelRow, investor: cleanStr(row.Investor), jv: new Set(), socio: new Set(), pais: new Set() }
+          socioSeen.set(id, meta)
+        }
+        const jv = cleanStr(row.Joint_Venture)
+        if (jv) meta.jv.add(jv)
+        const socio = cleanStr(row.Socio_No_Chino)
+        if (socio) meta.socio.add(socio)
+        const pais = cleanStr(row.Socio_Pais)
+        if (pais) meta.pais.add(pais)
+      }
     }
   })
 
@@ -631,6 +651,27 @@ export const validateRows = (rows, opts = {}) => {
         push('warning', 'fila/puntaje-confiabilidad-inconsistente', meta.row, 'reliability_score', filled.join(' / '),
           `La inversión "${id}" tiene puntajes distintos entre sus filas (${filled.join(', ')}): el puntaje es de la inversión y debe repetirse igual en cada punto.`)
       }
+    }
+  }
+
+  // ---- Post-pass: socio no chino ----
+  // Nunca bloquea: las columnas son opcionales y están recién definidas (v1.6). Estos
+  // avisos existen para que el hueco se vea, no para exigir que esté lleno.
+  for (const [id, meta] of socioSeen) {
+    const quien = `La inversión "${id}"${meta.investor ? ` (${meta.investor})` : ''}`
+    const diceJv = [...meta.jv].some((v) => /^(yes|si|sí|true|1)$/i.test(v))
+
+    if (diceJv && meta.socio.size === 0) {
+      push('warning', 'fila/socio-no-nombrado', meta.row, 'Socio_No_Chino', null,
+        `${quien} está marcada como joint venture pero no dice con quién. Escribir el nombre del socio no chino en "Socio_No_Chino"; si la operación conjunta es entre empresas chinas, la marca no corresponde.`)
+    }
+    if (meta.socio.size > 0 && meta.pais.size === 0) {
+      push('warning', 'fila/socio-sin-pais', meta.row, 'Socio_Pais', [...meta.socio][0],
+        `${quien} nombra al socio "${[...meta.socio][0]}" pero no dice de qué país es. El origen no se puede deducir del nombre, y es lo que separa un socio local de uno de un tercer país.`)
+    }
+    if (meta.socio.size > 1) {
+      push('warning', 'fila/socio-inconsistente', meta.row, 'Socio_No_Chino', [...meta.socio].join(' / '),
+        `${quien} tiene socios distintos entre sus filas (${[...meta.socio].join(', ')}): el socio es de la inversión y debe repetirse igual en cada punto. Si son varios socios de la misma operación, van en una sola celda separados por "|".`)
     }
   }
 

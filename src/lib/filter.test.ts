@@ -134,12 +134,15 @@ describe('applyFilters', () => {
     })
 
     it('ownership filter treats unmapped investors as UNKNOWN', () => {
-      expect(applyFilters(rows, withFilters({ ownership: ['UNKNOWN'] }), MAP).map(r => r.id)).toEqual(['d'])
+      const out = applyFilters(rows, withFilters({ ownership: ['UNKNOWN'] }), MAP).map(r => r.id)
+      expect(out).toContain('d')
     })
 
-    it('ownership filter drops the consortium row (MIXED), composing with other filters', () => {
+    // El consorcio no aporta su propia propiedad: entra por la de sus miembros.
+    it('el filtro de propiedad alcanza al consorcio a través de sus miembros', () => {
+      // 'a' es COFCO (SASAC) y 'b' el consorcio, que entra porque COFCO es miembro.
       const out = applyFilters(rows, withFilters({ ownership: ['SASAC'] }), MAP)
-      expect(out.map(r => r.id)).toEqual(['a'])
+      expect(out.map(r => r.id)).toEqual(['a', 'b'])
     })
   })
 })

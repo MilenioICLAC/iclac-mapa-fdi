@@ -336,6 +336,11 @@ const cleanRow = row => {
     project_type: projectType,
     is_construction: projectType === 'Construcción',
     is_joint_venture: jointVentureFlag,
+    // Socio no chino: nombre y país. Schema v1.6, opcionales y todavía sin llenar.
+    // Van a las descargas pero NO a investments.json: hoy no las usa ninguna vista, y
+    // el JSON del sitio se sirve entero en cada carga.
+    socio_no_chino: cleanStr(row.Socio_No_Chino),
+    socio_pais: cleanStr(row.Socio_Pais),
     // Renombrada a Origin_Of_Seller (v1.2); fallback al nombre viejo por si llega base legada.
     origin_of_seller: cleanStr(row.Origin_Of_Seller) ?? cleanStr(row['Origin of seller']),
     // Derivada del investor map (schema §5.1), NO de row.Ownership. Ver ownershipFor.
@@ -458,6 +463,8 @@ const buildOutput = (rows, { countStats = true } = {}) => {
     project_type: r.project_type,
     is_construction: r.is_construction,
     is_joint_venture: r.is_joint_venture,
+    socio_no_chino: r.socio_no_chino,
+    socio_pais: r.socio_pais,
     origin_of_seller: r.origin_of_seller,
     ownership: r.ownership,
     stake: r.stake,
@@ -544,7 +551,8 @@ const researchById = casesById(output)
 // Las columnas de procedencia (puntaje, fuentes, notas) son de las descargas: en el
 // JSON del sitio serían peso muerto para cada visitante, porque no se renderizan.
 const leanOutput = output.map(
-  ({ research_cases, reliability_score, reliability_notes, sources, province_iso, has_news, ...rest }) => rest
+  ({ research_cases, reliability_score, reliability_notes, sources, province_iso, has_news,
+     socio_no_chino, socio_pais, ...rest }) => rest
 )
 const researchPath = resolve(dirname(outputPath), 'research.json')
 
@@ -597,6 +605,8 @@ const buildWorkbook = (records, { readmeExtras = [] } = {}) => {
         project_type: r.project_type,
         is_construction: r.is_construction,
         is_joint_venture: r.is_joint_venture,
+        socio_no_chino: r.socio_no_chino,
+        socio_pais: r.socio_pais,
         origin_of_seller: r.origin_of_seller,
         stake: r.stake,
         has_research: r.has_research,

@@ -39,12 +39,45 @@ export const validateInvestors = (rows) => {
     const cons = s(r.is_consortium).toLowerCase()
     const own = s(r.ownership)
     const members = s(r.members)
+    // origin_country vacío significa China: es un registro de inversores chinos, así que
+    // ese es el default correcto. Un olvido no pasa desapercibido, porque una fila sin
+    // ownership y sin origin_country cae en fila/ownership-vacio.
+    const origen = s(r.origin_country)
+    const noChina = origen !== '' && origen.toLowerCase() !== 'china'
 
     if (!raw) push('error', 'fila/raw-vacio', row, 'investor_raw', null, 'investor_raw vacío.')
     if (!id) push('error', 'fila/id-vacio', row, 'company_id', null, 'company_id vacío.')
     if (!canon) push('error', 'fila/canonico-vacio', row, 'company_canonical', null, 'company_canonical vacío.')
 
-    if (own && !OWNERSHIP_TYPES.includes(own)) {
+    // La propiedad es atributo de una EMPRESA. Un consorcio es una relación entre
+    // empresas y no tiene dueño: su propiedad sale de los miembros, en el momento de
+    // leerla. Por eso el vacío está reservado para marcar "esto no es una empresa", y
+    // por eso las dos reglas son simétricas.
+    if (cons === 'true') {
+      // El estado de revisión de un consorcio no es un estado de trabajo: su propiedad
+      // no se guarda nunca, se resuelve desde members al leerla. "derived" lo dice; un
+      // "pendiente" prometería un paso futuro que no existe.
+      const st = s(r.ownership_status)
+      if (st && st !== 'derived') {
+        push('error', 'fila/consorcio-estado', row, 'ownership_status', st,
+          `La fila es un consorcio y su ownership_status es "${st}". Debe ser "derived": su propiedad se calcula desde members, no se revisa ni se completa.`)
+      }
+      if (own) {
+        push('error', 'fila/consorcio-con-ownership', row, 'ownership', own,
+          `La fila es un consorcio y trae ownership "${own}". Un consorcio es un acuerdo entre empresas, no una empresa: no tiene propiedad propia, se calcula desde members. Dejar la celda vacía.`)
+      }
+    } else if (noChina) {
+      // La propiedad tampoco aplica a un socio no chino: el enum describe estructura de
+      // capital china. Vacío = "no aplica", con dos razones posibles, relación o empresa
+      // no china, que se distinguen por is_consortium y origin_country.
+      if (own) {
+        push('error', 'fila/no-china-con-ownership', row, 'ownership', own,
+          `La fila es un socio no chino (origin_country "${origen}") y trae ownership "${own}". El enum de propiedad describe estructura de capital china y no le aplica: dejar la celda vacía.`)
+      }
+    } else if (!own) {
+      push('error', 'fila/ownership-vacio', row, 'ownership', null,
+        'ownership vacío en una empresa china. El vacío está reservado para consorcios y socios no chinos; si la propiedad no se conoce, va UNKNOWN.')
+    } else if (!OWNERSHIP_TYPES.includes(own)) {
       push('error', 'fila/ownership', row, 'ownership', own, `ownership "${own}" fuera del enum (${OWNERSHIP_TYPES.join(', ')}).`)
     }
     if (cons && cons !== 'true' && cons !== 'false') {

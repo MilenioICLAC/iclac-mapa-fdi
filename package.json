@@ -17,7 +17,9 @@
     "validate:investors": "node scripts/validate_investors.mjs",
     "validate:countries": "node scripts/validate_countries.mjs",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "investors:export": "node scripts/investors_export.mjs",
+    "investors:import": "node scripts/investors_import.mjs"
   },
   "dependencies": {
     "@fontsource/raleway": "^5.3.0",

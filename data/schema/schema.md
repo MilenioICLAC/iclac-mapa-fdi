@@ -139,7 +139,9 @@ Obligatoriedad:
 | `Investment` | decimal | opt | **millones de USD** (✅ confirmado por cliente, 2026-07-05) | Queda **opcional**: hay inversiones reales sin monto público. Mismo valor en todas las filas de una inversión. |
 | `Location` | texto | opt | dirección / lugar | Texto plano, **sin URLs** embebidas. |
 | `Project_Type` | enum | **req** | `Adquisición` \| `Greenfield` \| `Construcción` | **Valores mutuamente excluyentes.** Canónico en español, tildes correctas. Ver §9. |
-| `Joint_Venture` | bool-YN | opt | `Yes` \| `No` | |
+| `Joint_Venture` | bool-YN | opt | `Yes` \| `No` | **Sin criterio definido, y por eso no se usa.** Está en `Yes` en 3 inversiones publicadas mientras otras 39 describen una operación conjunta en el texto de `Detail`, y los dos conjuntos no se tocan. Se propone reemplazarla por `Socio_No_Chino`, que guarda el hecho en vez de una marca. Mientras tanto se acepta y el validador avisa cuando dice `Yes` sin socio nombrado. |
+| `Socio_No_Chino` | texto | opt | nombre(s), varios separados por `\|` | **Nueva en v1.6, todavía sin llenar.** Nombre de la o las empresas **no chinas** que participaron en la operación. La tabla de inversores registra inversores chinos, así que este es el único lugar donde el socio puede quedar. Hoy vive solo dentro de la prosa de `Detail`, donde no se puede filtrar ni contar. **La presencia de un nombre es la marca**: no hace falta un booleano aparte. |
+| `Socio_Pais` | texto | opt | país del socio | Pareada con `Socio_No_Chino`, mismo orden y mismo separador. Existe porque el origen **no se puede deducir del nombre**: quien investigó la operación es quien sabe que Electroingeniería es argentina y Bombardier canadiense. Es lo que permite separar socio local de socio de un tercer país, que en los datos actuales es casi mitad y mitad. |
 | `Origin_Of_Seller` | texto | opt | | Origen del vendedor (en adquisiciones). Renombrada desde `Origin of seller` (v1.2). |
 | `Stake` | decimal | opt | porcentaje `0–100` | % adquirido. |
 | `Research` | enum | **req** | `Yes` \| `No` | `Yes` si tiene respaldo en un **estudio**. Ver §6. |
@@ -300,7 +302,9 @@ Detail_EN            text   opt
 Investment           number opt   >=0 ; unit=MUSD (confirmado)
 Location             text   opt   no-url
 Project_Type         enum   req   {Adquisición,Greenfield,Construcción} (mutuamente excluyentes)
-Joint_Venture        enum   opt   {Yes,No}
+Joint_Venture        enum   opt   {Yes,No} ; sin criterio definido, se propone reemplazar por Socio_No_Chino
+Socio_No_Chino       text   opt   nombre(s) separados por | ; su presencia ES la marca de operacion conjunta
+Socio_Pais           text   opt   pareada con Socio_No_Chino (mismo orden y separador)
 Origin_Of_Seller     text   opt
 Stake                number opt   [0,100]
 Research             enum   req   {Yes,No}

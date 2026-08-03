@@ -33,6 +33,7 @@ const iCanon = idx('company_canonical')
 const iCons = idx('is_consortium')
 const iOwn = idx('ownership')
 const iMembers = idx('members')
+const iOrigen = idx('origin_country')
 
 const map = {}
 for (const line of rows.slice(1)) {
@@ -47,6 +48,10 @@ for (const line of rows.slice(1)) {
   }
   const members = (c[iMembers] ?? '').split('|').map(s => s.trim()).filter(Boolean)
   if (members.length) entry.members = members
+  // Socio no chino: la propiedad no le aplica, así que la derivación de un consorcio
+  // tiene que saltarlo en vez de contarlo como desconocido. Sólo viaja cuando aplica.
+  const origen = String(c[iOrigen] ?? '').trim()
+  if (origen && origen.toLowerCase() !== 'china') entry.non_chinese = true
   map[c[iRaw]] = entry
   // También por nombre canónico (la base del cliente usa el canónico como Investor).
   if (c[iCanon] && !(c[iCanon] in map)) map[c[iCanon]] = entry

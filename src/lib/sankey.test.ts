@@ -31,6 +31,23 @@ const CONS_MAP: InvestorMap = {
   Didi: { company_id: 'didi', company_canonical: 'Didi', ownership: 'POE' }
 }
 
+// Fixture propio para el socio no chino, para no perturbar los conteos de arriba.
+// CCA es china y MCM no: la operación se resuelve por CCA y no cae en UNKNOWN.
+const SOCIO_MAP: InvestorMap = {
+  'CCA and MCM': {
+    company_id: 'cca-and-mcm',
+    company_canonical: 'CCA and MCM',
+    is_consortium: true,
+    members: ['cca', 'mcm']
+  },
+  CCA: { company_id: 'cca', company_canonical: 'CCA', ownership: 'Local SOE' },
+  MCM: { company_id: 'mcm', company_canonical: 'MCM', non_chinese: true }
+}
+const SOCIO_ROWS = [
+  makeInv({ id: 'f', investor: 'CCA and MCM', investment_musd: 137 }),
+  makeInv({ id: 'g', investor: 'MCM', investment_musd: 1 })
+]
+
 const CONS_ROWS = [
   makeInv({ id: 'a', investor: 'COFCO', investment_musd: 10 }),
   makeInv({ id: 'b', investor: 'COFCO and Hopu Investments', investment_musd: 1500 }),
@@ -174,17 +191,49 @@ describe('scopeInvestments', () => {
   it('filters by ownership, treating unmapped investors as UNKNOWN', () => {
     const poe = scopeInvestments(CONS_ROWS, CONS_MAP, { ...all, ownership: ['POE'] })
     expect(poe.map(i => i.investor)).toEqual(['Didi'])
-    const unknown = scopeInvestments(CONS_ROWS, CONS_MAP, { ...all, ownership: ['UNKNOWN'] })
-    expect(unknown.map(i => i.investor)).toEqual(['Sin Mapear'])
+  })
+
+  // Un consorcio no tiene propiedad propia: la de sus miembros es la que decide. En
+  // el fixture el consorcio es COFCO (SASAC) + hopu-investments, que no tiene ficha.
+  it('un consorcio entra por la propiedad de cualquiera de sus miembros', () => {
+    const out = scopeInvestments(CONS_ROWS, CONS_MAP, { ...all, ownership: ['SASAC'] })
+    // COFCO y State Grid son SASAC por sí mismas; el consorcio entra por COFCO.
+    expect(out.map(i => i.investor)).toEqual(['COFCO', 'COFCO and Hopu Investments', 'State Grid'])
+  })
+
+  it('un miembro sin ficha deja al consorcio también bajo UNKNOWN, no lo esconde', () => {
+    const out = scopeInvestments(CONS_ROWS, CONS_MAP, { ...all, ownership: ['UNKNOWN'] })
+    expect(out.map(i => i.investor)).toEqual(['COFCO and Hopu Investments', 'Sin Mapear'])
+  })
+
+  it('un socio no chino no aporta tipo, y no arrastra al consorcio a UNKNOWN', () => {
+    const local = scopeInvestments(SOCIO_ROWS, SOCIO_MAP, { ...all, ownership: ['Local SOE'] })
+    expect(local.map(i => i.id)).toEqual(['f'])
+    const unknown = scopeInvestments(SOCIO_ROWS, SOCIO_MAP, { ...all, ownership: ['UNKNOWN'] })
+    expect(unknown.map(i => i.id)).not.toContain('f')
+  })
+
+  it('un socio no chino no entra en ningún filtro de propiedad por sí mismo', () => {
+    for (const o of ['Local SOE', 'POE', 'UNKNOWN']) {
+      const out = scopeInvestments(SOCIO_ROWS, SOCIO_MAP, { ...all, ownership: [o] })
+      expect(out.map(i => i.id)).not.toContain('g')
+    }
+  })
+
+  it('la propiedad guardada en la fila del consorcio se ignora', () => {
+    // El fixture trae ownership MIXED en el consorcio. Ningún miembro es MIXED, así
+    // que filtrar por MIXED no debe devolverlo: el valor de esa celda no manda.
+    const out = scopeInvestments(CONS_ROWS, CONS_MAP, { ...all, ownership: ['MIXED'] })
+    expect(out).toEqual([])
   })
 
   it('combines dimensions (AND semantics)', () => {
-    // investors keeps COFCO + the consortium it's in; ownership SASAC then drops
-    // the consortium (MIXED), leaving only COFCO.
+    // investors deja COFCO y el consorcio donde participa; ownership SASAC conserva
+    // los dos, porque COFCO es miembro del consorcio.
     const out = scopeInvestments(CONS_ROWS, CONS_MAP, {
       investors: ['cofco'],
       ownership: ['SASAC']
     })
-    expect(out.map(i => i.investor)).toEqual(['COFCO'])
+    expect(out.map(i => i.investor)).toEqual(['COFCO', 'COFCO and Hopu Investments'])
   })
 })

@@ -172,6 +172,24 @@ const RULE_HELP = {
     fix: 'No requiere acción de tu lado: la propiedad se resuelve en la tabla de inversores, no en esta base. Aviso informativo.',
     tipo: 'a-resolver-nuestro-lado'
   },
+  'fila/socio-no-nombrado': {
+    titulo: 'Marcada como joint venture, pero no dice con quién',
+    causa: 'Joint_Venture está en Yes y la columna Socio_No_Chino está vacía en todas las filas de esa inversión. La marca afirma que hubo un socio, pero el nombre no quedó en ninguna parte salvo, con suerte, dentro del texto de Detail.',
+    fix: 'Escribir el nombre del socio no chino en Socio_No_Chino, y su país en Socio_Pais. Si la operación conjunta era entre empresas chinas (un consorcio), la marca no corresponde: esa información vive en la tabla de inversores, no acá.',
+    tipo: 'contenido'
+  },
+  'fila/socio-sin-pais': {
+    titulo: 'Socio nombrado, sin país',
+    causa: 'Socio_No_Chino tiene un nombre y Socio_Pais está vacía.',
+    fix: 'Escribir el país del socio, en el mismo orden que los nombres si son varios. Hace falta porque el origen no se puede deducir del nombre, y es lo que permite separar un socio del propio país de uno de un tercer país.',
+    tipo: 'contenido'
+  },
+  'fila/socio-inconsistente': {
+    titulo: 'Socios distintos entre las filas de una inversión',
+    causa: 'Las filas de un mismo Id_Investment traen valores distintos en Socio_No_Chino. El socio es de la inversión, no del punto geográfico.',
+    fix: 'Dejar el mismo valor en todas las filas de la inversión. Si la operación tuvo varios socios, van todos en una sola celda separados por el signo |.',
+    tipo: 'contenido'
+  },
   'fila/sin-puntaje-confiabilidad': {
     titulo: 'Inversión sin puntaje de confiabilidad',
     causa: 'La columna reliability_score está vacía en todas las filas de esa inversión: nadie registró cuántas fuentes independientes la respaldan.',

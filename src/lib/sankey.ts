@@ -9,6 +9,9 @@ export type InvestorMapEntry = {
   company_canonical: string
   ownership?: string
   is_consortium?: boolean
+  // Socio no chino de una operación. La propiedad no le aplica: el enum describe
+  // estructura de capital china.
+  non_chinese?: boolean
   // Consortium constituents as company_ids (only present on consortium entries).
   members?: string[]
 }
@@ -59,6 +62,41 @@ const companyNameIndex = (map: InvestorMap): Map<string, string> => {
     if (!index.has(entry.company_id)) index.set(entry.company_id, entry.company_canonical)
   }
   return index
+}
+
+// company_id -> ownership, para resolver la de un consorcio desde sus miembros.
+// Se saltan dos clases de fila, por razones distintas: los consorcios no tienen
+// propiedad propia, y a los socios no chinos el enum no les aplica. Los segundos van a
+// un Set aparte porque hay que distinguirlos de un miembro que no existe: ese sí es
+// desconocido.
+type OwnershipIndex = { own: Map<string, string>; noChinese: Set<string> }
+const companyOwnershipIndex = (map: InvestorMap): OwnershipIndex => {
+  const own = new Map<string, string>()
+  const noChinese = new Set<string>()
+  for (const entry of Object.values(map)) {
+    if (entry.is_consortium) continue
+    if (entry.non_chinese) { noChinese.add(entry.company_id); continue }
+    if (!own.has(entry.company_id)) own.set(entry.company_id, entry.ownership || 'UNKNOWN')
+  }
+  return { own, noChinese }
+}
+
+// Los tipos de propiedad de una inversión. Para una empresa es uno. Para un consorcio
+// son los de sus miembros, porque un acuerdo entre empresas no tiene dueño: lo tienen
+// sus partes. Si algún miembro no resuelve, se suma UNKNOWN — la inversión tiene que
+// seguir siendo encontrable y la incompletitud tiene que verse, no desaparecer.
+export const ownershipsOf = (
+  entry: InvestorMapEntry | undefined,
+  index: OwnershipIndex
+): string[] => {
+  if (!entry) return ['UNKNOWN']
+  if (entry.non_chinese) return []
+  if (!entry.is_consortium) return [entry.ownership || 'UNKNOWN']
+  // Los socios no chinos del acuerdo no aportan tipo: la operación sigue siendo china
+  // por sus miembros chinos. Un miembro sin ficha sí aporta UNKNOWN, que es distinto.
+  const members = (entry.members ?? []).filter(m => !index.noChinese.has(m))
+  if (!members.length) return ['UNKNOWN']
+  return [...new Set(members.map(m => index.own.get(m) || 'UNKNOWN'))]
 }
 
 // Humanize a member id that has no standalone row ("hopu-investments" ->
@@ -118,6 +156,7 @@ export type ScopeOpts = {
   // company_ids; empty = no investor restriction.
   investors: string[]
   // ownership values (Central SOE/Local SOE/POE/MIXED/UNKNOWN); empty = no restriction.
+  // Un consorcio entra si CUALQUIERA de sus miembros es de un tipo seleccionado.
   ownership: string[]
 }
 
@@ -131,11 +170,14 @@ export function scopeInvestments(
 ): Investment[] {
   const invSet = new Set(investors)
   const ownSet = new Set(ownership)
+  // El índice sólo se arma si hay filtro de propiedad: es O(n) sobre el mapa entero y
+  // esta función corre en cada cambio de filtro.
+  const ownIndex = ownSet.size ? companyOwnershipIndex(map) : null
   return investments.filter(inv => {
     const raw = inv.investor ?? ''
     const entry = map[raw]
     const isConsortium = entry?.is_consortium ?? false
-    if (ownSet.size && !ownSet.has(entry?.ownership || 'UNKNOWN')) return false
+    if (ownIndex && !ownershipsOf(entry, ownIndex).some(o => ownSet.has(o))) return false
     if (invSet.size) {
       const direct = invSet.has(resolveCompanyId(raw, map))
       const viaMember = isConsortium && (entry?.members?.some(m => invSet.has(m)) ?? false)

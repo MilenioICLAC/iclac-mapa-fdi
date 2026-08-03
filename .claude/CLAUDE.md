@@ -80,6 +80,13 @@ Un dato, un lugar. Tenerlo en dos garantiza que diverjan, y ya pasó:
   normaliza ahí.
 - **`data/schema/investors_map.csv`** mapea ese nombre a la empresa canónica, su tipo de propiedad y,
   si es un consorcio, sus miembros. Es la **única** fuente de propiedad: la base no la lleva.
+  **Se edita con `npm run investors:export` / `investors:import`, nunca a mano.** La prueba de que el
+  circuito no pierde nada: exportar e importar sin tocar nada da **0 cambios**.
+- **La propiedad es de una empresa, así que un consorcio la lleva vacía.** Un consorcio es una
+  relación, no una empresa: no tiene dueño, lo tienen sus partes. `ownershipsOf` la resuelve desde
+  `members` al filtrar, y una inversión de consorcio entra si **cualquiera** de sus miembros es del
+  tipo pedido. Consecuencia visible: los filtros de propiedad **dejan de ser una partición**, porque
+  7 inversiones tienen miembros de dos tipos y aparecen en los dos. No es un defecto, es el dato.
 - Un inversor que aparece en la base y no está en esa tabla **no rompe nada**: cae a propiedad
   desconocida y el validador lo avisa (`fila/inversor-sin-mapear`, un aviso por nombre distinto y no
   por fila). Esa es la cola de trabajo de quien mantiene la tabla, y `check_investor_coverage.mjs`
