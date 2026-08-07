@@ -1,62 +1,13 @@
 # Esquema canónico de datos — mapa_FDI
 
-**Versión:** 1.5 (2026-07-28)
+**Versión:** 1.6 (2026-08-07)
 **Estado:** contrato vigente para el flujo por país. Base del validador JS de GH Actions (2.3).
 **Fuente de verdad:** Parte II (II.1–II.7) de `docs/sprint_3/entrega_2606_validacion_esquema_04072026.html` (entregable cliente). Este .md es la versión técnica de ese contrato.
+**Versión para el equipo de datos:** `docs/sprint_6/esquema_datos_iclac.md`. Es el mismo contrato sin
+changelogs, sin rutas del repo y sin la procedencia de nuestras decisiones. **Si se cambia una regla
+acá, hay que cambiarla allá**: son dos redacciones de lo mismo, y si divergen gana ésta.
 
-> **Changelog v1.5 (2026-07-28):** una sola corrección, pero de fondo — **`Ownership` sale del
-> contrato**, junto con su columna de trabajo `Ownership_Original`.
-> - *Por qué:* v1.4 la metió al contrato y a la vez §5.1 declaraba que la fuente era
->   `investors_map.csv`. Dos fuentes para un mismo hecho, y **divergieron**: la base del cliente
->   quedó con 0 `Local SOE` y la tabla nuestra con 21. La propiedad es atributo de la **empresa**, no
->   del deal, así que su lugar natural es la tabla de empresas.
-> - *Qué implica:* el archivo del país ya no la lleva. Si reaparece, el validador la trata como
->   columna extra y la ignora; la regla de enum se mantiene como red por si vuelve con valores.
-> - Ejecuta la propuesta de handover que §5.1 ya dejaba escrita en v1.4.
-> - `Ownership_Original` era la copia pre-rename (`SASAC`/`SOE` en 11.909 de 12.532 filas): columna
->   de trabajo de las que §1 prohíbe, que se salvaba sólo porque el patrón es `_ORIG` y ésta termina
->   en `_Original`.
->
-> **Changelog v1.4 (2026-07-23):** cambios para que el validador sea **resiliente** (rojo = problema
-> real, no cosmético) y para que incorporar un país no requiera tocar código.
-> - **Nombre de archivo case-insensitive.** `chile.xlsx` y `CHILE.xlsx` valen igual. La diferencia
->   de mayúsculas la absorbe la normalización, no es un error. *Por qué:* el ida-y-vuelta de
->   renombres costaba tiempo sin cambiar el significado del dato.
-> - **País como dato, no código.** El alcance de países sale de las constantes del validador a un
->   registro `data/schema/countries.csv` (semilla pre-cargada por nosotros: toda LATAM +
->   Centroamérica + Caribe; **México excluido a propósito**). Sumar un país = editar ese CSV (o
->   nosotros la semilla), sin tocar el validador. Un país fuera del registro = "fuera de la lista",
->   con instrucción, no error críptico.
-> - **Capa de normalización determinista (curaciones).** Antes de validar se arreglan de nuestro
->   lado, sin pérdida: apóstrofe de Excel en `COUNTRY_ISO_NUM`/`Id_Seq` (`'152`→`152`), `Country` a
->   forma canónica (`CHILE`→`Chile`, `Brasil`→`Brazil`). Cada arreglo se **lista** (no se enmascara).
-> - **`Area_ES` fuera de la validación de formato.** El mapa traduce keyed por `Area_EN`, así que la
->   etiqueta ES es redundante. Se conserva SÓLO el **conflicto conceptual** (`fila/sector-conflicto`,
->   warning): cuando `Area_ES` apunta a un sector distinto de `Area_EN` (ej: `PRY-0001` COFCO
->   `Energy` vs `Agroindustria`) — ahí una de las dos está mal.
-> - **`Ownership` entra al contrato**, mandada por la base del cliente (§5.1). Enum:
->   `Central SOE / Local SOE / POE / MIXED / UNKNOWN`.
-> - **Geometría de país** como compuerta blanda: si un país no tiene borde cargado, avisa (no bota);
->   el país entra al mapa cuando su borde existe y sus datos pasan (§11).
-> - **Umbral de rechazo explícito por severidad:** un archivo se rechaza si tiene un problema de
->   archivo (basta uno) o si baja del umbral de filas válidas. Warnings/curaciones nunca botan.
->
-> **Changelog v1.3 (2026-07-14):** nombre de archivo por país pasa a **país en MAYÚSCULA, en
-> inglés, sin tildes** (`CHILE.xlsx`, `BRAZIL.xlsx`). Es la convención con que el cliente hizo su
-> primera carga al repo (09-07); se adopta tal cual para no hacerle renombrar nada. Reemplaza
-> "minúscula/español" de v1.2. Lista cerrada de nombres válidos = países del proyecto
-> (`FILENAME_BY_ALPHA3` en el validador).
->
-> **v1.2 (2026-07-04):** sincronizado con la Parte II del entregable 26/06.
-> `Year` pasa a **req**; `Investment` queda **opt** (hay inversiones reales sin monto público).
-> Nueva columna `Id_Seq` (secuencia por país, **propuesta pendiente de confirmación cliente**) y
-> formato propuesto de `Id_Investment` = `ALPHA3-NNNN` (§5). Nueva columna `News` (enum `Yes`/`No`, req).
-> `Origin of seller` → `Origin_Of_Seller`. Archivos por país en minúscula/español/sin tildes (`chile.xlsx`).
-> Columnas extra del cliente permitidas (se ignoran). **Resuelto §9:** `Project_Type` es UNA columna con
-> 3 valores excluyentes; las booleanas `Acquisition`/`Greenfield`/`Construction` salen del esquema.
-> `Company_Id`/`previous_fdi` salen del esquema (se resuelven de nuestro lado, §10).
->
-> **v1.0 (2026-06-25):** primera propuesta del contrato.
+**Historia del contrato:** `data/schema/CHANGELOG.md` (qué cambió en cada versión y por qué).
 
 Este documento define el **contrato de datos** que debe cumplir cada archivo de inversiones.
 Una columna por campo. Sin columnas de trabajo (`*_ORIG`, `*_ARREGLADO`). Sin columnas redundantes.
@@ -112,8 +63,19 @@ Una **inversión** puede ocupar **1 o N filas**, según su geometría:
 | `bool-YN` | literal `Yes` / `No` |
 
 Obligatoriedad:
-- **req** = obligatorio; fila sin él se **descarta** en ETL.
+- **req** = obligatorio. La columna debe existir (si no, `archivo/columna-requerida`, bloqueante) y la
+  celda no puede ir vacía (`fila/requerido-vacio`, error de fila).
 - **opt** = puede ir vacío → `null`.
+
+**Ojo: `req` en el contrato ≠ «la fila se cae».** Son dos capas distintas y conviene no confundirlas:
+
+| | Qué pasa |
+|---|---|
+| Validador | un `req` vacío es error de fila; si el archivo baja del umbral de filas válidas, **el archivo entero** queda fuera del build |
+| ETL (`cleanRow`) | descarta la fila solo por **tres** campos: `Id_Investment`, `Coordinates` y `Project_Type` (y este último tiene que mapear al enum). Los otros diez `req` no botan la fila |
+
+O sea que una fila sin `Year` no se pierde en el ETL: la protege el validador antes, botando el
+archivo. Si algún día se corre el ETL con `--no-filter`, esa fila entra con `year = null`.
 
 ---
 
@@ -122,7 +84,7 @@ Obligatoriedad:
 | Columna | Tipo | Oblig. | Formato / enum | Notas |
 |---|---|---|---|---|
 | `Id_Investment` | texto | **req** | propuesto `ALPHA3-NNNN` (`ARG-0080`), por confirmar | Ver §5. Guardar como **texto**. Mismo id en todas las filas de una inversión. |
-| `Id_Seq` ⏳ *propuesta* | entero | **req** | `≥ 1`, secuencia por país (1, 2, 3…) | **Propuesta pendiente de confirmación cliente.** Base del `Id_Investment`; entra junto con el formato de §5. |
+| `Id_Seq` | entero | **req** | `≥ 1`, secuencia por país (1, 2, 3…) | Base del `Id_Investment`, ver §5. **Adoptada:** los 17 archivos por país la traen desde la carga del 09-07. |
 | `Coordinates` | coords | **req** | `"lat, lng"` | Ver §4. Fila sin coords válidas se descarta. |
 | `Year` | entero | **req** | `1900–<año actual>` | |
 | `Country` | texto | **req** | nombre país | Debe ser consistente con `COUNTRY_ISO_ALPHA3`. |
@@ -133,15 +95,13 @@ Obligatoriedad:
 | `Vector` | enum | **req** | `Punto` \| `Vector` | Define geometría. Ver §1. |
 | `Path` | entero | **req** | `0` para `Punto`; `≥1` para `Vector` | Numera la línea dentro de un `Id_Investment`. Agrupa vértices `(id, Path)`. Ver §1. |
 | `Area_EN` | enum | **req** | 8 sectores canónicos (`sectores.md`) | **Match exacto** con una de las 8 claves EN; el frontend traduce a es/en/cn vía i18n keyed por `Area_EN`. Mismatch = punto **gris** + categoría duplicada en filtro, en los 3 idiomas. |
-| `Area_ES` | texto | opt | — | **v1.4: informativa, ya no se valida por formato** (el mapa traduce desde `Area_EN`). Sólo se chequea el **conflicto conceptual** con `Area_EN` (warning): si apunta a otro sector, una de las dos está mal. |
+| `Area_ES` | texto | **req-presencia** | — | **Informativa en cuanto al valor** (v1.4: el mapa traduce desde `Area_EN`), pero **la columna sigue en `REQUIRED_COLUMNS` y una celda vacía es error de fila**. Del contenido sólo se chequea el **conflicto conceptual** con `Area_EN` (warning): si apunta a otro sector, una de las dos está mal. Ver la nota de §3.1. |
 | `Detail_ES` | texto | opt | | Descripción en español. |
 | `Detail_EN` | texto | opt | | Descripción en inglés. |
 | `Investment` | decimal | opt | **millones de USD** (✅ confirmado por cliente, 2026-07-05) | Queda **opcional**: hay inversiones reales sin monto público. Mismo valor en todas las filas de una inversión. |
 | `Location` | texto | opt | dirección / lugar | Texto plano, **sin URLs** embebidas. |
 | `Project_Type` | enum | **req** | `Adquisición` \| `Greenfield` \| `Construcción` | **Valores mutuamente excluyentes.** Canónico en español, tildes correctas. Ver §9. |
-| `Joint_Venture` | bool-YN | opt | `Yes` \| `No` | **Sin criterio definido, y por eso no se usa.** Está en `Yes` en 3 inversiones publicadas mientras otras 39 describen una operación conjunta en el texto de `Detail`, y los dos conjuntos no se tocan. Se propone reemplazarla por `Socio_No_Chino`, que guarda el hecho en vez de una marca. Mientras tanto se acepta y el validador avisa cuando dice `Yes` sin socio nombrado. |
-| `Socio_No_Chino` | texto | opt | nombre(s), varios separados por `\|` | **Nueva en v1.6, todavía sin llenar.** Nombre de la o las empresas **no chinas** que participaron en la operación. La tabla de inversores registra inversores chinos, así que este es el único lugar donde el socio puede quedar. Hoy vive solo dentro de la prosa de `Detail`, donde no se puede filtrar ni contar. **La presencia de un nombre es la marca**: no hace falta un booleano aparte. |
-| `Socio_Pais` | texto | opt | país del socio | Pareada con `Socio_No_Chino`, mismo orden y mismo separador. Existe porque el origen **no se puede deducir del nombre**: quien investigó la operación es quien sabe que Electroingeniería es argentina y Bombardier canadiense. Es lo que permite separar socio local de socio de un tercer país, que en los datos actuales es casi mitad y mitad. |
+| `Joint_Venture` | bool-YN | opt | `Yes` \| `No` | **Columna legada: mal codificada y sin criterio definido, así que la app no la usa.** Está en `Yes` en 3 inversiones publicadas mientras otras 39 describen una operación conjunta en el texto de `Detail`, y los dos conjuntos no se tocan. Se conserva igual, como dummy, para no perder el dato mientras no haya un criterio. No se filtra ni se muestra con ella. |
 | `Origin_Of_Seller` | texto | opt | | Origen del vendedor (en adquisiciones). Renombrada desde `Origin of seller` (v1.2). |
 | `Stake` | decimal | opt | porcentaje `0–100` | % adquirido. |
 | `Research` | enum | **req** | `Yes` \| `No` | `Yes` si tiene respaldo en un **estudio**. Ver §6. |
@@ -149,8 +109,40 @@ Obligatoriedad:
 | `Caso1`…`Caso14` | texto | opt | título del estudio/fuente | Ver §6. |
 | `Link1`…`Link14` | texto | opt | URL (`http…`) | Pareado con `CasoN`. La **URL va aquí**, no en `CasoN`. |
 | `reliability_score` | entero | opt | `0`–`5` | Puntaje de confiabilidad de la rúbrica ICLAC: número de fuentes independientes que confirman la operación, más uno. **Es de la inversión, no del punto**: mismo valor en todas las filas de un `Id_Investment`. **Con `≤ 2` la inversión no entra al sitio**, se publica en el anexo de evidencia limitada. Vacío = todavía sin revisar: entra igual, y el validador lo avisa. |
-| `reliability_notes` | texto | opt | | Por qué ese puntaje y no otro, en español. Qué confirma cada fuente y qué queda sin confirmar. |
-| `source1`…`source5` | texto | opt | URL (`http…`) | Las fuentes que sostienen el puntaje. Igual que el puntaje, se repiten en todas las filas de la inversión. |
+| `reliability_notes` | texto | opt | | Por qué ese puntaje y no otro, en español. Qué confirma cada fuente y qué queda sin confirmar. **Su ausencia se avisa**, ver §3.2. |
+| `source1`…`source5` | texto | opt | URL (`http…`) | Las fuentes que sostienen el puntaje. Igual que el puntaje, se repiten en todas las filas de la inversión. **Son cinco y hoy sólo existen tres**, ver §3.2. |
+
+### 3.1 `Area_ES`: el doc y el código no dicen lo mismo (pendiente de decidir)
+
+v1.4 la sacó de la validación **de formato** y §3/§7 la venían marcando `opt`. Pero
+`REQUIRED_COLUMNS` del validador **la sigue incluyendo**, así que hoy: si la columna no está, es
+`archivo/columna-requerida` (bloqueante), y si una celda está vacía, es `fila/requerido-vacio` (error
+de fila). No hay test que cubra la celda vacía, y no ha molestado porque los 17 archivos la traen
+llena en todas las filas.
+
+Las dos lecturas son defendibles (v1.4 habló de formato, no de presencia). **La tabla de arriba
+describe lo que hace el código**, que es lo que se ve en el informe. Si se decide que sea realmente
+opcional, el cambio es sacarla de `REQUIRED_COLUMNS` en `scripts/lib/validate.mjs` y volver a `opt`
+acá y en §7.
+
+### 3.2 Las tres columnas de confiabilidad que los archivos por país no tienen
+
+`reliability_notes`, `source4` y `source5` entraron al contrato el 03-08 y **ningún archivo por país
+las trae**: los 17 quedaron con `source1..source3` y sin la nota. Dos consecuencias, y una decisión
+distinta para cada caso.
+
+**`reliability_notes` se avisa.** Si la columna no está, el validador emite
+`archivo/columna-sugerida-ausente`, warning **de archivo**, uno por archivo, nunca bloqueante. Vive en
+`SUGGESTED_COLUMNS` de `scripts/lib/validate.mjs` y **no** en `REQUIRED_SOFT_COLUMNS` a propósito: esa
+lista además valida celda por celda, y como la nota es de la inversión y no del punto, Perú dejaría
+5.000 avisos del mismo hueco. Sin la nota, el puntaje no tiene respaldo escrito y no se puede auditar
+después.
+
+**`source4` y `source5` NO se avisan**, decisión del 07-08: nadie las va a llenar en la pasada actual
+y el aviso sería ruido. Queda anotado igual porque tiene consecuencia medible: la rúbrica llega a 5
+(cuatro o más fuentes independientes), así que con tres columnas **un puntaje 4 o 5 no se puede
+documentar entero**. En la entrega del 06-08 eso dejó 27 inversiones con puntaje 5 sostenidas por 3
+fuentes cargadas, y 35 enlaces sueltos dentro de la prosa de las notas.
 
 ### Columnas que NO deben ir (eliminar antes de entregar)
 
@@ -187,7 +179,7 @@ El validador y el ETL solo leen las columnas canónicas e **ignoran el resto**.
 - **Scope de unicidad: LATAM.** La validación de unicidad/consistencia de IDs se hace dentro del conjunto LATAM.
 - Estable entre entregas (no re-numerar; el ID es la clave de seguimiento).
 
-### Formato propuesto: `ALPHA3-NNNN` ⏳ *propuesta pendiente de confirmación cliente*
+### Formato `ALPHA3-NNNN` (adoptado)
 
 Mismo flujo de armado que el cliente ya usa (secuencia por país + código de país), con dos ajustes:
 
@@ -296,15 +288,13 @@ Investor             text   req
 Vector               enum   req   {Punto,Vector}
 Path                 int    req   Vector==Punto => 0 ; Vector==Vector => >=1
 Area_EN              enum   req   sectores.md::EN (match exacto, case-sensitive)
-Area_ES              text   opt   INFORMATIVA (v1.4, no se valida formato) ; sólo warning si concepto != Area_EN (fila/sector-conflicto)
+Area_ES              text   req   presencia y celda no vacía SI se validan ; el VALOR es informativo (v1.4, no se valida formato) ; sólo warning si concepto != Area_EN (fila/sector-conflicto)
 Detail_ES            text   opt
 Detail_EN            text   opt
 Investment           number opt   >=0 ; unit=MUSD (confirmado)
 Location             text   opt   no-url
 Project_Type         enum   req   {Adquisición,Greenfield,Construcción} (mutuamente excluyentes)
-Joint_Venture        enum   opt   {Yes,No} ; sin criterio definido, se propone reemplazar por Socio_No_Chino
-Socio_No_Chino       text   opt   nombre(s) separados por | ; su presencia ES la marca de operacion conjunta
-Socio_Pais           text   opt   pareada con Socio_No_Chino (mismo orden y separador)
+Joint_Venture        enum   opt   {Yes,No} ; legada, mal codificada y sin criterio ; se conserva como dummy, la app no la usa
 Origin_Of_Seller     text   opt
 Stake                number opt   [0,100]
 Research             enum   req   {Yes,No}
@@ -329,7 +319,7 @@ Reglas de archivo e inter-fila:
 - Nombre de archivo: país en inglés sin tildes, **case-insensitive** (`CHILE.xlsx` = `chile.xlsx`);
   lista válida = `data/schema/countries.csv`. Una sola hoja.
 - País fuera del registro = `archivo/nombre` (fuera de la lista, con instrucción). País sin borde de
-  geometría = `archivo/sin-borde` (warning, compuerta blanda; ver §11).
+  geometría = `archivo/sin-borde` (warning, compuerta blanda; ver §10).
 - Consistencia país: nombre de archivo ↔ `Country` ↔ `COUNTRY_ISO_ALPHA3` ↔ `COUNTRY_ISO_NUM` ↔ prefijo de `Id_Investment`.
 - Una **línea** = grupo de filas con mismo `(Id_Investment, Path)` y `Vector=Vector`.
   En una línea, los campos no geográficos deben ser idénticos entre sus filas.
@@ -345,15 +335,18 @@ Reglas de archivo e inter-fila:
 
 ---
 
-## 8. Decisiones abiertas que afectan al esquema (Parte III.1 del entregable)
+## 8. Decisiones abiertas que afectan al esquema
 
 | Tema | Estado |
 |---|---|
-| **Formato exacto de `Id_Investment`** basado en ISO (+ columna `Id_Seq`) | Propuesta concreta en §5 (`ALPHA3-NNNN`) + tabla de equivalencia entregada. **Por confirmar y aplicar por cliente.** |
+| **Estado del proyecto** (cancelado / anunciado no desembolsado / por verificar) | La entrega del 06-08 trae una columna propia, `investment_classification`, con 29 valores distintos. Hoy el esquema **no tiene dimensión de estado**, así que una inversión cancelada entra al mapa como viva. Publicarlas exige enum cerrado + regla de si suman al total. **Decisión de ICLAC, ver `docs/sprint_6/`.** |
+| **`Area_ES` req o opt** | §3.1. Divergencia entre este doc y `REQUIRED_COLUMNS`. Decisión nuestra, barata. |
+| **Steward de la tabla de inversores** | §5.2. Sin definir. |
 
-Resueltos (ya no abiertos): **unidad de `Investment` = millones de USD** (✅ confirmado por cliente,
-2026-07-05), exclusividad de `Construcción` (§9), lista de sectores y 8ª categoría (`sectores.md`),
-`News` vs `Research` (§6), `Company_Id`/`previous_fdi` fuera del esquema (§5).
+Resueltos (ya no abiertos): **formato de `Id_Investment` = `ALPHA3-NNNN` + `Id_Seq`** (adoptado en los
+17 archivos desde el 09-07), **unidad de `Investment` = millones de USD** (confirmado 2026-07-05),
+exclusividad de `Construcción` (§9), lista de sectores y 8ª categoría (`sectores.md`), `News` vs
+`Research` (§6), `Company_Id`/`previous_fdi` fuera del esquema (§5).
 
 Ver `docs/generales/next_steps.md` y `docs/sprint_3/entrega_2606_validacion_esquema_04072026.html`.
 

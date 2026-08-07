@@ -26,9 +26,14 @@ conciernen a ella; si se busca validación externa, va con Francisco).
    company_ids separados por `|`. Los members sin fila propia se permiten —la UI humaniza el slug—
    pero impiden calcular la propiedad del consorcio desde sus partes, así que **se les crea ficha**.
    De los 19 huérfanos que había, 18 se sembraron el 03-08 (`scripts/one-off/seed_member_companies.mjs`).
-   **Queda uno a propósito: `mcm`**, que según la nota del consorcio es el socio local de CCA en Panamá,
-   o sea **no es una empresa china y no corresponde que esté en este registro**. Sacarlo de `members`
-   es una corrección de datos pendiente, no una ficha por crear.
+   El 19, `mcm`, recibió ficha el mismo día con `origin_country` y sin `ownership`, que es el
+   tratamiento del socio no chino.
+
+   **Y sigue abierto.** La revisión externa precisó el 05-08 que MCM es la filial panameña de Munilla
+   Construction Management, **estadounidense**, no una empresa local, y propone sacarla del registro
+   pero **dejarla como miembro del consorcio**. Ojo antes de hacerlo: un miembro sin ficha **sí aporta
+   `UNKNOWN`** a la derivación, así que borrar la fila y dejarla en `members` devuelve `PAN-0015` a
+   `UNKNOWN`, que es de donde vino. Ver `docs/sprint_5/respuesta_yifang_05082026.md`.
 7. **Ownership es atributo del id** (por empresa), no de la variante de nombre: todas las filas
    de un mismo `company_id` deben llevar el mismo `ownership` (inconsistencia goldwind/chemchina
    corregida 2026-07-07 bajo esta regla).
@@ -60,6 +65,14 @@ conciernen a ella; si se busca validación externa, va con Francisco).
    `is_jv_vehicle` no contradice la regla: es un atributo de la empresa (Andes Petroleum *es* un
    vehículo de CNPC y CNOOC, siempre, en toda operación), no del deal. El tercer caso es el único que
    este registro **no puede** contestar, porque el socio no chino nunca va a tener ficha acá.
+
+9. **Una matriz junto a sus propias filiales SÍ es un consorcio.** No es un inversor contado dos
+   veces, y por eso CCCC con CHEC, CNEEC con CMEC y CTG con CWE se quedan con sus miembros separados.
+   Que la matriz encabece el proyecto acompañada de sus filiales es una estrategia documentada de
+   salida de las estatales chinas, la «flota» (舰队): confirmado por la revisión externa el 05-08,
+   con <https://www.yicai.com/news/5287516.html>. Antes de «corregir» un consorcio de este tipo por
+   parecer redundante, releer esto: la duda ya se levantó una vez y la respuesta fue que el dato
+   está bien.
 
 ## Cómo se edita esta tabla (desde 2026-08-03)
 

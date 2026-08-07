@@ -102,6 +102,28 @@ describe('reglas de archivo', () => {
     expect(rules(warningsOf(r))).toContain('archivo/columna-nueva-ausente')
   })
 
+  it('reliability_notes ausente = UN warning de archivo, nunca uno por fila', () => {
+    const rows = [
+      makeRow(),
+      makeRow({ Id_Investment: 'CHL-0002', Id_Seq: 2, Coordinates: '-33.1, -71.1' })
+    ]
+    const r = run(rows)
+    const w = warningsOf(r).filter((x) => x.rule === 'archivo/columna-sugerida-ausente')
+    expect(w.map((x) => x.column)).toEqual(['reliability_notes'])
+    expect(r.fileErrors).toEqual([])
+    expect(r.stats.passed).toBe(true)
+    expect(r.stats.validPct).toBe(100)
+  })
+
+  it('reliability_notes presente y vacía en casi todas las filas: sin aviso', () => {
+    const rows = [
+      makeRow({ reliability_notes: 'Dos fuentes confirman el monto.' }),
+      makeRow({ Id_Investment: 'CHL-0002', Id_Seq: 2, Coordinates: '-33.1, -71.1', reliability_notes: null })
+    ]
+    const w = warningsOf(run(rows)).filter((x) => x.rule === 'archivo/columna-sugerida-ausente')
+    expect(w).toEqual([])
+  })
+
   it('columna extra desconocida = info, permitida', () => {
     const r = run([makeRow({ Location_ES: 'Santiago' })])
     expect(r.fileErrors).toEqual([])
@@ -452,75 +474,20 @@ describe('umbral', () => {
   })
 })
 
-describe('socio no chino (Socio_No_Chino / Socio_Pais, nunca bloquea)', () => {
-  const conSocio = (over = {}) => makeRow({ Joint_Venture: 'Yes', Socio_No_Chino: 'Electroingeniería', Socio_Pais: 'Argentina', ...over })
-
-  it('archivo sin las columnas: ningún aviso', () => {
-    const r = run([makeRow()])
-    expect(rules(warningsOf(r))).not.toContain('fila/socio-no-nombrado')
-    expect(rules(warningsOf(r))).not.toContain('fila/socio-sin-pais')
-    expect(r.stats.passed).toBe(true)
-  })
-
-  it('marcada como joint venture y sin socio nombrado, avisa', () => {
-    const w = warningsOf(run([makeRow({ Joint_Venture: 'Yes' })])).filter((x) => x.rule === 'fila/socio-no-nombrado')
-    expect(w).toHaveLength(1)
-    expect(w[0].message).toContain('no dice con quién')
-  })
-
-  it('avisa UNA vez por inversión, no por punto', () => {
-    const rows = [
-      makeRow({ Joint_Venture: 'Yes' }),
-      makeRow({ Id_Investment: 'CHL-0002', Id_Seq: 2, Joint_Venture: 'Yes', Vector: 'Vector', Path: 1, Coordinates: '-33.0, -71.0' }),
-      makeRow({ Id_Investment: 'CHL-0002', Id_Seq: 2, Joint_Venture: 'Yes', Vector: 'Vector', Path: 1, Coordinates: '-33.1, -71.1' })
-    ]
-    const w = warningsOf(run(rows)).filter((x) => x.rule === 'fila/socio-no-nombrado')
-    expect(w).toHaveLength(2)
-  })
-
-  it('Joint_Venture en No no pide socio', () => {
-    const r = run([makeRow({ Joint_Venture: 'No' })])
-    expect(rules(warningsOf(r))).not.toContain('fila/socio-no-nombrado')
-  })
-
-  it('socio nombrado sin país, avisa', () => {
-    const w = warningsOf(run([conSocio({ Socio_Pais: null })])).filter((x) => x.rule === 'fila/socio-sin-pais')
-    expect(w).toHaveLength(1)
-    expect(w[0].message).toContain('Electroingeniería')
-  })
-
-  it('socio y país completos: sin avisos', () => {
-    const r = run([conSocio()])
-    expect(rules(warningsOf(r))).not.toContain('fila/socio-no-nombrado')
-    expect(rules(warningsOf(r))).not.toContain('fila/socio-sin-pais')
-  })
-
-  it('socio nombrado sin la marca Joint_Venture también vale', () => {
-    const r = run([makeRow({ Socio_No_Chino: 'Newsan', Socio_Pais: 'Argentina' })])
-    expect(rules(warningsOf(r))).not.toContain('fila/socio-no-nombrado')
-    expect(r.stats.passed).toBe(true)
-  })
-
-  it('socios distintos entre las filas de una inversión, avisa', () => {
-    const rows = [
-      conSocio({ Id_Investment: 'CHL-0002', Id_Seq: 2, Vector: 'Vector', Path: 1, Coordinates: '-33.0, -71.0' }),
-      conSocio({ Id_Investment: 'CHL-0002', Id_Seq: 2, Socio_No_Chino: 'Newsan', Vector: 'Vector', Path: 1, Coordinates: '-33.1, -71.1' })
-    ]
-    const w = warningsOf(run(rows)).filter((x) => x.rule === 'fila/socio-inconsistente')
-    expect(w).toHaveLength(1)
-  })
-
-  it('nunca bota el archivo', () => {
+describe('Joint_Venture (columna legada, opcional, nunca bloquea)', () => {
+  // Se conserva como dummy: mal codificada y sin criterio, la app no la usa, pero el
+  // dato no se pierde. No hay regla de socio asociada (la propuesta Socio_No_Chino
+  // nunca se aprobó).
+  it('en Yes no genera ningun aviso ni bota el archivo', () => {
     const r = run([makeRow({ Joint_Venture: 'Yes' })])
     expect(errorsOf(r)).toEqual([])
     expect(r.stats.passed).toBe(true)
     expect(r.stats.validPct).toBe(100)
   })
 
-  it('las columnas nuevas no salen como columna extra en el informe', () => {
-    const r = run([conSocio()])
+  it('no sale como columna extra en el informe', () => {
+    const r = run([makeRow({ Joint_Venture: 'Yes' })])
     const extra = (r.issues || []).filter((x) => x.rule === 'archivo/columna-extra')
-    expect(extra.map((x) => x.column)).not.toContain('Socio_No_Chino')
-    expect(extra.map((x) => x.column)).not.toContain('Socio_Pais')
+    expect(extra.map((x) => x.column)).not.toContain('Joint_Venture')
   })
 })

@@ -41,7 +41,12 @@ const EDITABLE = [
   'chinese_name', 'firm_type', 'controllers', 'control_paths',
   'is_jv_vehicle', 'origin_country', 'review_note',
 ]
-const GENERADAS = ['company_id', 'investor_raw_all', 'is_consortium', 'members', 'evidence_source', 'in_the_site', 'investments', 'total_musd']
+// `external_note` sale pero NO se edita: es lo que dijo la revisión externa, literal, en
+// una fecha. Si cambia de opinión eso es una nota nueva, no una corrección de la anterior.
+// Va acá y no mezclada en `review_note` porque su texto y el nuestro se confundieron una
+// vez, y una fila con prosa nuestra bajo «confirmado en la revisión externa» se lee como si
+// tuviéramos su fundamento.
+const GENERADAS = ['company_id', 'investor_raw_all', 'is_consortium', 'members', 'evidence_source', 'external_note', 'in_the_site', 'investments', 'total_musd']
 
 function parseCsv(text) {
   const rows = []
