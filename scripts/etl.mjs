@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 import { canonCountry } from './lib/normalize.mjs'
 import { validateRows } from './lib/validate.mjs'
 import { loadRegistry, loadCountryBorders, loadCountryBounds } from './lib/load_registry.mjs'
+import { buildInvestorMap } from './lib/investors_map.mjs'
 
 const registry = loadRegistry()
 const countryBorders = registry ? loadCountryBorders(registry) : null
@@ -144,46 +145,14 @@ const sectorMap = new Map()
 // instead of trusting the raw Ownership column of the base (which lags the
 // Yifang verdicts — client base only applied SASAC→Central SOE, never Local SOE
 // nor the 30 reclassifications). See docs next_steps C10.
-const parseCsvLine = line => {
-  const cells = []
-  let cur = ''
-  let quoted = false
-  for (const ch of line) {
-    if (ch === '"') quoted = !quoted
-    else if (ch === ',' && !quoted) { cells.push(cur); cur = '' }
-    else cur += ch
-  }
-  cells.push(cur)
-  return cells
-}
-
+// El constructor vive en `scripts/lib/investors_map.mjs` y lo comparte con
+// `scripts/build_investors_map.mjs`. Antes cada uno tenía su copia y divergieron: el 03-08
+// se agregó `non_chinese` sólo al otro, y como acá es donde corre el build de Netlify, el
+// JSON publicado nunca lo llevó.
 const investorsCsvPath = resolve(REPO_ROOT, 'data/schema/investors_map.csv')
-const loadInvestorMap = path => {
-  const csvRows = readFileSync(path, 'utf8').trim().split(/\r?\n/)
-  const header = parseCsvLine(csvRows[0])
-  const col = name => header.indexOf(name)
-  const [iRaw, iId, iCanon, iCons, iOwn, iMembers] =
-    ['investor_raw', 'company_id', 'company_canonical', 'is_consortium', 'ownership', 'members'].map(col)
-  const map = {}
-  for (const line of csvRows.slice(1)) {
-    const c = parseCsvLine(line)
-    const entry = {
-      company_id: c[iId],
-      company_canonical: c[iCanon],
-      ownership: c[iOwn],
-      // TRUE/FALSE en mayúsculas en el CSV: sin toLowerCase el flag sale siempre
-      // false y el Sankey nunca expande el consorcio a sus miembros.
-      is_consortium: String(c[iCons] ?? '').trim().toLowerCase() === 'true'
-    }
-    const members = (c[iMembers] ?? '').split('|').map(s => s.trim()).filter(Boolean)
-    if (members.length) entry.members = members
-    map[c[iRaw]] = entry
-    // También por canónico: la base del cliente usa el nombre canónico como Investor.
-    if (c[iCanon] && !(c[iCanon] in map)) map[c[iCanon]] = entry
-  }
-  return map
-}
-const investorMap = existsSync(investorsCsvPath) ? loadInvestorMap(investorsCsvPath) : {}
+const investorMap = existsSync(investorsCsvPath)
+  ? buildInvestorMap(readFileSync(investorsCsvPath, 'utf8'))
+  : {}
 if (!Object.keys(investorMap).length) console.warn(`WARN: ${investorsCsvPath} missing — ownership will default to UNKNOWN`)
 
 // Ownership comes from the investor map, not the base row. Missing investor →

@@ -1,61 +1,18 @@
-// Converts data/schema/investors_map.csv -> public/data/investors_map.json
-// (keyed by investor_raw AND company_canonical, para que la base nueva —que usa
-// el nombre canónico como Investor— también resuelva; sin esto ~50% cae a UNKNOWN).
-// NOTE: `scripts/etl.mjs` now does this too on every build; this standalone
-// remains for regenerating the JSON without a full ETL run.
+// Regenera public/data/investors_map.json desde data/schema/investors_map.csv.
+//
+// El ETL hace lo mismo en cada build; esto sirve para regenerar sin correr el ETL entero.
+// **Los dos llaman al mismo núcleo** (`scripts/lib/investors_map.mjs`), que es lo que
+// impide que vuelvan a divergir: hasta el 05-08 cada uno tenía su copia del constructor y
+// `non_chinese` existía sólo en esta, así que el JSON publicado no lo llevaba.
 import { readFileSync, writeFileSync } from 'node:fs'
 import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { buildInvestorMap } from './lib/investors_map.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const SRC = resolve(ROOT, 'data/schema/investors_map.csv')
 const OUT = resolve(ROOT, 'public/data/investors_map.json')
 
-const parseLine = line => {
-  const out = []
-  let cur = ''
-  let q = false
-  for (const ch of line) {
-    if (ch === '"') q = !q
-    else if (ch === ',' && !q) { out.push(cur); cur = '' }
-    else cur += ch
-  }
-  out.push(cur)
-  return out
-}
-
-const rows = readFileSync(SRC, 'utf8').trim().split(/\r?\n/)
-const header = parseLine(rows[0])
-const idx = name => header.indexOf(name)
-const iRaw = idx('investor_raw')
-const iId = idx('company_id')
-const iCanon = idx('company_canonical')
-const iCons = idx('is_consortium')
-const iOwn = idx('ownership')
-const iMembers = idx('members')
-const iOrigen = idx('origin_country')
-
-const map = {}
-for (const line of rows.slice(1)) {
-  const c = parseLine(line)
-  const entry = {
-    company_id: c[iId],
-    company_canonical: c[iCanon],
-    ownership: c[iOwn],
-    // El CSV escribe TRUE/FALSE en mayúsculas: comparar en minúsculas o el flag
-    // sale siempre false y el Sankey nunca expande el consorcio a sus miembros.
-    is_consortium: String(c[iCons] ?? '').trim().toLowerCase() === 'true'
-  }
-  const members = (c[iMembers] ?? '').split('|').map(s => s.trim()).filter(Boolean)
-  if (members.length) entry.members = members
-  // Socio no chino: la propiedad no le aplica, así que la derivación de un consorcio
-  // tiene que saltarlo en vez de contarlo como desconocido. Sólo viaja cuando aplica.
-  const origen = String(c[iOrigen] ?? '').trim()
-  if (origen && origen.toLowerCase() !== 'china') entry.non_chinese = true
-  map[c[iRaw]] = entry
-  // También por nombre canónico (la base del cliente usa el canónico como Investor).
-  if (c[iCanon] && !(c[iCanon] in map)) map[c[iCanon]] = entry
-}
-
+const map = buildInvestorMap(readFileSync(SRC, 'utf8'))
 writeFileSync(OUT, JSON.stringify(map), 'utf8')
 console.log(`investors_map.json: ${Object.keys(map).length} entries -> ${OUT}`)

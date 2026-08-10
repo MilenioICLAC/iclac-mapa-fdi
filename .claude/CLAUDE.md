@@ -394,6 +394,14 @@ Los que forman parte de la operación:
   en Pages. Autocontenido, escrito para quien mantiene los datos, no para programadores.
 - `node scripts/build_investors_map.mjs` — regenera `public/data/investors_map.json` desde el CSV. El
   ETL hace lo mismo en cada build; este sirve para regenerar sin correr el ETL entero.
+  **Los dos llaman al mismo núcleo, `scripts/lib/investors_map.mjs`**, y ahí tiene que quedarse
+  cualquier campo nuevo del mapa. Tuvieron su propia copia del constructor hasta el 05-08 y
+  divergieron: `non_chinese` se agregó sólo al script suelto, así que el JSON **publicado** nunca lo
+  llevó y el modelo del socio no chino funcionaba únicamente corriendo el script a mano. El síntoma
+  era mudo —`PAN-0015` resolvía `["Local SOE","UNKNOWN"]` en vez de `["Local SOE"]`, y como el filtro
+  usa `.some()` y `UNKNOWN` no está entre sus opciones, no se veía en pantalla— así que la única forma
+  de detectarlo fue diffear los dos JSON. Si se vuelve a tocar el mapa: generarlo con los dos scripts
+  y comparar, tienen que salir **idénticos byte a byte**.
 - `node scripts/build_borders.mjs [dirDatos]` — desde `data/sources/geo/america.geojson` genera la
   semilla de bordes disponibles y el geojson que dibuja el mapa, filtrado por las dos compuertas.
   **Correrlo es parte de incorporar un país nuevo.** Idempotente.

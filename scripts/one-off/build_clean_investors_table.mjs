@@ -182,7 +182,28 @@ const GLOSARIO = [
   [/\by privados\b/g, 'and private holders'],
   [/\bhistoria de fraude\b/gi, 'history of fraud'],
 ]
-const ESPANOL = /[áéíóúñ¿¡]|\b(el|la|los|las|un|una|de la|del|con|por|para|segun|según|empresa|empresas|estatal|privad[ao]s?|gobierno|equipos|maquinaria|servicios|productos|reciclaje|seguros|parcialmente|mineria|minero|aisladores|piensos|molienda|acuicolas|inmobiliario|agroquimicos|sindicato|farma|pesca|no fusionar|nivel de|nombre de)\b/i
+// El detector es lo que sostiene la garantía «o traduce entera o no la toca», así que un
+// agujero acá no deja una nota en español: deja una nota MITAD traducida, que es peor,
+// porque se lee como terminada. La primera versión no tenía «Fuente», «controlador» ni
+// «SOE provincial», y por eso COFCO salió con «Fuente: Wikipedia» y CMOC con «controlador»
+// después de que el informe dijera que quedaban cero en español.
+const ESPANOL = new RegExp(
+  '[áéíóúñ¿¡]|\\b(' + [
+    // gramática
+    'el', 'la', 'los', 'las', 'un', 'una', 'de la', 'del', 'con', 'por', 'para', 'sin', 'tras',
+    'segun', 'según', 'aunque', 'desde', 'aun', 'ni', 'aquí',
+    // vocabulario del dominio que usamos al sembrar las notas
+    'empresas?', 'estatal(es)?', 'privad[ao]s?', 'gobierno', 'fuente', 'controlador(a|es)?',
+    'propiedad', 'mixta', 'ambigua', 'origen', 'variante', 'fusionad[ao]', 'accionista',
+    'mayor accionista', 'cotizad[ao]', 'matriz', 'filial(es)?', 'reforma', 'gestion', 'gestión',
+    'nivel', 'nombre', 'verificar', 'clasificad[ao]', 'participacion', 'participación',
+    'SOE (provincial|municipal)', 'banco', 'fondo', 'conglomerado', 'holding inversion',
+    // rubros que aparecen en las descripciones
+    'equipos', 'maquinaria', 'servicios', 'productos', 'reciclaje', 'seguros', 'mineria',
+    'minero', 'aisladores', 'piensos', 'molienda', 'acuicolas', 'inmobiliario', 'agroquimicos',
+    'sindicato', 'farma', 'pesca', 'parcialmente', 'electric[ao]s?', 'motos',
+  ].join('|') + ')\\b', 'i'
+)
 
 // **Todo o nada.** Una nota mitad inglés mitad español es peor que una entera en español:
 // la segunda se ve y se manda a traducir, la primera parece terminada. Si después del
@@ -294,6 +315,43 @@ Object.assign(NOTAS_FINALES, TRADUCIDAS)
 
 // El detector de español no distingue un nombre propio ("Las Bambas") ni una cita
 // deliberada del texto fuente. Estas dos están en inglés y se quedan como están.
+
+// ---- Segunda tanda de traducción a mano (2026-08-05), después de arreglar el detector.
+// Las 14 que quedaban tenían su único español en «Fuente», «controlador» o «SOE
+// provincial», que el detector viejo no conocía y por eso daba la nota por inglesa.
+//
+// Tres traían la nota peleada con su propio valor —Traxx «matriz china no confirmada» con
+// Central SOE, BBCA «verificar control» con POE confirmado, Foresun «control no
+// confirmado» con POE confirmado—. Dos las cerró la revisión externa y la nota nunca se
+// actualizó; la nota nueva dice de dónde viene el valor.
+const TRADUCIDAS_2 = {
+  'chengdu-tianqi': 'Private: subsidiary of Chengdu Tianqi Industry Group, controlled by Jiang Weiping. Source: Wikipedia Tianqi Lithium',
+  'china-molybdenum': 'Private: controlled by Cathay Fortune Corp (Yu Yong), around 25%. The external review notes it became a POE after the reforms. Source: Wikipedia/Grokipedia CMOC, Xinhua',
+  citic: 'CITIC Group Corp, a central SOE, holds 58% of CITIC Ltd. It is a financial conglomerate, so it sits outside the non-financial SASAC list, but central all the same. Source: Wikipedia CITIC',
+  byd: 'Private: listed, with founder Wang Chuanfu as the controller. Source: Wikipedia BYD',
+  goldwind: 'Mixed and ambiguous: listed, largest shareholder China Three Gorges at around 21%, no holder above 50%. The external review reads Three Gorges and the state as holding controlling shares. Source: Wikipedia Goldwind',
+  'harbin-electric': 'HEI is a wholly owned subsidiary of Harbin Electric Group, a central SASAC company. Source: SASAC/BHRRC',
+  'honbridge-holdings': 'Private: Hong Kong listed investment holding company in resources.',
+  'bbca-group': 'Anhui BBCA Biochemical, listed. We had read its control as possibly provincial and mixed; the external review confirmed POE.',
+  'xuzhou-construction-machinery': 'XCMG, a municipal SOE of Xuzhou (Jiangsu), with a partial mixed-ownership reform. Source: Wikipedia XCMG',
+  'china-great-wall-industry': 'Aerospace: wholly owned subsidiary of CASC, a central SASAC company. HOMONYM: do NOT merge with Great Wall Motor. Source: Wikipedia CGWIC/CASC',
+  'foresun-group': 'Private conglomerate. We had left the ultimate control unconfirmed; the external review confirmed POE.',
+  'jiangsu-yanghe-brewery': 'Yanghe, originally a Jiangsu provincial SOE under Suqian SASAC, with a mixed-management reform. The external review places it under local SASAC.',
+  'changyu-pioneer-wine': 'Yantai Changyu, originally a Yantai municipal SOE, with a mixed reform (EMBO plus Illva Saronno).',
+  // La única que no se cierra. Su etiqueta nació como «SOE» en el dataset legado y la
+  // revisión externa sólo la normalizó al enum nuevo: nadie miró la matriz, que es
+  // justamente lo que nuestra nota decía que faltaba.
+  'traxx-motocicletas-do-brasil': 'OPEN: motorcycle brand in Brazil whose Chinese parent we were never able to confirm. Its Central SOE label began as a plain "SOE" in a legacy dataset we no longer treat as a source, and the external review only normalised that value to the new enum without looking at the parent.',
+}
+Object.assign(NOTAS_FINALES, TRADUCIDAS_2)
+
+
+// La 13 de NOTA-VACIADA que NO queda vacía. Con la nota en blanco se ve igual de cerrada
+// que North Lima Power Grid, que volvió con forma jurídica y controlador, y no lo está.
+Object.assign(NOTAS_FINALES, {
+  everchina: 'OPEN: the external review returned only the Chinese name for this company, with no firm type and no controllers, so this POE rests on a thinner base than the other rows confirmed in the same round.',
+})
+
 const NO_ES_ESPANOL = new Set(['mmg-guoxin-and-citic-metal-company', 'american-recycling'])
 
 // Filas que pasan de propuesta a confirmada por la revisión del 05-08.
@@ -422,11 +480,20 @@ for (const c of contradicciones) console.log(`   ${String(c[0]).padEnd(32)} la n
 //
 // Una fila lleva una sola marca. Si califica para varias, gana la de más arriba.
 // ============================================================================
+// CONTRADICE existió y se retiró el 05-08, revisada una por una: en las 14 el valor de la
+// fila resultó ser el `corrected ownership` de la revisión externa, y en 13 de ellas su
+// veredicto fue «Wrong», o sea corrigió el nuestro a propósito. Lo que contradecía no era
+// el dato sino la cola de la nota, escrita antes de esa revisión y ya eliminada por R2.
+// La hoja `contradicciones` se queda como registro de lo que se encontró y se resolvió.
+//
+// NOTA-VACIADA se retiró el 05-08 sobre la hoja `nota_vaciada`, que se conserva. Las 13
+// notas eran una plantilla nuestra, no texto suyo: su formulario devolvía veredicto,
+// propiedad y datos de registro, y `comments` sólo cuando quería agregar algo (29 de 159
+// filas). En 12 la nota vacía es el estado correcto, porque cada parte de lo que decía
+// vive en su columna. La 13, EverChina, se separó: ver NOTAS_FINALES.
 const MARCAS = [
-  ['CONTRADICE', 'FFC7CE', 'La nota nombraba un ownership distinto al de la fila. El valor de la fila es el bueno; la nota estaba vieja.'],
   ['ESPERA-RESPUESTA', 'BDD7EE', 'Pregunta enviada a la revisión externa el 05-08, sin aplicar hasta que conteste.'],
   ['ABIERTA', 'FFEB9C', 'Pregunta nuestra sin resolver, marcada OPEN en la nota.'],
-  ['NOTA-VACIADA', 'C6EFCE', 'La nota decía lo que ya dicen chinese_name y firm_type. Vacía es el estado honesto, pero conviene confirmarlo.'],
 ]
 const idsContradicen = new Set(contradicciones.map(([nombre]) => nombre))
 // Vacío desde el 05-08: las dos preguntas están contestadas y aplicadas en CORRECCIONES.
@@ -434,20 +501,61 @@ const ESPERA = new Set()
 
 for (const r of salida) {
   r.flag =
-    idsContradicen.has(r.company_canonical) ? 'CONTRADICE'
-      : ESPERA.has(r.company_id) ? 'ESPERA-RESPUESTA'
+    ESPERA.has(r.company_id) ? 'ESPERA-RESPUESTA'
         : /\bOPEN\b/.test(r.review_note) ? 'ABIERTA'
-          : !r.review_note ? 'NOTA-VACIADA'
             : ''
 }
 // `flag` primero: es lo que se mira al abrir.
 const salidaConFlag = salida.map(({ flag, ...resto }) => ({ flag, ...resto }))
 
+// ---------- hoja de cotejo de NOTA-VACIADA ----------
+//
+// Las 13 notas vaciadas eran la MISMA plantilla nuestra rellenada con dos columnas de la
+// planilla externa (`apply_ownership_unknown_verdicts.mjs`), no texto que él escribiera.
+// Esta hoja lo pone lado a lado para poder decidir con el dato a la vista: qué decía la
+// nota, qué contestó él de verdad, y en qué columna vive hoy cada parte.
+//
+// La columna que importa es `comentó`: en 11 de las 13 está en «no», y eso es lo esperado,
+// no una falta. Su formulario era veredicto + propiedad + datos de registro; `comments`
+// era para lo que quisiera agregar, y lo usó en 29 de 159 filas.
+const revision = new Map()
+try {
+  for (const r of XLSX.utils.sheet_to_json(
+    XLSX.readFile('docs/sprint_5/ownership_review_ywedits.xlsx').Sheets.companies, { defval: '' }
+  )) revision.set(s(r.company), r)
+} catch { /* sin la planilla, la hoja sale con las columnas de él vacías */ }
+
+const notaVieja = new Map(auditoria.map((a) => [a.company, a.antes]))
+// Se filtra por el HECHO —la nota vieja era la plantilla de R1— y no por la marca, que ya
+// se retiró. Atarla a la marca dejó la hoja vacía justo cuando pasó a ser el registro de
+// una decisión tomada, que es cuando más falta hace.
+const ERA_PLANTILLA = /^Propiedad confirmada en la revisi[óo]n externa/i
+const cotejo = salida
+  .filter((r) => ERA_PLANTILLA.test(notaVieja.get(r.company_canonical) || ''))
+  .map((r) => {
+    const y = revision.get(r.company_canonical) || {}
+    // «Delgada» = él confirmó pero sólo devolvió el nombre. Sin forma jurídica ni
+    // controladores, ese `confirmed` se apoya en menos que el de sus vecinos, y con la
+    // nota vacía eso deja de verse en la tabla.
+    const delgada = !s(r.firm_type) && !s(r.controllers)
+    return {
+      company: r.company_canonical,
+      ownership: r.ownership,
+      veredicto_suyo: s(y['your verdict (OK / WRONG / UNSURE)']) || '(no está en la planilla)',
+      comento: s(y.comments) ? 'sí' : 'no',
+      chinese_name: r.chinese_name || '',
+      firm_type: r.firm_type || '',
+      controllers: r.controllers || '',
+      evidencia_delgada: delgada ? 'SÍ' : '',
+      nota_vieja: notaVieja.get(r.company_canonical) || '',
+    }
+  })
+
 const pintar = (ws, filas) => {
   const cols = Object.keys(filas[0])
   const letra = (i) => { let s = '', n = i; while (n >= 0) { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1 } return s }
   // Además del flag se pinta la celda que hay que mirar, que no es la misma en cada caso.
-  const foco = { CONTRADICE: 'ownership', 'ESPERA-RESPUESTA': 'controllers', ABIERTA: 'review_note', 'NOTA-VACIADA': 'review_note' }
+  const foco = { 'ESPERA-RESPUESTA': 'controllers', ABIERTA: 'review_note' }
   filas.forEach((r, i) => {
     if (!r.flag) return
     const color = MARCAS.find(([n]) => n === r.flag)[1]
@@ -482,7 +590,20 @@ const wsComp = XLSX.utils.json_to_sheet(salidaConFlag)
 pintar(wsComp, salidaConFlag)
 XLSX.utils.book_append_sheet(wb, wsComp, 'companies')
 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(auditoria), 'note_changes')
+XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(cotejo), 'nota_vaciada')
 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(sinTraducir.map(([company, note]) => ({ company, note }))), 'sin_traducir')
 XLSX.utils.book_append_sheet(wb, XLSX.utils.json_to_sheet(contradicciones.map(([company, nota_decia, fila_dice]) => ({ company, nota_decia, fila_dice }))), 'contradicciones')
-XLSX.writeFile(wb, OUT)
+// Sin esta guarda el fallo es peor que un error: el script imprime sus cifras, que se
+// calculan en memoria y son correctas, y deja en disco el archivo de la corrida anterior.
+// Se termina revisando una versión vieja creyendo que es la nueva. Ya pasó.
+try {
+  XLSX.writeFile(wb, OUT)
+} catch (e) {
+  if (e.code === 'EBUSY' || e.code === 'EPERM') {
+    console.error(`\nNO SE ESCRIBIÓ ${OUT}: el archivo está abierto en Excel.`)
+    console.error('Cerralo y volvé a correr. Lo de arriba es el cálculo, no el archivo.')
+    process.exit(1)
+  }
+  throw e
+}
 console.log(`\n${OUT}`)
