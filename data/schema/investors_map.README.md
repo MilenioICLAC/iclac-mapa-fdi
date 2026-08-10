@@ -119,23 +119,44 @@ Antes esa evidencia vivía **solo** dentro de un xlsx en `docs/`, que está en e
 | Columna | Qué guarda | Cobertura |
 |---|---|---|
 | `ownership_status` | Estado de la clasificación, **en inglés** porque el editable que se manda afuera lo es y el valor viaja tal cual. Cinco valores, ver abajo | 240 filas |
-| `evidence_source` | de dónde salió la evidencia: `revision-externa-2026-07` o `iclac-propuesta-2026-08` | 216 |
-| `chinese_name` | nombre en el registro chino | 155 |
-| `firm_type` | forma jurídica del registro chino | 148 |
-| `controllers` | controladores últimos, separados por `\|` | 135 |
-| `control_paths` | cadenas de control con porcentaje por salto, separadas por `\|` | 134 |
+| `evidence_source` | de dónde salió la evidencia: `revision-externa-2026-07` o `iclac-propuesta-2026-08` | 219 |
+| `chinese_name` | nombre en el registro chino | 209 |
+| `controllers` | controladores últimos, separados por `\|` | 188 |
+| `firm_type` | forma jurídica del registro chino | 186 |
+| `control_paths` | cadenas de control con porcentaje por salto, separadas por `\|` | 168 |
 | `is_jv_vehicle` | `TRUE` si la empresa es un vehículo de propiedad conjunta | 5 |
 | `origin_country` | País de un socio **no chino**. **Vacío = China**, que es el default correcto en un registro de inversores chinos | 1 |
+| `external_note` | Lo que escribió la revisión externa, **literal**. Ver abajo | 40 |
+
+**`review_note` y `external_note` no son lo mismo, y separarlas costó descubrir por qué.**
+`review_note` es prosa **nuestra**: qué es la empresa, de dónde sale la clasificación, qué queda
+abierto. `external_note` es el dicho de otro en una fecha, sin editar.
+
+Estuvieron mezcladas hasta el 04-08, y el efecto no era un hueco sino algo peor: **un hueco que parece
+lleno**. 29 filas decían «Propiedad confirmada en la revisión externa …» con una frase que habíamos
+escrito nosotros concatenando dos columnas de su planilla, mientras su columna `comments` —que sí
+tenía su razonamiento— no se había leído nunca. Por eso `external_note` **no está entre los
+`EDITABLES` del import**: entra por scripts trazables (`ingest_external_comments.mjs`,
+`ingest_review_notes_0508.mjs`) que verifican que el texto sea substring literal de su celda y se
+niegan a pisar uno anterior. Dos rondas suyas son dos dichos con fecha, no uno que reemplaza al otro.
+
+**La nota es para lo que no cabe en una columna.** Si el dato ya vive en `chinese_name`, `firm_type`,
+`ownership` o `evidence_source`, no se repite en prosa: eso fue exactamente lo que hizo que 13 filas
+parecieran tener fundamento externo cuando lo que tenían era una plantilla. Y **una nota que nombra un
+`ownership` distinto al de su propia fila es peor que una vacía**: había 14, todas con la cola
+`-> OWNERSHIP CORREGIDO … segun latam.json` escrita antes de la revisión externa.
+
+Toda la columna quedó **en inglés** el 10-08, porque el editable que se manda afuera lo es.
 
 **Los cinco valores de `ownership_status`**, cada uno un estado distinto y verdadero:
 
 | Valor | Qué significa | Hoy |
 |---|---|---|
-| `confirmed` | La revisión externa dio veredicto de propiedad | 156 |
-| `proposed` | Clasificación nuestra, esperando auditoría externa | 16 |
+| `confirmed` | La revisión externa dio veredicto de propiedad | 199 |
 | `derived` | Es un consorcio: su propiedad **no se guarda nunca**, se resuelve desde `members` al leerla. No hay nada que completar | 21 |
+| `proposed` | Clasificación nuestra, esperando auditoría externa | 15 |
 | `flagged-for-removal` | La revisión externa propuso **sacar la empresa** del repositorio. No es un veredicto de propiedad, es una decisión editorial que está con ICLAC | 3 |
-| `unreviewed` | Nadie de afuera la miró nunca | 5 |
+| `unreviewed` | Nadie de afuera la miró nunca | 2 |
 
 **La tabla también registra socios no chinos, desde el 03-08.** Antes tratábamos distinto dos cosas
 que son la misma: un miembro chino de un consorcio era una fila, y un socio no chino era texto suelto

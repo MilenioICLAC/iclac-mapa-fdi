@@ -23,6 +23,7 @@
 //   ... --allow-new        acepta empresas que no existían
 //   ... --allow-missing    acepta que falten empresas (las deja como están, no borra)
 //   ... --source=texto     qué escribir en evidence_source de lo que cambió
+//   ... --keep-source      NO tocar evidence_source (reescrituras que no cambian la evidencia)
 
 import { readFileSync, writeFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
@@ -42,6 +43,7 @@ const allowNew = flag('allow-new')
 const allowMissing = flag('allow-missing')
 const hoy = new Date().toISOString().slice(0, 10)
 const SOURCE = opt('source', `revision-externa-${hoy}`)
+const keepSource = flag('keep-source')
 
 if (!XLS) {
   console.error('Falta el archivo. Uso: npm run investors:import -- docs/investors_table.xlsx')
@@ -181,7 +183,13 @@ for (const [id, filas] of filasPorId) {
 
   // Procedencia automática: si alguien cambió algo, la evidencia de esa fila ya no es
   // la que era. Dejarlo manual es cómo se pierde el rastro.
-  if (tocada && idx('evidence_source') >= 0) {
+  //
+  // `--keep-source` existe para el caso contrario, que también es real: una reescritura de
+  // `review_note` que **no toca la evidencia**, como pasar la nota de español a inglés o
+  // sacarle prosa nuestra. Ahí estampar la fecha de hoy afirma una revisión que no hubo y
+  // borra cuándo se obtuvo la evidencia de verdad. Es la peor clase de dato: uno que
+  // parece más fresco de lo que es.
+  if (tocada && !keepSource && idx('evidence_source') >= 0) {
     const antes = limpiar(filas[0][idx('evidence_source')])
     if (antes !== SOURCE) {
       cambios.push({ id, nombre, campo: 'evidence_source', antes: antes || '(vacío)', ahora: SOURCE, filas: filas.length, auto: true })

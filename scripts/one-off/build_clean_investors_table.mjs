@@ -187,23 +187,38 @@ const GLOSARIO = [
 // porque se lee como terminada. La primera versión no tenía «Fuente», «controlador» ni
 // «SOE provincial», y por eso COFCO salió con «Fuente: Wikipedia» y CMOC con «controlador»
 // después de que el informe dijera que quedaban cero en español.
-const ESPANOL = new RegExp(
-  '[áéíóúñ¿¡]|\\b(' + [
-    // gramática
-    'el', 'la', 'los', 'las', 'un', 'una', 'de la', 'del', 'con', 'por', 'para', 'sin', 'tras',
-    'segun', 'según', 'aunque', 'desde', 'aun', 'ni', 'aquí',
-    // vocabulario del dominio que usamos al sembrar las notas
-    'empresas?', 'estatal(es)?', 'privad[ao]s?', 'gobierno', 'fuente', 'controlador(a|es)?',
-    'propiedad', 'mixta', 'ambigua', 'origen', 'variante', 'fusionad[ao]', 'accionista',
-    'mayor accionista', 'cotizad[ao]', 'matriz', 'filial(es)?', 'reforma', 'gestion', 'gestión',
-    'nivel', 'nombre', 'verificar', 'clasificad[ao]', 'participacion', 'participación',
-    'SOE (provincial|municipal)', 'banco', 'fondo', 'conglomerado', 'holding inversion',
-    // rubros que aparecen en las descripciones
-    'equipos', 'maquinaria', 'servicios', 'productos', 'reciclaje', 'seguros', 'mineria',
-    'minero', 'aisladores', 'piensos', 'molienda', 'acuicolas', 'inmobiliario', 'agroquimicos',
-    'sindicato', 'farma', 'pesca', 'parcialmente', 'electric[ao]s?', 'motos',
-  ].join('|') + ')\\b', 'i'
+// Detector por MORFOLOGÍA, no por lista. Una lista sólo caza lo que alguien se acordó de
+// escribir, y ya falló dos veces: primero con «Fuente» y «controlador», después con
+// «cotiza» y «afiliada». Las terminaciones de abajo no existen en inglés, así que atrapan
+// familias enteras de palabras sin tener que enumerarlas.
+// OJO al editar: las piezas se unen con `|`, así que **cada elemento tiene que ser una
+// alternativa completa**. Partir una alternancia en varias líneas deja alternativas vacías
+// (`||`), que matchean la cadena vacía y dan todo por español. Pasó, y el informe cantó 188
+// de 202 en vez de las 10 reales.
+const VOCABULARIO = [
+  'fuente', 'empresas?', 'estatal', 'privad\\w*', 'gobierno', 'controlador\\w*', 'matriz',
+  'filial(es)?', 'origen', 'variante', 'cotiza\\w*', 'entidad', 'reforma', 'gestion',
+  'verificar', 'recomendacion', 'accionista', 'propiedad', 'buros', 'numerados', 'movil',
+  'efectivo', 'ingredientes', 'agrupar', 'afiliada', 'vinculada', 'documentada',
+].join('|')
+const FUNCIONALES = [
+  'el', 'la', 'los', 'las', 'un', 'una', 'del', 'con', 'por', 'para', 'sin', 'tras',
+  'segun', 'aunque', 'desde', 'que', 'sus',
+].join('|')
+// Dos chequeos, no uno, y el motivo es una trampa fina: la morfología tiene que ser
+// **sensible a mayúsculas** —un nombre propio empieza con mayúscula, un sustantivo común
+// español en mitad de frase no— y bajo el flag `i` un `[a-z]` matchea igual la mayúscula.
+// Con un solo regex insensible, «Ciudad de Esperanza», el nombre del proyecto de Panamá,
+// caía por el sufijo «anza» y daba la nota por española.
+const ESPANOL_MORFOLOGIA = new RegExp([
+  '\\b[a-záéíóúñ]{3,}(ción|cion|ciones|idad|mente|anza)\\b',
+  '\\b[a-záéíóúñ]{4,}(ada|ado|adas|ados|iza|izan)\\b',
+].join('|'))                       // SIN flag i, a propósito
+const ESPANOL_LEXICO = new RegExp(
+  ['[áéíóúñ¿¡]', `\\b(${FUNCIONALES})\\b`, `\\b(${VOCABULARIO})\\b`].join('|'), 'i'
 )
+const ESPANOL = { test: (n) => ESPANOL_MORFOLOGIA.test(n) || ESPANOL_LEXICO.test(n) }
+
 
 // **Todo o nada.** Una nota mitad inglés mitad español es peor que una entera en español:
 // la segunda se ve y se manda a traducir, la primera parece terminada. Si después del
@@ -351,6 +366,29 @@ Object.assign(NOTAS_FINALES, TRADUCIDAS_2)
 Object.assign(NOTAS_FINALES, {
   everchina: 'OPEN: the external review returned only the Chinese name for this company, with no firm type and no controllers, so this POE rests on a thinner base than the other rows confirmed in the same round.',
 })
+
+
+// ---- Tercera tanda (05-08). Se escapaban porque el detector era una LISTA DE PALABRAS y
+// no conocía «cotiza», «entidad», «afiliada», «recomendacion». Junto con estas notas se
+// endurece el detector por morfología (ver ESPANOL), que es lo que no depende de acordarse
+// de cada palabra.
+//
+// Tres traían «Recomendacion: agrupar bajo X», una fusión de ids que YA se hizo: la
+// recomendación cumplida no es nota, es historia, y vive en el README.
+const TRADUCIDAS_3 = {
+  'china-railway-construction-corporation': 'SASAC central SOE (CRCC). Controls the numbered bureaus 11 to 25. Source: Wikipedia CRCC',
+  'ganfeng-lithium': 'Private: founded by Li Liangbin in 2000, listed on SZSE and HKEX. Source: Wikipedia Ganfeng',
+  'china-railway-group': 'Bureau 1 is a subsidiary of China Railway Group (CREC), a central SASAC SOE. Source: Wikipedia CREC',
+  'china-state-construction-engineering-corporation': 'US subsidiary of China State Construction Engineering Corp (CSCEC), a central SASAC SOE.',
+  'china-communications-construction-company': 'Subsidiary of CCCC (China Communications Construction Co), a central SASAC SOE.',
+  nextview: 'Thinly documented entity. The external review identified it as a JV vehicle between Xizang Summit (45%) and Shanghai Geshi Xiangjin Investment Partnership, both private.',
+  'ant-financial': 'Private: Alibaba affiliate, with Jack Ma holding effective control. Source: Wikipedia Ant Group',
+  'qihoo-360': 'Private: cybersecurity (Zhou Hongyi). Source: Wikipedia Qihoo 360',
+  'fenchem-biotek': 'Private: ingredients and nutrition, Nanjing.',
+  hytera: 'Private: Shenzhen communications-equipment maker, listed (Chen Qingzhou). Source: Wikipedia Hytera',
+  'cheetah-mobile': 'Private: mobile software, linked to Kingsoft (Fu Sheng). Source: Wikipedia Cheetah Mobile',
+}
+Object.assign(NOTAS_FINALES, TRADUCIDAS_3)
 
 const NO_ES_ESPANOL = new Set(['mmg-guoxin-and-citic-metal-company', 'american-recycling'])
 
