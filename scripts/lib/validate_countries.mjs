@@ -12,7 +12,7 @@
 //
 // El contrato lo recibe por parámetro (texto crudo, no ruta): sin I/O, testeable.
 
-const EXPECTED = ['alpha3', 'numeric', 'name', 'aliases', 'filename', 'publish']
+const EXPECTED = ['alpha3', 'alpha2', 'numeric', 'name', 'aliases', 'filename', 'publish']
 const REQUIRED = ['alpha3', 'numeric', 'name']
 const PUBLISH_OK = ['yes', 'no']
 

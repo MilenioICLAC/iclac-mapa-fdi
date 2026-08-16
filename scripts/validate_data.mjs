@@ -14,6 +14,7 @@ import { appendFileSync, existsSync, readdirSync, statSync } from 'node:fs'
 import { basename, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateRows } from './lib/validate.mjs'
+import { alpha3ForFilename } from './lib/countries.mjs'
 import { loadRegistry, loadCountryBorders, loadInvestorMap, loadCountryBounds } from './lib/load_registry.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -64,9 +65,7 @@ const investorMap = loadInvestorMap()
 // validación: un archivo puede estar impecable y aun así no publicarse todavía.
 // Se informa para que quien sube el archivo no lo lea como un fallo suyo.
 const isPublished = (fileName) => {
-  const stem = fileName.replace(/\.xlsx$/i, '').toUpperCase()
-  const byA3 = registry?.filenameByAlpha3 ?? {}
-  const a3 = Object.keys(byA3).find((k) => byA3[k] === stem)
+  const a3 = alpha3ForFilename(registry, fileName)
   return a3 ? registry.publishByAlpha3?.[a3] !== false : true
 }
 if (registry) console.log(`Registro de países: ${registry.list.length} · bordes disponibles: ${countryBorders ? countryBorders.size : 'n/d'}`)
@@ -85,7 +84,7 @@ for (const file of files) {
   }
   const sheetName = wb.SheetNames[0]
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[sheetName], { defval: null })
-  const { fileErrors, issues, stats } = validateRows(rows, {
+  const { fileErrors, issues, stats, excludedIds } = validateRows(rows, {
     filename: name,
     strictIds,
     threshold,
@@ -119,16 +118,35 @@ for (const file of files) {
     if (items.length > MAX_PER_RULE) console.log(`      … y ${items.length - MAX_PER_RULE} caso(s) más de esta regla.`)
   }
 
+  // La compuerta ESTRUCTURAL decide si el archivo se puede leer; la de CONTENIDO,
+  // qué inversiones publican. Un archivo puede pasar la primera y dejar fuera
+  // algunas inversiones por la segunda, y eso hay que decirlo con nombre y
+  // apellido: filtrar en silencio sería el parche que la convención prohíbe.
   const published = isPublished(name)
-  const veredicto = stats.passed ? (published ? 'PASA ✔' : 'PASA ✔ · RETENIDO, no se publica') : 'FALLA ✗'
+  const veredicto = stats.passed ? (published ? 'PASA ✔' : 'PASA ✔ · RETENIDO, no se publica') : 'FALLA ✗ · no se puede leer'
   console.log(
-    `  ── ${stats.rows} filas · ${stats.validPct}% válidas (umbral ${stats.threshold}%) · ${stats.errors} errores · ${stats.warnings} advertencias → ${veredicto}`
+    `  ── ${stats.investments} inversiones en ${stats.rows} filas · ${stats.validPct}% de filas válidas · ${stats.errors} errores · ${stats.warnings} advertencias → ${veredicto}`
   )
   if (stats.passed && !published) {
     console.log('      El archivo cumple el esquema; no se publica porque countries.csv lo tiene con publish=no.')
   }
-  if (!stats.passed) anyFailed = true
-  summaryRows.push({ name, rows: stats.rows, validPct: stats.validPct, errors: stats.errors, warnings: stats.warnings, passed: stats.passed, published })
+  if (excludedIds.size) {
+    console.log(`      ⊘ ${excludedIds.size} inversión(es) NO se publican por errores en alguna de sus filas:`)
+    console.log(`        ${[...excludedIds].sort().join(', ')}`)
+    console.log('        El resto del archivo sí se publica. Corregir esas filas las reincorpora.')
+  }
+  if (!stats.passed || excludedIds.size) anyFailed = true
+  summaryRows.push({
+    name,
+    rows: stats.rows,
+    investments: stats.investments,
+    excluded: excludedIds.size,
+    validPct: stats.validPct,
+    errors: stats.errors,
+    warnings: stats.warnings,
+    passed: stats.passed,
+    published
+  })
 }
 
 // -- resumen para GitHub Actions --
@@ -136,11 +154,13 @@ if (process.env.GITHUB_STEP_SUMMARY) {
   const md = [
     '## Validación de datos',
     '',
-    '| Archivo | Filas | % válidas | Errores | Advertencias | Resultado |',
-    '|---|---|---|---|---|---|',
-    ...summaryRows.map((r) => `| ${r.name} | ${r.rows} | ${r.validPct} | ${r.errors} | ${r.warnings} | ${r.passed ? (r.published ? '✅ pasa' : '⏸️ pasa, retenido') : '❌ falla'} |`),
+    '| Archivo | Inversiones | Filas | No publican | Errores | Advertencias | Resultado |',
+    '|---|---|---|---|---|---|---|',
+    ...summaryRows.map((r) => `| ${r.name} | ${r.investments} | ${r.rows} | ${r.excluded || '—'} | ${r.errors} | ${r.warnings} | ${r.passed ? (r.published ? '✅ pasa' : '⏸️ pasa, retenido') : '❌ no se puede leer'} |`),
     '',
-    anyFailed ? 'Revisar el log del paso para el detalle por fila (valor recibido y esperado).' : 'Todos los archivos cumplen el esquema.'
+    anyFailed
+      ? 'La columna "No publican" son inversiones que quedan fuera del sitio por errores en alguna de sus filas; el resto del archivo sí entra. Revisar el log del paso para el detalle por fila (valor recibido y esperado).'
+      : 'Todos los archivos cumplen el esquema y todas las inversiones publican.'
   ].join('\n')
   appendFileSync(process.env.GITHUB_STEP_SUMMARY, md + '\n')
 }

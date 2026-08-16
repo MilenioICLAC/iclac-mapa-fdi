@@ -14,6 +14,7 @@ import { existsSync, mkdirSync, readdirSync, writeFileSync, statSync } from 'nod
 import { basename, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateRows, SECTOR_PAIRS } from './lib/validate.mjs'
+import { alpha3ForFilename } from './lib/countries.mjs'
 import { loadRegistry, loadCountryBorders, loadInvestorMap, loadCountryBounds } from './lib/load_registry.mjs'
 
 // ES canónico → concepto EN, más variantes no canónicas pero conceptualmente
@@ -83,9 +84,7 @@ const investorMap = loadInvestorMap()
 // validación: el archivo puede estar impecable y el país no publicarse todavía.
 // Se muestra aparte para que no se lea como un fallo del archivo.
 const isPublished = (fileName) => {
-  const stem = fileName.replace(/\.xlsx$/i, '').toUpperCase()
-  const byA3 = registry?.filenameByAlpha3 ?? {}
-  const a3 = Object.keys(byA3).find((k) => byA3[k] === stem)
+  const a3 = alpha3ForFilename(registry, fileName)
   return a3 ? registry.publishByAlpha3?.[a3] !== false : true
 }
 
@@ -100,7 +99,7 @@ for (const file of files) {
     continue
   }
   const rows = XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]], { defval: null })
-  const { fileErrors, issues, stats, curaciones } = validateRows(rows, {
+  const { fileErrors, issues, stats, curaciones, excludedIds } = validateRows(rows, {
     filename: name,
     threshold: 95,
     sheetCount: wb.SheetNames.length,
@@ -109,7 +108,13 @@ for (const file of files) {
     countryBounds,
     investorMap
   })
-  results.push({ name, fileErrors, issues, stats, curaciones: curaciones ?? [], rows, published: isPublished(name) })
+  results.push({
+    name, fileErrors, issues, stats,
+    curaciones: curaciones ?? [],
+    excludedIds: [...(excludedIds ?? [])].sort(),
+    rows,
+    published: isPublished(name)
+  })
 }
 
 // Conflictos conceptuales Area_EN vs Area_ES (por inversión única), sobre la base cruda.
@@ -249,6 +254,36 @@ const RULE_HELP = {
     causa: 'Year u otro campo cambia entre filas del mismo Id.',
     fix: 'Mantener idénticos los campos no geográficos dentro de una inversión.',
     tipo: 'contenido'
+  },
+  'fila/id-colision-intrapais': {
+    titulo: 'Dos inversiones distintas con el mismo Id_Investment',
+    causa: 'Una fila nueva reusó un Id_Investment que ya pertenecía a otra inversión del mismo país, con otro inversor. Pasa al agregar filas al final del archivo copiando una existente.',
+    fix: 'Asignar un Id_Investment libre a la inversión nueva (el siguiente de la secuencia del país). Mientras compartan id, el mapa dibuja las dos pero el contador suma una sola y el monto de la segunda no entra al total.',
+    tipo: 'contenido'
+  },
+  'fila/inversor-inconsistente': {
+    titulo: 'Dos nombres de inversor en la misma inversión',
+    causa: 'Una fila trae un nombre distinto (a menudo un placeholder tipo "Unidentified") y el resto el nombre real.',
+    fix: 'Dejar el mismo nombre en todas las filas. El sitio muestra el de la primera fila del trazado, así que un placeholder ahí se ve en toda la inversión y la manda a propiedad desconocida.',
+    tipo: 'contenido'
+  },
+  'fila/cancelled': {
+    titulo: 'cancelled fuera del enum',
+    causa: 'La celda trae algo distinto de 0 o 1.',
+    fix: 'Usar 0 para vigente y 1 para cancelada. Es la columna que decide si la inversión va al mapa o al descargable de canceladas.',
+    tipo: 'formato'
+  },
+  'fila/cancelled-inconsistente': {
+    titulo: 'cancelled distinto entre filas de la misma inversión',
+    causa: 'Unos puntos de la inversión están marcados como cancelados y otros no.',
+    fix: 'Repetir el mismo valor en todas las filas: una inversión está cancelada o no lo está. Si son dos inversiones distintas, necesitan ids distintos.',
+    tipo: 'contenido'
+  },
+  'fila/provincia-pais': {
+    titulo: 'Province_ISO de otro país',
+    causa: 'El prefijo del código de provincia no corresponde al país de la fila (ej: SR-NI en un archivo de Guyana).',
+    fix: 'Corregir la división administrativa, o confirmar que el punto cae del otro lado de la frontera si la obra es binacional.',
+    tipo: 'revisar'
   },
   'archivo/geometria-compartida': {
     titulo: 'Dos inversiones comparten geometría',
@@ -399,19 +434,23 @@ const fileSection = (r) => {
     return `<details class="file bad"><summary><span class="fname">${esc(r.name)}</span><span class="status bad">no se pudo leer</span></summary><p class="err">${esc(r.error)}</p></details>`
   }
   const s = r.stats
+  const excluidas = r.excludedIds ?? []
   const held = s.passed && r.published === false
-  const statusCls = held ? 'hold' : s.passed ? 'ok' : 'bad'
-  const statusTxt = held ? 'PASA · RETENIDO' : s.passed ? 'PASA' : 'FALLA'
-  // Motivo del rechazo, en la mecánica del validador.
+  const parcial = s.passed && !held && excluidas.length > 0
+  const statusCls = held ? 'hold' : parcial ? 'hold' : s.passed ? 'ok' : 'bad'
+  const statusTxt = held ? 'PASA · RETENIDO' : parcial ? 'PASA · PARCIAL' : s.passed ? 'PASA' : 'NO SE PUEDE LEER'
+  // Motivo, en la mecánica del validador. Un archivo ya no se cae entero por
+  // tener filas malas: sólo por no poder interpretarse. Lo que se cae son las
+  // inversiones afectadas, y eso se lista abajo con nombre y apellido.
   const blockReason = held
     ? 'El archivo cumple el esquema. No se publica todavía: es una decisión de ICLAC, no un problema del archivo. Se publica cambiando su fila de countries.csv a publish=yes.'
+    : parcial
+    ? `Aceptado en parte — el archivo se lee bien y publica ${s.investments - excluidas.length} de sus ${s.investments} inversiones. Las otras ${excluidas.length} quedan fuera hasta que se corrijan sus filas.`
     : s.passed
     ? s.warnings > 0
       ? 'Aceptado — solo avisos, no bloquean el pipeline.'
       : 'Aceptado.'
-    : r.fileErrors.length > 0
-      ? `Rechazado — ${r.fileErrors.length} problema(s) de archivo (basta uno para botar el archivo del pipeline).`
-      : `Rechazado — ${(100 - s.validPct).toFixed(1)}% de las filas tienen un error bloqueante y supera el margen (umbral ${s.threshold}% válidas).`
+    : `Rechazado — ${r.fileErrors.length} problema(s) de estructura: sin resolverlos no hay forma de interpretar el archivo, así que no entra ninguna de sus inversiones.`
   // Tipos de observación bloqueantes (reglas error) + problemas de archivo.
   const blockingRules = new Set(r.issues.filter((x) => x.severity === 'error').map((x) => x.rule))
   const blockingCount = blockingRules.size + r.fileErrors.length
@@ -443,8 +482,15 @@ const fileSection = (r) => {
         <span class="tipos">${totalTipos} tipo(s)</span>
         <span class="chips">${chips}</span>
       </summary>
-      <p class="meta">${s.rows} filas · ${s.validPct}% válidas (umbral ${s.threshold}%) · ${s.errors} errores · ${s.warnings} advertencias</p>
+      <p class="meta">${s.investments} inversiones en ${s.rows} filas · ${s.validPct}% de filas válidas · ${s.errors} errores · ${s.warnings} advertencias</p>
       <p class="reason ${statusCls}">${esc(blockReason)}</p>
+      ${
+        excluidas.length
+          ? `<div class="excluidas"><strong>Estas ${excluidas.length} inversiones no se publican</strong> (tienen al menos una fila con error bloqueante; el resto del archivo sí entra):<p class="ids">${excluidas
+              .map((id) => `<code>${esc(id)}</code>`)
+              .join(' ')}</p><p class="fix">Sale la inversión entera y no sólo la fila con el problema: una inversión son varios puntos, y publicar la mitad de un trazado o perder la fila que trae el monto sería una pérdida que no se ve. Corregir las filas señaladas más abajo las reincorpora.</p></div>`
+          : ''
+      }
       ${
         r.curaciones && r.curaciones.length
           ? `<div class="curaciones"><strong>Curación aplicada de nuestro lado (automática, sin pérdida):</strong><ul>${r.curaciones
@@ -506,6 +552,11 @@ const style = `
   .curaciones { background:color-mix(in srgb,var(--ok) 8%,transparent); border-radius:8px;
     padding:8px 14px; margin:10px 0; font-size:13.5px; }
   .curaciones ul { margin:6px 0 0; padding-left:18px; color:var(--muted); }
+  .excluidas { background:color-mix(in srgb,var(--warn) 10%,transparent); border-left:4px solid var(--warn);
+    border-radius:8px; padding:8px 14px; margin:10px 0; font-size:13.5px; }
+  .excluidas .ids { margin:6px 0 0; line-height:1.9; }
+  .excluidas .ids code { background:var(--card); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+  .excluidas .fix { margin:8px 0 0; color:var(--muted); font-size:13px; }
   .callout { background:var(--card); border-left:4px solid var(--accent); border-radius:6px;
     padding:14px 18px; margin:18px 0; }
   .pending { background:color-mix(in srgb,var(--warn) 9%,transparent); border:1px solid var(--border);

@@ -71,11 +71,13 @@ Obligatoriedad:
 
 | | Qué pasa |
 |---|---|
-| Validador | un `req` vacío es error de fila; si el archivo baja del umbral de filas válidas, **el archivo entero** queda fuera del build |
+| Validador | un `req` vacío es error de fila, y saca del build **la inversión completa** a la que pertenece esa fila (v1.5). El resto del archivo sí se publica |
 | ETL (`cleanRow`) | descarta la fila solo por **tres** campos: `Id_Investment`, `Coordinates` y `Project_Type` (y este último tiene que mapear al enum). Los otros diez `req` no botan la fila |
 
-O sea que una fila sin `Year` no se pierde en el ETL: la protege el validador antes, botando el
-archivo. Si algún día se corre el ETL con `--no-filter`, esa fila entra con `year = null`.
+**La unidad de exclusión es la inversión, no la fila ni el archivo** (ver §10.1). Sale la inversión
+entera porque una inversión son varias filas: botar una sola mutilaría el trazado del vector o
+perdería la fila que trae el monto, y las dos son pérdidas que no se ven. Una fila sin `Year` no
+entra al mapa con `year = null`: se va toda su inversión, y el informe la lista por id.
 
 ---
 
@@ -90,7 +92,9 @@ archivo. Si algún día se corre el ETL con `--no-filter`, esa fila entra con `y
 | `Country` | texto | **req** | nombre país | Debe ser consistente con `COUNTRY_ISO_ALPHA3`. |
 | `COUNTRY_ISO_NUM` | texto | **req** | ISO 3166-1 numérico, 3 díg. con ceros (`152`=Chile) | Guardar como texto (preservar ceros). |
 | `COUNTRY_ISO_ALPHA3` | enum | **req** | ISO 3166-1 alfa-3 (`CHL`, `ARG`…) | Consistente con el país del nombre del archivo (§1). |
-| `Province_ISO` | texto | opt | ISO 3166-2 (`CL-RM`) | Subdivisión. |
+| `Province_ISO` | texto | opt | ISO 3166-2 (`CL-RM`) | Subdivisión. El prefijo tiene que ser el alfa-2 del país de la fila; si no, warning `fila/provincia-pais` (no bota: hay obras binacionales cuyo punto cae del otro lado). |
+| `cancelled` | enum | opt | `0` vigente \| `1` cancelada | **Atributo de la inversión: mismo valor en todas sus filas.** Es lo que parte la entrega entre lo que va al mapa y lo que va al descargable de canceladas. Estuvo fuera del contrato hasta v1.5, y mientras tanto el informe la reportaba como «columna extra que el sistema ignora». |
+| `cancelled_motivo` | texto | opt | | Por qué se canceló. Texto libre. |
 | `Investor` | texto | **req** | | Empresa inversora (clave del filtro Sankey S5). |
 | `Vector` | enum | **req** | `Punto` \| `Vector` | Define geometría. Ver §1. |
 | `Path` | entero | **req** | `0` para `Punto`; `≥1` para `Vector` | Numera la línea dentro de un `Id_Investment`. Agrupa vértices `(id, Path)`. Ver §1. |
@@ -283,8 +287,10 @@ Year                 int    req   [1900,CURRENT_YEAR]
 Country              text   req
 COUNTRY_ISO_NUM      text   req   /^\d{3}$/
 COUNTRY_ISO_ALPHA3   enum   req   ISO3166-1-alpha3 ; consistente con país del archivo
-Province_ISO         text   opt
-Investor             text   req
+Province_ISO         text   opt   prefijo == alfa-2 del país de la fila (warning fila/provincia-pais)
+cancelled            enum   opt   {0,1} ; atributo de la INVERSIÓN: igual en todas sus filas (warning fila/cancelled-inconsistente)
+cancelled_motivo     text   opt
+Investor             text   req   igual en todas las filas de una inversión ; distinto + año distinto => fila/id-colision-intrapais (error)
 Vector               enum   req   {Punto,Vector}
 Path                 int    req   Vector==Punto => 0 ; Vector==Vector => >=1
 Area_EN              enum   req   sectores.md::EN (match exacto, case-sensitive)
@@ -329,9 +335,11 @@ Reglas de archivo e inter-fila:
 - **Multi-point = punto por punto** (confirmado): una inversión con N sitios = N registros.
   Al **sumar montos**, deduplicar por `Id_Investment` para no sobrecontar.
 
-**Umbral del validador (2.3):** **propuesto 95%** de filas válidas (Parte III.2 del entregable,
-"Proponemos"; por confirmar por cliente). El validador reporta el % válido y falla bajo el umbral
-(no exige 100%); el reporte indica qué filas fallan y por qué.
+**El % de filas válidas ya NO es compuerta (v1.5).** Fue un umbral del 95% hasta que quedó claro que
+convertía cualquier celda vacía en un país completo fuera del mapa: con 70 celdas sin `Project_Type`,
+Costa Rica entera desaparecía en vez de las 70 filas. Hoy el validador **reporta** el porcentaje como
+número de salud y lo que queda fuera del build son las inversiones afectadas, una por una y listadas
+por id en el informe. Lo único que bota un archivo completo es no poder interpretarlo (§10.1).
 
 ---
 
@@ -373,8 +381,14 @@ FDI** (`Area_EN = Infrastructure`, `Area_ES = Infraestructura`; ver `sectores.md
 ## 10. País como dato + geometría (v1.4)
 
 El alcance de países dejó de estar hardcodeado en el validador. Vive en el registro
-`data/schema/countries.csv` (columnas `alpha3,numeric,name,aliases,filename,publish`), **pre-cargado
-por nosotros** con toda LATAM + Centroamérica + Caribe. **México NO está en la semilla a propósito**
+`data/schema/countries.csv` (columnas `alpha3,alpha2,numeric,name,aliases,filename,publish`),
+**pre-cargado por nosotros** con toda LATAM + Centroamérica + Caribe. `alpha2` (v1.5) es lo que
+permite chequear el prefijo de `Province_ISO`; sin esa columna la regla se salta sola.
+
+**El nombre del archivo se rutea, no se compara.** Valen el nombre canónico de `filename`, el `name`
+del país y cualquiera de sus `aliases`, sin importar tildes, mayúsculas ni separadores:
+`trinidad_and_tobago.xlsx` rutea a `TRINIDAD_TOBAGO` y sale como curación, no como bloqueo. Sólo es
+error de archivo un nombre que no rutea a **ningún** país. **México NO está en la semilla a propósito**
 (exclusión metodológica 14-07): un `mexico.xlsx` cae como "país fuera de la lista".
 
 Incorporar un país nuevo:
@@ -388,17 +402,28 @@ La geometría además define la caja contra la que se chequean las coordenadas d
 (`fila/coordenadas-sospechosas`, margen 1°). Un país sin borde cae a la caja de toda la región, así
 que el chequeo es más laxo hasta que se le siembre la geometría.
 
-### 10.1 Las dos compuertas: validar ≠ publicar
+### 10.1 Las compuertas: estructura ≠ contenido ≠ publicación
 
-Son preguntas distintas y las contesta gente distinta, así que viven en lugares distintos:
+Son preguntas distintas, las contesta gente distinta y **operan sobre unidades distintas**, así que
+viven en lugares distintos:
 
-| Compuerta | Pregunta | Quién contesta | Dónde |
-|---|---|---|---|
-| Validación | ¿el dato está bien? | el validador, mecánicamente | reglas de §3/§7 |
-| Publicación | ¿lo mostramos ya? | ICLAC, por decisión editorial | columna `publish` de `countries.csv` |
+| Compuerta | Pregunta | Unidad | Quién contesta | Dónde |
+|---|---|---|---|---|
+| Estructural | ¿se puede **leer** el archivo? | archivo | el validador | nombre que no rutea a ningún país, más de una hoja, columna obligatoria ausente, columna prohibida |
+| Contenido | ¿esta **inversión** está bien? | inversión | el validador | reglas de §3/§7; el informe la lista por id |
+| Publicación | ¿lo mostramos ya? | país | ICLAC, por decisión editorial | columna `publish` de `countries.csv` |
 
-Antes eran una sola: arreglar un archivo lo publicaba en el siguiente build, sin que nadie lo
-decidiera. Con `publish,no` el país se sigue validando y sale en el informe con estado propio
+**La estructural y la de contenido eran una sola hasta v1.5**, por archivo, y eso hacía que una
+celda vacía botara un país entero: la entrega del 15-08 dejaba fuera Costa Rica, República Dominicana
+y Trinidad completas por 105 celdas sobre 12.974 filas. Separarlas es lo que permite que un archivo
+con problemas publique lo que sí está bien.
+
+Lo que se excluye **se dice**: el ETL lo imprime en el log del build y el informe abre una sección
+por país con los ids que no publican y por qué. Filtrar en silencio sería el parche que la convención
+del repositorio prohíbe.
+
+La de publicación era una sola con las otras antes del 28-07: arreglar un archivo lo publicaba en el
+siguiente build, sin que nadie lo decidiera. Con `publish,no` el país se sigue validando y sale en el informe con estado propio
 («PASA · RETENIDO»), pero el ETL no lo ingesta y `build_borders` no le arma el polígono — si no,
 quedaría un país vacío clickeable en el mapa.
 

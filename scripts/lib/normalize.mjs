@@ -12,6 +12,7 @@
 // arreglamos de su lado, no se silencia.
 
 import { COUNTRY_ISO } from './validate.mjs'
+import { filenameKey } from './countries.mjs'
 
 // Quita diacríticos y baja a minúscula para comparar sin importar tildes/caso.
 const fold = (s) =>
@@ -81,11 +82,18 @@ export const canonCountry = (raw, index) => {
  * Match case-insensitive del nombre de archivo contra la lista canónica de
  * países. Acepta `chile.xlsx` y `CHILE.xlsx` por igual (evita la clase de error
  * que sólo aparece en Linux/CI y corta el ida-y-vuelta de renombres).
+ *
+ * Con `aliasIndex` acepta además el nombre del país y sus alias:
+ * `trinidad_and_tobago.xlsx` rutea a `TRINIDAD_TOBAGO` y se reporta como
+ * curación. Un archivo que se puede rutear no es un archivo roto, y bloquear una
+ * entrega entera por cómo se escribió el nombre era el bloqueo más caro y más
+ * barato de sacar.
  * @param {string} filename nombre base con extensión
  * @param {Set<string>} canonicalNames set de nombres canónicos (sin .xlsx), en MAYÚSCULA
+ * @param {Map<string,string>} [aliasIndex] forma comparable -> nombre canónico (sin .xlsx)
  * @returns {{canonical: string|null, matched: boolean, changed: boolean}}
  */
-export const matchFilenameCountry = (filename, canonicalNames) => {
+export const matchFilenameCountry = (filename, canonicalNames, aliasIndex = null) => {
   if (!filename || !filename.toLowerCase().endsWith('.xlsx')) {
     return { canonical: null, matched: false, changed: false }
   }
@@ -93,6 +101,10 @@ export const matchFilenameCountry = (filename, canonicalNames) => {
   const up = stem.toUpperCase()
   if (canonicalNames.has(up)) {
     return { canonical: `${up}.xlsx`, matched: true, changed: `${up}.xlsx` !== filename }
+  }
+  const aliased = aliasIndex?.get(filenameKey(stem))
+  if (aliased) {
+    return { canonical: `${aliased}.xlsx`, matched: true, changed: true }
   }
   return { canonical: null, matched: false, changed: false }
 }

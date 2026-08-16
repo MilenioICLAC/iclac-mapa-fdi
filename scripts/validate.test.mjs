@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { validateRows } from './lib/validate.mjs'
+import { parseCountriesCsv } from './lib/countries.mjs'
 
 // Fila válida del contrato v1.2 (CHILE.xlsx). Overrides por test.
 const makeRow = (over = {}) => ({
@@ -317,6 +318,123 @@ describe('ids', () => {
     ])
     expect(rules(warningsOf(r))).toContain('fila/monto-inconsistente')
   })
+
+  // El caso que causó la vuelta del 15-08: filas nuevas agregadas al final del
+  // archivo reusando un id que ya era de otra inversión del MISMO país. La regla
+  // vieja sólo miraba el país, así que no lo veía.
+  describe('colisión dentro del mismo país', () => {
+    it('inversor Y año distintos bajo el mismo id = error', () => {
+      const r = run([
+        makeRow({ Investor: 'Maverick Motos', Year: 2007 }),
+        makeRow({ Investor: 'Zijin Mining', Year: 2025, Coordinates: '-27.67, -67.62' })
+      ])
+      expect(rules(errorsOf(r))).toContain('fila/id-colision-intrapais')
+      expect(r.excludedIds.has('CHL-0001')).toBe(true)
+    })
+
+    it('mismo inversor con tipografía distinta no dispara nada', () => {
+      const r = run([
+        makeRow({ Investor: 'Compañía  Eléctrica', Year: 2007 }),
+        makeRow({ Investor: 'compania electrica', Year: 2025, Coordinates: '-33.5, -70.7' })
+      ])
+      expect(rules(errorsOf(r))).not.toContain('fila/id-colision-intrapais')
+    })
+
+    it('inversor distinto pero MISMO año = warning, no error (caso URY-0002)', () => {
+      // Una inversión con el nombre a medio llenar, no dos inversiones: el
+      // anillo de transmisión de Uruguay traía "Unidentified" en la primera de
+      // sus 26 filas y "CMEC" en el resto. Sin el corte por año, la regla
+      // marcaba las 25 filas restantes de un dato correcto.
+      const r = run([
+        makeRow({ Investor: 'Unidentified', Vector: 'Vector', Path: 1 }),
+        makeRow({ Investor: 'CMEC', Vector: 'Vector', Path: 1, Coordinates: '-33.5, -70.7' })
+      ])
+      expect(rules(errorsOf(r))).not.toContain('fila/id-colision-intrapais')
+      expect(rules(warningsOf(r))).toContain('fila/inversor-inconsistente')
+      expect(r.excludedIds.size).toBe(0)
+    })
+  })
+})
+
+describe('cancelled (v1.5: la columna que parte mapa / descargable de canceladas)', () => {
+  it('ya no se reporta como columna extra que el sistema ignora', () => {
+    const r = run([makeRow({ cancelled: 0, cancelled_motivo: null })])
+    const extra = r.issues.filter((x) => x.rule === 'archivo/columna-extra').map((x) => x.column)
+    expect(extra).not.toContain('cancelled')
+    expect(extra).not.toContain('cancelled_motivo')
+  })
+
+  it('valor fuera del enum = warning con el significado de 0 y 1', () => {
+    const w = warningsOf(run([makeRow({ cancelled: 'Yes' })])).find((x) => x.rule === 'fila/cancelled')
+    expect(w?.message).toContain('0 = vigente')
+  })
+
+  it('cancelled distinto entre filas de la misma inversión = warning', () => {
+    const r = run([
+      makeRow({ Vector: 'Vector', Path: 1, cancelled: 0 }),
+      makeRow({ Vector: 'Vector', Path: 1, Coordinates: '-33.5, -70.7', cancelled: 1 })
+    ])
+    expect(rules(warningsOf(r))).toContain('fila/cancelled-inconsistente')
+  })
+
+  it('cancelled consistente no dispara nada', () => {
+    const r = run([
+      makeRow({ Vector: 'Vector', Path: 1, cancelled: 1 }),
+      makeRow({ Vector: 'Vector', Path: 1, Coordinates: '-33.5, -70.7', cancelled: 1 })
+    ])
+    expect(rules(warningsOf(r)).filter((x) => x.startsWith('fila/cancelled'))).toEqual([])
+  })
+})
+
+describe('registro: nombre de archivo por alias y Province_ISO', () => {
+  const registry = parseCountriesCsv(
+    [
+      'alpha3,alpha2,numeric,name,aliases,filename,publish',
+      'CHL,CL,152,Chile,,CHILE,yes',
+      'TTO,TT,780,Trinidad and Tobago,Trinidad y Tobago,TRINIDAD_TOBAGO,no'
+    ].join('\n')
+  )
+  const tto = (over = {}) =>
+    makeRow({
+      Id_Investment: 'TTO-0001', Id_Seq: 1, Country: 'Trinidad and Tobago',
+      COUNTRY_ISO_NUM: '780', COUNTRY_ISO_ALPHA3: 'TTO', Coordinates: '10.66, -61.51',
+      ...over
+    })
+
+  it('el nombre del país sirve de nombre de archivo, con curación en vez de bloqueo', () => {
+    // El registro lo llama TRINIDAD_TOBAGO y el archivo llegó como
+    // trinidad_and_tobago.xlsx. Rutear no es adivinar, y bloquear una entrega
+    // entera por cómo se escribió el nombre era el bloqueo más caro y más barato
+    // de sacar.
+    const r = validateRows([tto()], { filename: 'trinidad_and_tobago.xlsx', registry })
+    expect(r.fileErrors.some((f) => f.rule === 'archivo/nombre')).toBe(false)
+    expect(r.curaciones.some((c) => c.rule === 'curacion/nombre-archivo')).toBe(true)
+    expect(r.stats.passed).toBe(true)
+  })
+
+  it('un nombre que no rutea a ningún país sigue siendo error de archivo', () => {
+    const r = validateRows([tto()], { filename: 'Datos finales (v3).xlsx', registry })
+    expect(r.fileErrors.some((f) => f.rule === 'archivo/nombre')).toBe(true)
+  })
+
+  it('Province_ISO de otro país = warning (caso GUY-0003 con SR-NI)', () => {
+    const r = validateRows([tto({ Province_ISO: 'SR-NI' })], { filename: 'TRINIDAD_TOBAGO.xlsx', registry })
+    const w = warningsOf(r).find((x) => x.rule === 'fila/provincia-pais')
+    expect(w?.message).toContain('"TT-"')
+  })
+
+  it('Province_ISO del país propio no dispara nada', () => {
+    const r = validateRows([tto({ Province_ISO: 'TT-ARI' })], { filename: 'TRINIDAD_TOBAGO.xlsx', registry })
+    expect(rules(warningsOf(r))).not.toContain('fila/provincia-pais')
+  })
+
+  it('sin columna alpha2 en el registro, la regla se salta sola', () => {
+    const sinA2 = parseCountriesCsv(
+      ['alpha3,numeric,name,aliases,filename,publish', 'TTO,780,Trinidad and Tobago,,TRINIDAD_TOBAGO,no'].join('\n')
+    )
+    const r = validateRows([tto({ Province_ISO: 'SR-NI' })], { filename: 'TRINIDAD_TOBAGO.xlsx', registry: sinA2 })
+    expect(rules(warningsOf(r))).not.toContain('fila/provincia-pais')
+  })
 })
 
 describe('ownership (v1.4, warning en adopción)', () => {
@@ -456,14 +574,45 @@ describe('confiabilidad (reliability_score, nunca bloquea)', () => {
   })
 })
 
-describe('umbral', () => {
-  it('96% válidas pasa, 94% falla (umbral 95)', () => {
-    const mk = (n, bad) =>
-      Array.from({ length: n }, (_, i) =>
-        makeRow({ Id_Investment: `CHL-${String(i + 1).padStart(4, '0')}`, Id_Seq: i + 1, Year: i < bad ? 1800 : 2020 })
-      )
-    expect(run(mk(50, 2)).stats.passed).toBe(true) // 96%
-    expect(run(mk(50, 3)).stats.passed).toBe(false) // 94%
+describe('compuerta: estructural por archivo, contenido por inversión', () => {
+  const mk = (n, bad) =>
+    Array.from({ length: n }, (_, i) =>
+      makeRow({ Id_Investment: `CHL-${String(i + 1).padStart(4, '0')}`, Id_Seq: i + 1, Year: i < bad ? 1800 : 2020 })
+    )
+
+  it('el % de filas malas ya NO bota el archivo: se caen las inversiones, no el país', () => {
+    // Antes esto era la compuerta: bajo 95% de filas válidas el país entero
+    // quedaba fuera del mapa, y una celda vacía bastaba. Ahora `passed` sólo
+    // responde "¿se puede leer el archivo?".
+    const r = run(mk(50, 40)) // 20% válidas
+    expect(r.stats.passed).toBe(true)
+    expect(r.stats.validPct).toBe(20)
+    expect(r.excludedIds.size).toBe(40)
+  })
+
+  it('un problema de estructura sí bota el archivo entero', () => {
+    const r = run([makeRow({ Investment_ARREGLADO: 100 })])
+    expect(r.stats.passed).toBe(false)
+  })
+
+  it('la unidad es la inversión: una fila mala saca TODAS las filas de esa inversión', () => {
+    // Un vector de 3 puntos con una coordenada rota. Si se botara sólo la fila,
+    // el trazado quedaría mutilado en silencio.
+    const vec = (over) => makeRow({ Id_Investment: 'CHL-0009', Id_Seq: 9, Vector: 'Vector', Path: 1, ...over })
+    const r = run([
+      vec({ Coordinates: '-33.0, -71.0' }),
+      vec({ Coordinates: 'no es una coordenada' }),
+      vec({ Coordinates: '-33.2, -71.2' }),
+      makeRow({ Id_Investment: 'CHL-0010', Id_Seq: 10 })
+    ])
+    expect([...r.excludedIds]).toEqual(['CHL-0009'])
+    expect(r.excludedIds.has('CHL-0010')).toBe(false)
+  })
+
+  it('archivo sano no excluye nada y cuenta sus inversiones', () => {
+    const r = run([makeRow(), makeRow({ Id_Investment: 'CHL-0002', Id_Seq: 2 })])
+    expect(r.excludedIds.size).toBe(0)
+    expect(r.stats.investments).toBe(2)
   })
 
   it('filas en blanco no cuentan al umbral', () => {

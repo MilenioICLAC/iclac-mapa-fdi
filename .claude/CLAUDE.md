@@ -48,15 +48,28 @@ Entender esto explica la mitad de las decisiones del repositorio.
 3. **Netlify reconstruye** el sitio. El ETL transforma los XLSX en los JSON que consume el frontend.
 4. **Solo entran al sitio los países que pasan la validación y están marcados para publicar.**
 
-El punto 4 son **tres** compuertas distintas, y confundirlas costó rehacer trabajo:
+El punto 4 son **cuatro** compuertas distintas, y confundirlas costó rehacer trabajo:
 
-| Compuerta | Pregunta | La contesta | Vive en |
-|---|---|---|---|
-| Validación | ¿el dato está bien? | el validador, mecánicamente | reglas de `schema.md` |
-| Publicación | ¿lo mostramos ya? | ICLAC, por decisión editorial | columna `publish` de `data/schema/countries.csv` |
-| Confiabilidad | ¿la evidencia alcanza? | la metodología, por rúbrica | `reliability_score` de la base + `minScore` del ETL |
+| Compuerta | Pregunta | Unidad | La contesta | Vive en |
+|---|---|---|---|---|
+| Estructural | ¿se puede **leer** el archivo? | archivo | el validador | nombre que no rutea a ningún país, más de una hoja, columna obligatoria o prohibida |
+| Contenido | ¿esta inversión está bien? | **inversión** | el validador, mecánicamente | reglas de `schema.md` |
+| Publicación | ¿lo mostramos ya? | país | ICLAC, por decisión editorial | columna `publish` de `data/schema/countries.csv` |
+| Confiabilidad | ¿la evidencia alcanza? | inversión | la metodología, por rúbrica | `reliability_score` de la base + `minScore` del ETL |
 
-Las dos primeras son por **país**; la tercera es por **inversión**.
+**Las dos primeras eran una sola, por archivo, hasta el 17-08.** Eso hacía que una celda vacía botara
+un país entero: la entrega del 15-08 dejaba fuera Costa Rica, República Dominicana y Trinidad
+completas por 105 celdas sobre 12.974 filas, y ese todo-o-nada es lo que convertía cada corrección en
+una vuelta completa por correo. Ahora un archivo con filas malas publica las buenas.
+
+**La unidad de la compuerta de contenido es la inversión, no la fila.** Una inversión son varias
+filas: botar una sola mutila el trazado del vector o pierde la fila que trae el monto, las dos en
+silencio. Cualquier fila con error saca la inversión completa (`excludedIds` de `validateRows`).
+
+**Lo excluido se dice.** El ETL lo imprime en el log del build con los ids, y el informe abre una
+sección por país. Filtrar callado sería el parche que este repositorio prohíbe.
+
+`validPct` y el umbral del 95% **ya no son compuerta**: quedaron como número de salud en el informe.
 
 Un país con `publish=no` **se sigue validando** y aparece en el informe como «PASA · RETENIDO», pero
 el ETL no lo ingesta y `build_borders` no le arma el polígono (si no, quedaría un país vacío
@@ -86,7 +99,10 @@ Un dato, un lugar. Tenerlo en dos garantiza que diverjan, y ya pasó:
   relación, no una empresa: no tiene dueño, lo tienen sus partes. `ownershipsOf` la resuelve desde
   `members` al filtrar, y una inversión de consorcio entra si **cualquiera** de sus miembros es del
   tipo pedido. Consecuencia visible: los filtros de propiedad **dejan de ser una partición**, porque
-  7 inversiones tienen miembros de dos tipos y aparecen en los dos. No es un defecto, es el dato.
+  las inversiones con miembros de dos tipos aparecen en los dos. No es un defecto, es el dato, y
+  ICLAC lo aceptó por correo. Al 11-08 son cuatro en la vista por defecto (BRA-0067, ECU-0023,
+  PAN-0028, PER-0042) y cinco con construcción activada (más COL-0026), pero **el número se mueve con
+  cada edición de `investors_map.csv`: contarlo, no citarlo de memoria.**
 - Un inversor que aparece en la base y no está en esa tabla **no rompe nada**: cae a propiedad
   desconocida y el validador lo avisa (`fila/inversor-sin-mapear`, un aviso por nombre distinto y no
   por fila). Esa es la cola de trabajo de quien mantiene la tabla, y `check_investor_coverage.mjs`
@@ -127,6 +143,12 @@ cuenta como filtro activo es *pedirla*.
 **Construcción es una dimensión propia, no un valor de `types`:** la metodología la cuenta aparte
 porque no es IED (ver `data/schema/sectores.md`). El filtro Tipo no gobierna esas filas, y con `only`
 queda deshabilitado, porque Adquisición y Greenfield son justo lo que se está filtrando fuera.
+
+**Y por eso toda cifra que salga de acá se cita sobre el universo SIN construcción**, con la cifra con
+construcción entre paréntesis. Contar sobre las 386 publicadas describe un universo que el lector nunca
+ve, porque el default excluye construcción y son 272. Los documentos anteriores al 11-08, incluido el
+informe de propiedad del 03-08, usan el número con construcción **sin declararlo**: convertir antes de
+reutilizar cualquier cifra de ahí. La tabla vigente está en `docs/estado.md` §0.
 
 ## Regla de hover
 
@@ -375,8 +397,9 @@ que se arrastraban y conviene no reintroducir:
 Los que forman parte de la operación:
 
 - `npm run etl` (`scripts/etl.mjs`) — XLSX → `public/data/investments.json`. Corre en cada build. Lee
-  el directorio de países y **filtra por las tres compuertas**: validación (`--no-filter` la salta),
-  publicación (`--include-unpublished` la salta) y confiabilidad (`--min-score=N`, default 3, o sea
+  el directorio de países y **filtra por las cuatro compuertas**: estructura y contenido
+  (`--no-filter` salta las dos), publicación (`--include-unpublished` la salta) y confiabilidad
+  (`--min-score=N`, default 3, o sea
   **sale del sitio todo lo que tenga score ≤ 2**; `--min-score=0` la apaga). Las banderas se leen aparte de los posicionales, así que
   `npm run etl -- --include-unpublished` funciona sin pasar rutas. También emite **las dos descargas**
   que sirve la pestaña Datos: `iclac_inversiones_china_latam.xlsx` y

@@ -100,9 +100,16 @@ const SUGGESTED_COLUMNS = {
     'Falta la columna "reliability_notes", donde va el porqué del puntaje de confiabilidad: qué confirma cada fuente y qué queda sin confirmar. Es opcional y no bloquea, pero sin ella el puntaje queda sin respaldo escrito.'
 }
 
+// Enum de la columna `cancelled` (v1.5). Entra al contrato porque es lo que
+// parte la entrega en lo que va al mapa y lo que va al descargable de cancelados:
+// mientras estuvo fuera, el informe decía "columna extra, el sistema la ignora"
+// justo sobre la columna que decide qué se publica.
+const CANCELLED_VALUES = ['0', '1']
+
 const KNOWN_OPTIONAL = new Set([
   'Province_ISO', 'Detail_ES', 'Detail_EN', 'Investment', 'Location',
   'Joint_Venture', 'Origin_Of_Seller', 'Stake',
+  'cancelled', 'cancelled_motivo',
   // Confiabilidad: puntaje, nota y fuentes. Opcionales en el contrato, pero
   // conocidas: sin esto el informe las listaba como "columna extra que el
   // sistema ignora", justo lo contrario de lo que pasa desde el 31-07.
@@ -141,6 +148,18 @@ export const parseCoordinates = (raw) => {
 const coordKey = (coords) => coords.map((n) => n.toFixed(6)).join(',')
 
 const looksLikeUrl = (s) => /https?:\/\//i.test(s)
+
+// Comparación de nombres de inversor tolerante a tipografía. Las filas de una
+// misma inversión repiten el nombre, así que un nombre DISTINTO bajo el mismo
+// Id_Investment son dos inversiones compartiendo identificador. Se folda para que
+// una tilde o un espacio de más no se lea como inversión distinta.
+const investorKey = (s) =>
+  String(s ?? '')
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
 
 // Nombre de archivo canónico: país del proyecto, en inglés, sin tildes.
 // Case-insensitive (v1.4): acepta CHILE.xlsx y chile.xlsx por igual — la
@@ -202,7 +221,8 @@ export const validateRows = (rows, opts = {}) => {
     issues.push({ severity, rule, row, column, value, message })
 
   // ---- Reglas de archivo ----
-  const fnMatch = filename ? matchFilenameCountry(filename, CANON_FN) : { matched: false, changed: false, canonical: null }
+  const FN_ALIAS = registry?.filenameAliasIndex ?? null
+  const fnMatch = filename ? matchFilenameCountry(filename, CANON_FN, FN_ALIAS) : { matched: false, changed: false, canonical: null }
   if (filename && !fnMatch.matched) {
     fileErrors.push({
       rule: 'archivo/nombre',
@@ -305,6 +325,7 @@ export const validateRows = (rows, opts = {}) => {
   const rowValid = new Array(rows.length).fill(true)
   const idMeta = new Map() // id -> { country, investor, year, amount, row }
   const scoreSeen = new Map() // id -> { row, values:Set(reliability_score crudo), investor }
+  const cancelledSeen = new Map() // id -> { row, values:Set(cancelled crudo), investor }
   const lineMeta = new Map() // `${id}|${path}` (Vector) -> { detail, amount, area, row }
   const coordToIds = new Map() // coordKey -> Map(id -> primera fila)
   const investorSeen = new Map() // Investor tal cual viene -> { row, count }
@@ -488,6 +509,27 @@ export const validateRows = (rows, opts = {}) => {
       }
     }
 
+    // -- cancelled (v1.5) --
+    const cancelledRaw = cleanStr(row.cancelled)
+    if (cancelledRaw !== null && !CANCELLED_VALUES.includes(cancelledRaw)) {
+      push('warning', 'fila/cancelled', excelRow, 'cancelled', cancelledRaw,
+        `cancelled "${cancelledRaw}" no está en el enum (0 = vigente, 1 = cancelada). Es la columna que decide si la inversión va al mapa o al descargable de canceladas.`)
+    }
+
+    // -- Province_ISO: el prefijo es el alpha-2 del país de la fila --
+    // Sólo corre si el registro trae la columna alpha2; sin ella se salta sola.
+    // Warning y no error: hay obras binacionales legítimas cuyo punto cae del
+    // otro lado de la frontera (el puente sobre el Corentyne, GUY/SUR).
+    const provinciaIso = cleanStr(row.Province_ISO)
+    const rowAlpha2 = registry?.alpha2ByAlpha3?.[isoInfo?.alpha3 ?? fileAlpha3]
+    if (provinciaIso && rowAlpha2 && /^[A-Za-z]{2}-/.test(provinciaIso)) {
+      const prefijo = provinciaIso.slice(0, 2).toUpperCase()
+      if (prefijo !== rowAlpha2) {
+        push('warning', 'fila/provincia-pais', excelRow, 'Province_ISO', provinciaIso,
+          `Province_ISO "${provinciaIso}" es de otro país: la fila es de ${countryName(isoInfo?.alpha3 ?? fileAlpha3)}, así que el prefijo esperado es "${rowAlpha2}-". Revisar si la división administrativa está mal o si el punto quedó del lado equivocado de la frontera.`)
+      }
+    }
+
     // -- Investment / Stake --
     const inv = cleanStr(row.Investment)
     if (inv !== null) {
@@ -561,6 +603,29 @@ export const validateRows = (rows, opts = {}) => {
         if (country && prev.country && country !== prev.country) {
           fail(i, 'fila/id-colision', 'Id_Investment', id,
             `El Id_Investment "${id}" ya se usa en ${prev.country} (fila ${prev.row}): dos inversiones distintas no pueden compartir id.`)
+        } else if (investorRaw && prev.investor && investorKey(investorRaw) !== investorKey(prev.investor)) {
+          // Inversor distinto bajo el mismo id. Dos lecturas, y las separa el AÑO:
+          //
+          //  - Con año distinto son DOS inversiones compartiendo identificador.
+          //    No lo cubría `fila/id-colision`, que sólo mira el país, así que
+          //    salía como tres avisos sueltos de metadata sin que nadie dijera
+          //    que son dos. Error, porque el efecto es invisible: el mapa dibuja
+          //    los dos puntos pero `aggregateInvestments` keyea por id, así que
+          //    el contador cuenta una sola y el monto de la segunda no suma.
+          //
+          //  - Con el mismo año es UNA inversión con el nombre a medio llenar
+          //    (URY-0002: una fila dice "Unidentified" y las otras 25 "CMEC").
+          //    Exigir año distinto es lo que evita que la regla grite sobre un
+          //    dato correcto: sin ese corte marcaba las 25 filas del anillo de
+          //    transmisión de Uruguay como si fueran una inversión falsa.
+          const distintoAnio = yearRaw !== null && prev.year !== null && yearRaw !== prev.year
+          if (distintoAnio) {
+            fail(i, 'fila/id-colision-intrapais', 'Id_Investment', id,
+              `El Id_Investment "${id}" ya lo usa "${prev.investor}" (fila ${prev.row}, año ${prev.year}) y esta fila dice "${investorRaw}" (año ${yearRaw}): son dos inversiones distintas con el mismo identificador. El mapa las dibuja a las dos, pero el contador cuenta una sola y el monto de la segunda no suma al total. Asignar un Id_Investment nuevo a la que corresponda.`)
+          } else {
+            push('warning', 'fila/inversor-inconsistente', excelRow, 'Investor', investorRaw,
+              `La inversión "${id}" trae dos nombres de inversor entre sus filas: "${prev.investor}" (fila ${prev.row}) y "${investorRaw}". El sitio toma el de la primera fila del trazado, así que el nombre de esa fila es el que se muestra para toda la inversión. Dejar el mismo nombre en todas.`)
+          }
         }
         // metadata consistente entre filas del mismo id (multi-punto repite campos)
         if (inv !== null && prev.amount !== null && Number(inv) !== Number(prev.amount)) {
@@ -591,6 +656,15 @@ export const validateRows = (rows, opts = {}) => {
         const prevScore = scoreSeen.get(id)
         if (!prevScore) scoreSeen.set(id, { row: excelRow, values: new Set([raw]), investor: cleanStr(row.Investor) })
         else prevScore.values.add(raw)
+      }
+
+      // `cancelled` es atributo de la inversión, igual que el puntaje: se acumula
+      // por id y se revisa en el post-pass, no fila por fila.
+      if (hasCol('cancelled')) {
+        const raw = cleanStr(row.cancelled)
+        const prevC = cancelledSeen.get(id)
+        if (!prevC) cancelledSeen.set(id, { row: excelRow, values: new Set([raw]), investor: cleanStr(row.Investor) })
+        else prevC.values.add(raw)
       }
     }
   })
@@ -646,6 +720,19 @@ export const validateRows = (rows, opts = {}) => {
     }
   }
 
+  // ---- Post-pass: `cancelled` consistente dentro de la inversión ----
+  // Una inversión está cancelada o no lo está; no puede estarlo en unos de sus
+  // puntos y no en otros. Cuando difiere, o la inversión quedó a medio marcar o
+  // son dos inversiones compartiendo id (y entonces también salta la regla de
+  // colisión). Nunca bloquea: el corte mapa/canceladas es editorial.
+  for (const [id, meta] of cancelledSeen) {
+    const filled = [...meta.values].filter((v) => v !== null)
+    if (new Set(filled).size > 1) {
+      push('warning', 'fila/cancelled-inconsistente', meta.row, 'cancelled', filled.join(' / '),
+        `La inversión "${id}"${meta.investor ? ` (${meta.investor})` : ''} tiene cancelled distinto entre sus filas (${filled.join(', ')}): es atributo de la inversión y debe repetirse igual en cada punto.`)
+    }
+  }
+
   // ---- Post-pass: inversores que no están en la tabla de inversores ----
   // Nunca bloquea. La tabla no la mantiene quien carga los datos: la identidad
   // canónica y la propiedad viven en data/schema/investors_map.csv y las decide
@@ -659,21 +746,41 @@ export const validateRows = (rows, opts = {}) => {
     }
   }
 
+  // ---- Compuerta de contenido: la unidad es la INVERSIÓN, no la fila ----
+  // Una fila con error saca la inversión ENTERA, no sólo esa fila. Botar una fila
+  // suelta de un vector de 600 waypoints mutila la geometría en silencio, y botar
+  // la que trae el monto pierde la plata: las dos serían pérdidas invisibles.
+  // Sacar la inversión completa es lo único que deja el resultado coherente.
+  const excludedIds = new Set()
+  normRows.forEach((row, i) => {
+    if (rowValid[i]) return
+    const id = cleanStr(row.Id_Investment)
+    if (id) excludedIds.add(id)
+  })
+
   // ---- Resultado ----
   const skipped = issues.filter((x) => x.rule === 'fila/vacia').length
   const consideredRows = rows.length - skipped
   const invalidRows = rowValid.filter((v, i) => !v).length
   const validPct = consideredRows === 0 ? 100 : ((consideredRows - invalidRows) / consideredRows) * 100
-  const passed = fileErrors.length === 0 && validPct >= threshold
+  // `passed` es la compuerta ESTRUCTURAL: ¿se puede interpretar el archivo?
+  // Ya no incluye el umbral. Un archivo con filas malas publica las buenas y
+  // deja fuera las inversiones afectadas (`excludedIds`); antes se caía entero,
+  // y eso convertía cualquier celda vacía en un país completo fuera del mapa.
+  // `validPct` sigue siendo el número de salud que se muestra en el informe.
+  const passed = fileErrors.length === 0
 
   return {
     fileErrors,
     issues,
     curaciones,
+    excludedIds,
     stats: {
       rows: rows.length,
       consideredRows,
       invalidRows,
+      investments: idMeta.size,
+      excludedInvestments: excludedIds.size,
       validPct: Math.round(validPct * 100) / 100,
       errors: issues.filter((x) => x.severity === 'error').length + fileErrors.length,
       warnings: issues.filter((x) => x.severity === 'warning').length,

@@ -5,12 +5,18 @@ import { dirname, resolve, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { canonCountry } from './lib/normalize.mjs'
 import { validateRows } from './lib/validate.mjs'
-import { loadRegistry, loadCountryBorders, loadCountryBounds } from './lib/load_registry.mjs'
+import { alpha3ForFilename } from './lib/countries.mjs'
+import { loadRegistry, loadCountryBorders, loadCountryBounds, loadInvestorMap } from './lib/load_registry.mjs'
 import { buildInvestorMap } from './lib/investors_map.mjs'
 
 const registry = loadRegistry()
 const countryBorders = registry ? loadCountryBorders(registry) : null
 const countryBounds = registry ? loadCountryBounds(registry) : null
+// Set de nombres conocidos de la tabla de inversores, para el validador. Es otra
+// cosa que `investorMap` de más abajo, que es el mapa de ownership. El ETL
+// validaba SIN esto, así que el chequeo de inversores sin mapear no corría en el
+// build: dos rutas con reglas distintas sobre los mismos datos.
+const investorNames = loadInvestorMap()
 const canonIndex = registry?.canonIndex
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -124,7 +130,12 @@ const stats = {
   // porque "sin revisar" no es lo mismo que "revisado y sin evidencia".
   rowsBelowMinScore: 0,
   rowsNoScore: 0,
-  annexInvestments: 0
+  annexInvestments: 0,
+  // Compuerta de contenido: inversiones que quedan fuera por errores de esquema
+  // en alguna de sus filas. Se cuentan aparte para que la exclusión sea visible
+  // en el resumen del build y no un hueco que nadie nota.
+  investmentsExcluded: 0,
+  rowsExcludedByInvestment: 0
 }
 
 const resolveVector = (rawVector) => {
@@ -335,44 +346,61 @@ const readWorkbook = (file) => {
 
 let rawRows = []
 if (existsSync(inputPath) && statSync(inputPath).isDirectory()) {
-  // Flujo por país: un xlsx por país. DOS COMPUERTAS, deliberadamente separadas:
+  // Flujo por país: un xlsx por país. TRES COMPUERTAS, deliberadamente separadas:
   //
-  //   1. Validación (decisión 23-07): solo entra el país cuyo archivo PASA.
-  //      Responde "¿el dato está bien?" y la contesta el validador.
-  //   2. Publicación (`publish` en countries.csv): el país puede estar impecable
+  //   1. Estructural: ¿se puede LEER el archivo? Nombre que no rutea a ningún
+  //      país, más de una hoja, columna obligatoria ausente. Bota el archivo
+  //      entero porque no hay forma de interpretarlo.
+  //   2. Contenido: ¿esta INVERSIÓN está bien? Antes esta compuerta también era
+  //      por archivo, y una celda vacía dejaba un país completo fuera del mapa.
+  //      Ahora saca sólo las inversiones afectadas y el resto del archivo entra.
+  //      La unidad es la inversión y no la fila: botar una fila suelta mutilaría
+  //      la geometría del vector o perdería el monto, en silencio.
+  //   3. Publicación (`publish` en countries.csv): el país puede estar impecable
   //      y el cliente aún no querer mostrarlo. Responde "¿lo publicamos?" y la
   //      contesta ICLAC, editando el CSV. Sin esto, arreglar un archivo lo
   //      publicaba de inmediato, sin que nadie lo decidiera.
   //
-  // `--no-filter` salta la primera; `--include-unpublished` la segunda.
+  // `--no-filter` salta las dos primeras; `--include-unpublished` la tercera.
   const files = readdirSync(inputPath)
     .filter((f) => f.endsWith('.xlsx') && !f.startsWith('~$'))
     .sort()
   const noFilter = process.argv.includes('--no-filter')
   const includeUnpublished = process.argv.includes('--include-unpublished')
-  // filename canónico (MAYÚSCULA, sin .xlsx) -> ¿publica?
-  const publishByFilename = {}
-  for (const [a3, fn] of Object.entries(registry?.filenameByAlpha3 ?? {})) {
-    publishByFilename[fn.toUpperCase()] = registry.publishByAlpha3?.[a3] !== false
-  }
   const flags = [noFilter && 'sin filtro', includeUnpublished && 'incluye retenidos'].filter(Boolean)
   console.log(`Reading dir: ${inputPath} (${files.length} archivos)${flags.length ? ` [${flags.join(', ')}]` : ''}`)
   for (const f of files) {
-    const stem = f.slice(0, -'.xlsx'.length).toUpperCase()
-    if (!includeUnpublished && publishByFilename[stem] === false) {
+    // El nombre se rutea por el registro (canónico, nombre del país o alias), no
+    // por comparación literal: si no, un archivo con nombre aceptado por el
+    // validador se saltaba la compuerta de publicación por no matchear la clave.
+    const a3 = alpha3ForFilename(registry, f)
+    if (!includeUnpublished && a3 && registry?.publishByAlpha3?.[a3] === false) {
       console.log(`  ${f}: RETENIDO — countries.csv lo tiene con publish=no`)
       continue
     }
     const { rows, sheetCount } = readWorkbook(resolve(inputPath, f))
+    let usable = rows
     if (!noFilter) {
-      const { stats } = validateRows(rows, { filename: f, registry, countryBorders, countryBounds, sheetCount })
-      if (!stats.passed) {
-        console.log(`  ${f}: OMITIDO — no pasa validación (${stats.validPct}% válidas, ${stats.errors} errores)`)
+      const { stats: vstats, excludedIds } = validateRows(rows, {
+        filename: f, registry, countryBorders, countryBounds, investorMap: investorNames, sheetCount
+      })
+      if (!vstats.passed) {
+        console.log(`  ${f}: OMITIDO — el archivo no se puede leer (${vstats.errors} errores de estructura)`)
+        continue
+      }
+      if (excludedIds.size) {
+        usable = rows.filter((r) => !excludedIds.has(String(r.Id_Investment ?? '').trim()))
+        stats.investmentsExcluded += excludedIds.size
+        stats.rowsExcludedByInvestment += rows.length - usable.length
+        // Se imprime siempre. Filtrar sin decir qué se filtró sería exactamente
+        // el parche silencioso que la convención del repositorio prohíbe.
+        console.log(`  ${f}: ${usable.length} filas ✓ · ⊘ ${excludedIds.size} inversión(es) fuera por errores (${rows.length - usable.length} filas): ${[...excludedIds].sort().join(', ')}`)
+        rawRows.push(...usable)
         continue
       }
     }
     console.log(`  ${f}: ${rows.length} filas ✓`)
-    rawRows.push(...rows)
+    rawRows.push(...usable)
   }
 } else {
   console.log(`Reading: ${inputPath}`)
