@@ -14,6 +14,7 @@
     "conflicts": "node scripts/export_vector_conflicts.mjs",
     "validate": "node scripts/validate_data.mjs data/sources/countries",
     "validate:report": "node scripts/build_validation_report.mjs data/sources/countries --out site/index.html",
+    "validate:page": "vite build --config vite.validador.config.ts",
     "validate:investors": "node scripts/validate_investors.mjs",
     "validate:countries": "node scripts/validate_countries.mjs",
     "test": "vitest run",

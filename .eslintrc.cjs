@@ -8,7 +8,9 @@ module.exports = {
     'plugin:react/jsx-runtime',
     'plugin:react-hooks/recommended'
   ],
-  ignorePatterns: ['dist', '.eslintrc.cjs', 'legacy'],
+  // `site/` es la salida de Pages (informe + validador construido): es artefacto,
+  // igual que dist/, y linteado da mil errores del bundle minificado.
+  ignorePatterns: ['dist', 'site', '.eslintrc.cjs', 'legacy'],
   parser: '@typescript-eslint/parser',
   parserOptions: { ecmaVersion: 'latest', sourceType: 'module' },
   settings: { react: { version: '18.3' } },

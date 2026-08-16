@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Validador de datos — Repositorio ICLAC</title>
+    <!-- Favicon embebido: sin esto el navegador pide /favicon.ico y deja un 404 en
+         la consola de una página que va a abrir el cliente. -->
+    <link
+      rel="icon"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2300A89C'/%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' stroke='%23111' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
+    />
+    <style>
+      /* Mismos tokens que el informe, para que la página no cambie de aspecto
+         cuando el informe inyecta su hoja de estilos al validar. */
+      :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --card:#f7f7f8; --border:#e2e2e5;
+        --ok:#0a7d34; --bad:#c62828; --warn:#b26a00; --accent:#0b4f6c; }
+      @media (prefers-color-scheme: dark) { :root { --bg:#15171a; --fg:#e6e6e8; --muted:#9a9aa2;
+        --card:#1e2126; --border:#2c2f36; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --accent:#38bdf8; } }
+      * { box-sizing:border-box; }
+      body { margin:0; background:var(--bg); color:var(--fg);
+        font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
+      .top { max-width:920px; margin:0 auto; padding:32px 20px 0; }
+      h1 { font-size:26px; margin:0 0 4px; }
+      .sub { color:var(--muted); margin:0 0 20px; }
+      .drop { border:2px dashed var(--border); border-radius:12px; background:var(--card);
+        padding:32px 20px; text-align:center; transition:border-color .15s, background .15s; }
+      .drop.over { border-color:var(--accent); background:color-mix(in srgb,var(--accent) 8%,transparent); }
+      .drop p { margin:0 0 14px; color:var(--muted); font-size:14px; }
+      .drop label { display:inline-block; background:var(--accent); color:#fff; border-radius:8px;
+        padding:10px 18px; font-size:14px; font-weight:600; cursor:pointer; }
+      .drop label:hover { filter:brightness(1.1); }
+      .drop input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
+      .privacy { margin:14px 0 0; font-size:13px; color:var(--muted); }
+      .status { margin:18px 0 0; font-size:14px; min-height:1.5em; }
+      .status.err { color:var(--bad); font-weight:600; }
+      .files { margin:14px 0 0; padding:0; list-style:none; font-size:13px; color:var(--muted); }
+      .files li::before { content:'· '; }
+      .again { margin:20px 0 0; }
+      .again button { background:none; border:1px solid var(--border); color:var(--fg);
+        border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
+      .again button:hover { border-color:var(--accent); color:var(--accent); }
+      .hidden { display:none; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <h1>Validador de datos</h1>
+      <p class="sub">
+        Repositorio Regional de Inversiones Chinas en América Latina. Revisá tu archivo por país
+        <strong>antes de mandarlo</strong>: es el mismo chequeo que corre después en el repositorio,
+        con las mismas reglas.
+      </p>
+
+      <div class="drop" id="drop">
+        <p>Arrastrá acá uno o varios <code>.xlsx</code> por país, o elegilos:</p>
+        <label for="file">Elegir archivos<input id="file" type="file" accept=".xlsx" multiple /></label>
+        <p class="privacy">
+          El archivo <strong>no se sube a ningún lado</strong>: se lee y se valida en tu propio
+          navegador. Podés cerrar la página y no queda nada.
+        </p>
+      </div>
+      <p class="privacy">
+        ¿Buscabas el informe de los archivos que ya están cargados? Está en
+        <a href="../">esta misma dirección, un nivel más arriba</a>.
+      </p>
+
+      <p class="status" id="status"></p>
+      <ul class="files" id="files"></ul>
+
+      <p class="again hidden" id="again"><button type="button" id="reset">Validar otros archivos</button></p>
+    </div>
+
+    <div id="report"></div>
+
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

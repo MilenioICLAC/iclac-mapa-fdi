@@ -87,6 +87,13 @@ jobs:
           mkdir -p site
           node scripts/build_validation_report.mjs "$DATA_DIR" --out site/index.html
 
+      # Validador en el navegador (site/validador/). Mismo núcleo y mismo render
+      # que el informe de arriba: la página existe para que ICLAC pueda revisar su
+      # archivo ANTES de mandarlo, que es lo que el informe no puede hacer.
+      # Se construye después del informe para que no le borre el index.html.
+      - name: Construir el validador
+        run: npm run validate:page
+
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:

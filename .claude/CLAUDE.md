@@ -414,7 +414,19 @@ Los que forman parte de la operación:
 - `npm run validate:investors` (`scripts/validate_investors.mjs`) — valida la tabla de inversores:
   enum de propiedad, nombres únicos, un identificador por empresa, propiedad consistente.
 - `npm run validate:report` (`scripts/build_validation_report.mjs`) — el informe HTML que se publica
-  en Pages. Autocontenido, escrito para quien mantiene los datos, no para programadores.
+  en Pages. Autocontenido, escrito para quien mantiene los datos, no para programadores. Es sólo la
+  cáscara de I/O: **el render vive en `scripts/lib/report_render.mjs`, puro**.
+- `npm run validate:page` (`vite.validador.config.ts`) — construye `validador/` a `site/validador/`,
+  la página que corre el validador **en el navegador de quien edita los datos**. Existe porque el
+  informe de Pages sólo puede generarse después de que el archivo pasó por nosotros, así que nunca
+  alcanza a atrapar nada antes del envío: ahí estaba el ida y vuelta. El archivo no se sube, se lee
+  con `FileReader`.
+  **La página no reimplementa nada**: importa `scripts/lib/validate.mjs` y
+  `scripts/lib/report_render.mjs`, los mismos del CLI, y el registro va empaquetado con `?raw` para
+  que sea un solo archivo sin fetch que pueda fallar. La prueba de que no divergieron es que el
+  informe del CLI y el de la página salen **idénticos** para los mismos archivos (receta headless en
+  `.claude/skills/verify`); `scripts/registry_parse.test.mjs` fija en CI la parte que sí se puede
+  probar sin navegador: que las dos rutas armen los mismos `opts`.
 - `node scripts/build_investors_map.mjs` — regenera `public/data/investors_map.json` desde el CSV. El
   ETL hace lo mismo en cada build; este sirve para regenerar sin correr el ETL entero.
   **Los dos llaman al mismo núcleo, `scripts/lib/investors_map.mjs`**, y ahí tiene que quedarse
