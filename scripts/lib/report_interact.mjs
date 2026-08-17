@@ -108,6 +108,25 @@ const chipsColumnas = (destino, cols) => {
 // se ve por todos lados y queda mal escrito.
 const casos = (n) => (n === 1 ? '1 caso' : n.toLocaleString('es') + ' casos')
 
+/**
+ * El alcance del grupo, o sea cuántas unidades del SEGUNDO nivel toca. "109 casos"
+ * no dice si son 109 problemas o cuatro columnas mal llenadas; "109 casos · 4
+ * inversiones" sí, y esa diferencia es la que decide si vale la pena abrirlo.
+ *
+ * Va sólo en la cabecera del grupo. En la línea de abajo diría siempre "1
+ * inversión", porque esa línea ES una inversión.
+ */
+const alcance = (lis, eje2) => {
+  if (eje2 === 'id') {
+    // Los hallazgos de archivo no cuelgan de ninguna inversión: no se cuentan
+    // como una, y si no hay ninguna el número no se muestra.
+    const n = new Set(lis.map((li) => li.dataset.id).filter(Boolean)).size
+    return n ? (n === 1 ? '1 inversión' : `${n} inversiones`) : ''
+  }
+  const n = new Set(lis.map((li) => li.dataset.regla)).size
+  return n === 1 ? '1 problema' : `${n} problemas`
+}
+
 const span = (cls, texto) => {
   const s = document.createElement('span')
   s.className = cls
@@ -217,7 +236,8 @@ const agrupar = (items, modo, meta, { abrirTodo, multiFile }) => {
       if (inv) sum.appendChild(span('sub-inv', inv))
       if (lis.some((li) => li.dataset.publica === '0')) sum.appendChild(span('estado no', 'no publica'))
     }
-    sum.appendChild(span('g-n', casos(lis.length)))
+    const alc = alcance(lis, eje2)
+    sum.appendChild(span('g-n', casos(lis.length) + (alc ? ' · ' + alc : '')))
     det.appendChild(sum)
 
     // La causa y el arreglo van UNA vez por grupo, no repetidos en cada caso.
