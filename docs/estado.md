@@ -227,7 +227,7 @@ El objetivo, en una línea: **que ICLAC cargue sus propios datos sin romper el s
 | Planilla de pendientes cortada por dueño | `scripts/lib/pendientes.mjs`, botón en la página + `npm run pendientes` |
 | Instructivo de subida, contextual al resultado | `validador/instructivo.js` |
 | Repositorio movido a la organización `MilenioICLAC` | transferido el 17-08 desde la cuenta personal |
-| Informe rediseñado: lista de hallazgos navegable, pestañas, fondo claro fijo | `scripts/lib/findings.mjs`, `report_render.mjs`, `report_interact.mjs` |
+| Informe rediseñado: documento con índice, lista de hallazgos navegable, fondo claro fijo | `scripts/lib/findings.mjs`, `report_render.mjs`, `report_interact.mjs` |
 | Guardia de caída brusca **también antes de subir**, en la página | `validador/main.js` (`problemasDeCaida`) |
 
 Las reglas que no caducan de todo esto están en `.claude/CLAUDE.md`. Lo de acá es sólo lo que falta.
@@ -251,6 +251,13 @@ fuera del sitio, y ahí es donde una interrupción cualquiera lo deja fuera de v
 el repositorio es un espejo: las 98 subidas son **siempre el archivo de país completo**, nunca un
 incremento, y los tamaños suben y bajan entre entregas (`argentina.xlsx` fue 93.571 → 68.678 → 67.574
 → 68.682 bytes en un mismo día). La entrega del 15-08 fue igual: 21 archivos completos en un `.rar`.
+
+Comprobado sobre `BASE_FINAL_CORREGIDA`, comparando `Id_Investment` país por país contra lo
+publicado: **la entrega trae lo antiguo.** Conserva todas las inversiones publicadas salvo dos
+(`HND-0003` y `VEN-0101`), suma cuatro países nuevos (cuba, dominican_republic, el_salvador, jamaica)
+y Trinidad llega **renombrado** (`trinidad_tobago` → `trinidad_and_tobago`) conservando sus 7. O sea
+que mantienen la base entera y la exportan completa, no mandan altas sueltas. Las dos que faltan van
+al correo a Fran: puede ser un borrado a propósito o un descuido, y desde acá no se distingue.
 
 Eso tiene una consecuencia que todavía no está resuelta: **nuestras correcciones sobre los xlsx las
 borra en silencio la próxima entrega completa.** Ya pasó con `042c9fe` («restaurar inversor original»)
@@ -288,8 +295,12 @@ cualquiera sea la respuesta, y no fusionar.
   una persona al lazo, y sacarla es justamente el objetivo. El riesgo lo cubre la guardia.
 - **El informe y el validador comparten forma, no sólo núcleo.** Se evaluó dejar el informe de Pages
   como documento y darle otra vista al validador; se descartó porque son el mismo render y separarlos
-  reabre la divergencia. Lo que cada lado agrega va por opciones (`extraTabs`, `validatorHref`), y eso
-  es una diferencia declarada, no una implementación paralela.
+  reabre la divergencia. Lo que cada lado agrega va por opciones (`extraSecciones`, `validatorHref`),
+  y eso es una diferencia declarada, no una implementación paralela.
+- **Nada de pestañas.** Se probaron y se sacaron el mismo día: resuelven el muro de texto pero
+  esconden, y dejaron «Cómo se lee esto» detrás de un clic que nadie iba a dar. El índice lateral
+  hace lo contrario, que es mostrar de un vistazo todo lo que hay. Si vuelve a aparecer la idea, la
+  razón está acá.
 - **La lista no se recorta nunca.** Por encima de mil hallazgos arranca plegada por regla, pero cada
   grupo abre con todos sus casos y el número completo está a la vista. Se sacó el
   «… y 66 caso(s) más» del informe viejo, que era un callejón sin salida: obligaba a bajar el xlsx

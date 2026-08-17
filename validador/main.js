@@ -57,19 +57,24 @@ const esc = (s) =>
 const pasos = (items) =>
   `<ol class="pasos">${items.map((p) => `<li><b>${esc(p.titulo)}</b><span>${esc(p.cuerpo)}</span></li>`).join('')}</ol>`
 
-// El instructivo es una PESTAÑA del informe, no un bloque más en la página. Antes
-// vivía en <details> debajo de las acciones y se releía entero en cada validación.
-// El contenido es del validador; la pestaña la dibuja el render compartido.
+// El instructivo es una SECCIÓN del informe, de las de referencia (al final, del
+// otro lado del corte del índice). Antes vivía en <details> debajo de las acciones
+// y se releía entero en cada validación.
+//
+// El contenido es del validador; el título numerado y la línea los pone el render
+// compartido, así que acá los encabezados arrancan en h3.
 const panelSubida = () => `
-  <h2>La primera vez</h2>
-  ${pasos(PRIMERA_VEZ)}
-  <p class="nota">La carpeta es <a href="${urlCarpeta()}" target="_blank" rel="noopener"><code>${CARPETA_DATOS}</code></a>.</p>
-  <h2>Cada vez</h2>
-  ${pasos(CADA_VEZ)}
-  <h2>Qué conviene no tocar</h2>
-  <ul>${QUE_NO_TOCAR.map((t) => `<li>${t}</li>`).join('')}</ul>
-  <h2>La red de seguridad</h2>
-  <p>${esc(RED_DE_SEGURIDAD)}</p>`
+  <div class="ayuda-sec">
+    <h3>La primera vez</h3>
+    ${pasos(PRIMERA_VEZ)}
+    <p class="nota">La carpeta es <a href="${urlCarpeta()}" target="_blank" rel="noopener"><code>${CARPETA_DATOS}</code></a>.</p>
+    <h3>Cada vez</h3>
+    ${pasos(CADA_VEZ)}
+    <h3>Qué conviene no tocar</h3>
+    <ul>${QUE_NO_TOCAR.map((t) => `<li>${t}</li>`).join('')}</ul>
+    <h3>La red de seguridad</h3>
+    <p>${esc(RED_DE_SEGURIDAD)}</p>
+  </div>`
 
 // ---- Guardia de caída brusca, movida a ANTES de subir ----
 //
@@ -153,7 +158,8 @@ const renderAcciones = (results) => {
         <a class="primary" href="${urlSubida()}" target="_blank" rel="noopener">Subir a GitHub</a>
         ${descarga}
       </div>
-      <p class="nota">${esc(RED_DE_SEGURIDAD)} Los pasos están en la pestaña <strong>Cómo se sube</strong>.</p>`
+      <p class="nota">${esc(RED_DE_SEGURIDAD)} Los pasos están más abajo, en
+        <a href="#sec-subir"><strong>Cómo se sube</strong></a>.</p>`
   }
 
   $acciones.classList.remove('hidden')
@@ -268,7 +274,7 @@ const run = async (fileList) => {
     registry,
     countryBorders,
     fragment: true,
-    extraTabs: [{ id: 'subir', label: 'Cómo se sube', html: panelSubida() }]
+    extraSecciones: [{ id: 'subir', label: 'Cómo se sube', html: panelSubida() }]
   })
   // Un <script> inyectado con innerHTML NO se ejecuta, así que la interacción se
   // engancha llamando a la función. Es el mismo módulo que el informe estático

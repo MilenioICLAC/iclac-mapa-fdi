@@ -144,8 +144,21 @@ con varios archivos.
 hay que tocar en Excel), la de la **consecuencia** es la inversión (lo que sale del mapa), y la del
 **trabajo en tanda** es la regla (setenta `Project_Type` vacíos son un solo gesto). Por eso el
 «cómo se corrige» va una vez por grupo y no repetido en los setenta renglones: repetirlo es
-exactamente el muro de texto que hace que un informe deje de leerse. El texto explicativo vive en su
-propia pestaña, no apilado arriba del resultado.
+exactamente el muro de texto que hace que un informe deje de leerse.
+
+**El armazón es un documento con secciones numeradas e índice lateral, y NO pestañas.** Las pestañas
+estuvieron un rato y se sacaron: resuelven el muro de texto pero esconden. «Cómo se lee esto» quedó
+detrás de un clic, en una barra que no se lee como navegación, y nadie iba a encontrarla nunca. Un
+índice hace el mismo trabajo al revés: muestra de un vistazo **todo** lo que hay, y la ayuda y el
+instructivo quedan al final, separados por un corte, a un clic desde cualquier parte sin estorbar el
+trabajo. El título de sección lleva número grande y línea de ancho completo para que se lea al hacer
+scroll rápido, y el número del índice y el del cuerpo son el mismo.
+
+**La explicación va además pegada a cada concepto**, con el `(?)` que abre por clic (nunca por hover:
+en pantalla táctil no hay hover). Es un `<details>` y no un popover con JavaScript, así funciona
+impreso y sin scripts. Va donde el concepto **nace** —el control, la tarjeta, el título de la
+sección— y no repetido en cada renglón: doscientos signos de pregunta idénticos son otra forma del
+mismo muro.
 
 **Todo eso sale de `scripts/lib/findings.mjs`**, que es el modelo compartido: la lista en pantalla y
 la planilla de pendientes son dos vestidos del mismo cálculo. Al agregar un campo, va ahí.
@@ -476,9 +489,11 @@ Los que forman parte de la operación:
   resultado** del informe del CLI y el de la página salgan idénticos para los mismos archivos (receta
   headless en `.claude/skills/verify`; comparar por DOM y no como texto, así las entidades quedan
   serializadas igual en los dos lados). Lo que sí difiere está **declarado por opciones**: el informe
-  lleva el aviso que enlaza al validador, y el validador agrega la pestaña del instructivo vía
-  `extraTabs`. `scripts/registry_parse.test.mjs` fija en CI la parte que se puede probar sin
-  navegador: que las dos rutas armen los mismos `opts`.
+  lleva el aviso que enlaza al validador, y el validador agrega la sección del instructivo vía
+  `extraSecciones`. Ojo al comparar: las secciones de **referencia** (ayuda e instructivo, las que
+  van después del corte del índice) se **renumeran** legítimamente cuando un lado aporta una propia,
+  así que el número se compara sólo en las de trabajo. `scripts/registry_parse.test.mjs` fija en CI
+  la parte que se puede probar sin navegador: que las dos rutas armen los mismos `opts`.
   Después del informe la página muestra una **región de acciones** que cambia según el resultado: si
   hay archivos ilegibles no ofrece el botón de subir (sería mandar a romper el sitio), y si hay
   inversiones que no publican dice que se puede subir igual. El texto del instructivo vive aparte, en

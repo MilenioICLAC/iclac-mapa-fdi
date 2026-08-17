@@ -1,4 +1,4 @@
-// Interacción del informe: pestañas, filtros y agrupación. Sin dependencias y sin
+// Interacción del informe: índice, filtros y agrupación. Sin dependencias y sin
 // tocar red ni disco, a propósito.
 //
 // DOS CONSUMIDORES, UN SOLO ARCHIVO:
@@ -12,10 +12,10 @@
 // ejecuta, así que en el validador la única forma es llamar a la función. Tener
 // las dos entregas del MISMO archivo es lo que evita que diverjan.
 //
-// El HTML ya viene con la vista por defecto armada (lista plana, bloqueantes
-// arriba, todas las pestañas visibles). Esto sólo mejora: sin JavaScript el
-// informe sigue siendo un documento completo y legible, que es la mitad de su
-// razón de ser.
+// El HTML ya viene con la vista por defecto armada: lista plana con bloqueantes
+// arriba, secciones numeradas e índice abierto. Esto sólo mejora. Sin JavaScript
+// el informe sigue siendo un documento completo, navegable por sus anclas e
+// imprimible, que es la mitad de su razón de ser.
 //
 // OJO, dos cosas que rompen el informe estático y no el bundle del validador,
 // porque sólo afectan al inlineado:
@@ -101,17 +101,71 @@ export const wireReport = (root) => {
   const $ = (sel) => root.querySelector(sel)
   const $$ = (sel) => [...root.querySelectorAll(sel)]
 
-  // ---- Pestañas ----
-  // Sin JS los paneles se ven todos, uno abajo del otro. Recién acá se pliegan.
-  const tabs = $$('.tabs button[data-tab]')
-  const panels = $$('.panel[data-panel]')
-  if (tabs.length && panels.length) {
-    const mostrar = (id) => {
-      for (const p of panels) p.hidden = p.dataset.panel !== id
-      for (const t of tabs) t.setAttribute('aria-selected', String(t.dataset.tab === id))
+  // ---- Índice ----
+  //
+  // Reemplazó a unas pestañas que escondían la mitad del informe: un índice
+  // muestra todo lo que hay de un vistazo, que es exactamente lo que una barra de
+  // pestañas impide. Los enlaces ya funcionan sin JS (son anclas); esto agrega
+  // saber dónde estás y plegarlo cuando no hay ancho.
+  const indice = $('#indice')
+  if (indice) {
+    const enlaces = new Map($$('#indice a[data-ix]').map((a) => [a.dataset.ix, a]))
+    const secciones = $$('section.sec')
+
+    // Resaltar la sección en curso. Se marca la primera visible empezando por
+    // arriba, y no "la que más se ve": con secciones de alturas muy distintas
+    // —una tira de tres renglones contra una lista de 251— la más visible es casi
+    // siempre la larga, y el resaltado no se movería nunca.
+    if ('IntersectionObserver' in window && secciones.length) {
+      const visibles = new Set()
+      const marcar = () => {
+        // Si nada cae en la banda de observación —arriba de todo, donde el
+        // encabezado y las tarjetas ocupan más que la banda— vale la última
+        // sección que ya empezó, y si ninguna empezó, la primera. Sin esto el
+        // índice arranca sin resaltar nada, que parece que no funciona.
+        const actual =
+          secciones.find((s) => visibles.has(s.id)) ??
+          [...secciones].reverse().find((s) => s.getBoundingClientRect().top <= 0) ??
+          secciones[0]
+        for (const a of enlaces.values()) a.classList.remove('aqui')
+        enlaces.get(actual.id.replace(/^sec-/, ''))?.classList.add('aqui')
+      }
+      const obs = new IntersectionObserver(
+        (entradas) => {
+          for (const e of entradas) {
+            if (e.isIntersecting) visibles.add(e.target.id)
+            else visibles.delete(e.target.id)
+          }
+          marcar()
+        },
+        // El margen inferior deja "en curso" la sección de arriba mientras siga
+        // ocupando la parte alta de la pantalla, que es donde se está leyendo.
+        { rootMargin: '0px 0px -70% 0px' }
+      )
+      for (const s of secciones) obs.observe(s)
     }
-    for (const t of tabs) t.addEventListener('click', () => mostrar(t.dataset.tab))
-    mostrar(tabs[0].dataset.tab)
+
+    // En angosto no hay lugar al costado: el índice se pliega arriba. Se emite
+    // abierto para que sin JS quede utilizable, y acá se cierra si no hay ancho.
+    // Sólo al cruzar el corte, para no pelearle al usuario que lo abrió a mano.
+    const ANGOSTO = 900
+    let eraAngosto = null
+    const ajustar = () => {
+      const angosto = window.innerWidth < ANGOSTO
+      if (angosto === eraAngosto) return
+      eraAngosto = angosto
+      indice.open = !angosto
+    }
+    ajustar()
+    window.addEventListener('resize', ajustar)
+
+    // Al saltar a una sección en angosto, plegar el índice: si no, el destino
+    // queda empujado abajo de una lista de ocho enlaces.
+    for (const a of enlaces.values()) {
+      a.addEventListener('click', () => {
+        if (window.innerWidth < ANGOSTO) indice.open = false
+      })
+    }
   }
 
   // ---- Lista de hallazgos ----

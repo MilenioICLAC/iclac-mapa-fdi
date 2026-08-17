@@ -6,15 +6,19 @@
 // implementaciones diverge, y este repositorio ya pagó esa lección con los dos
 // generadores del mapa de inversores.
 //
-// FORMA: una LISTA DE HALLAZGOS, no un acordeón por país. La estructura por país
-// venía de la CI, donde lo normal son 17 archivos de una; quien valida abre uno.
-// Y con la compuerta por inversión el país dejó de ser la unidad de nada: la
-// unidad de la acción es la fila y la de la consecuencia es la inversión. Agrupar
-// es un CONTROL, no la estructura.
+// FORMA: un DOCUMENTO con secciones numeradas e índice lateral, y adentro una
+// LISTA DE HALLAZGOS. No un acordeón por país: esa estructura venía de la CI,
+// donde lo normal son diecisiete archivos de una, y quien valida abre uno. Con la
+// compuerta por inversión el país dejó de ser la unidad de nada. Agrupar es un
+// CONTROL, no la estructura.
 //
-// Se emite la vista por defecto ya armada en HTML y el JavaScript sólo mejora
-// (filtra, reagrupa, arma las pestañas). Sin JS esto sigue siendo un documento
-// legible e imprimible, que es la mitad de la razón de ser del informe publicado.
+// NO HAY PESTAÑAS. Las hubo un rato y escondieron la explicación: el índice
+// lateral hace el mismo trabajo mejor, porque muestra TODO lo que hay de un
+// vistazo en vez de esconder dos tercios detrás de un clic.
+//
+// Se emite todo ya armado en HTML y el JavaScript sólo mejora (filtra, reagrupa,
+// resalta la sección en curso). Sin JS esto sigue siendo un documento legible e
+// imprimible, que es la mitad de la razón de ser del informe publicado.
 import { alpha3ForFilename } from './countries.mjs'
 import { SECTOR_PAIRS } from './validate.mjs'
 import { RULE_HELP, tipoBadge } from './rules_help.mjs'
@@ -60,17 +64,31 @@ const att = (s) => esc(s).replace(/"/g, '&quot;')
 
 const n = (x) => Number(x ?? 0).toLocaleString('es')
 
+/**
+ * El (?) que explica UN concepto, en el lugar donde el concepto aparece.
+ *
+ * Es un <details> y no un popover con JavaScript: así funciona en el informe
+ * impreso y sin scripts, y abre por CLIC y no por hover, porque en pantalla táctil
+ * no hay hover. Mismo criterio que el HelpTip de la app.
+ *
+ * Va donde el concepto NACE (el control, la tarjeta, el título de la sección) y no
+ * repetido en cada renglón: doscientos cincuenta y un signos de pregunta idénticos
+ * son otra forma del muro de texto.
+ */
+const tip = (cuerpo) =>
+  `<details class="tip"><summary title="Qué significa" aria-label="Qué significa">?</summary><div class="tip-cuerpo">${cuerpo}</div></details>`
+
 // ---- Hallazgos ----
 
 const sevPill = (bloquea) =>
   bloquea
-    ? '<span class="pill block" title="Saca del mapa la inversión de esta fila; el resto del archivo se publica igual">Bloquea</span>'
-    : '<span class="pill warn" title="No saca nada del mapa: es algo a revisar">Aviso</span>'
+    ? '<span class="pill block">Bloquea</span>'
+    : '<span class="pill warn">Aviso</span>'
 
 /**
  * Un hallazgo. La línea de arriba es densa y de un renglón, y el detalle (qué
  * pasa y cómo se corrige) va adentro de un <details>: repetir el mismo "cómo se
- * corrige" en las 70 filas de un mismo error es el muro de texto que esta vista
+ * corrige" en las 109 filas de un mismo error es el muro de texto que esta vista
  * vino a sacar.
  */
 const findingItem = (f, { multiFile }) => {
@@ -115,12 +133,41 @@ const reglasMeta = (findings) => {
   return out
 }
 
+const AYUDA_BLOQUEA = `<p><strong>Bloquea</strong> saca del mapa la <em>inversión</em> a la que pertenece esa
+  fila. No bota el archivo: todo el resto se publica igual.</p>
+  <p><strong>Aviso</strong> no saca nada, es algo a revisar.</p>
+  <p>Lo único que deja un archivo entero afuera es no poder interpretarlo: un nombre que no
+  corresponde a ningún país, más de una hoja, o una columna obligatoria que falta.</p>`
+
+const AYUDA_CATEGORIA = `<p>La categoría dice <strong>de quién es el arreglo</strong>, no si bloquea.
+  Son dos preguntas distintas, y confundirlas hace que el informe se lea como una lista de culpas.</p>
+  <p><b>Formato</b> es cómo está escrito el dato. <b>Contenido</b> es qué dice, y necesita criterio.
+  <b>Revisar</b> pide mirar la fuente. <b>Lo resolvemos nosotros</b> no requiere acción de tu lado.
+  <b>Encargado de la tabla de inversores</b> es la cola de ese rol.</p>`
+
+const AYUDA_ENTERA = `<p>Una inversión son varias filas, una por punto en el mapa. Botar sólo la fila
+  con el problema publicaría medio trazado, o perdería la fila que trae el monto, las dos en
+  silencio. Por eso la unidad es la inversión y no la fila.</p>
+  <p>Corregir las filas señaladas la reincorpora: la corrección es puntual y no hay que rehacer la
+  entrega.</p>`
+
+const AYUDA_RETENIDO = `<p><strong>Pasar el validador y publicarse son cosas distintas.</strong> Un
+  archivo puede cumplir el esquema y aun así no salir en el mapa, porque el país está marcado como
+  retenido en <code>data/schema/countries.csv</code>. Es una decisión editorial de ICLAC, no un
+  problema del archivo.</p>`
+
+const AYUDA_CURACION = `<p>Los problemas de <strong>formato</strong> deterministas y sin pérdida se
+  arreglan de nuestro lado: el apóstrofe en <code>COUNTRY_ISO_NUM</code>, el país en MAYÚSCULAS, y el
+  nombre del archivo (vale el nombre del país o cualquiera de sus variantes, así que no hay que
+  renombrarlo).</p>
+  <p>Se listan uno por uno a propósito: se corrige a la vista, no a escondidas.</p>`
+
 const controles = (findings, { multiFile }) => {
   const bloqueantes = findings.filter((f) => f.bloquea).length
   return `
   <div class="controles" data-total="${findings.length}" data-bloqueantes="${bloqueantes}">
     <label class="ctl-check"><input type="checkbox" id="solo-bloqueantes"> Solo bloqueantes
-      <span class="ctl-n">(${n(bloqueantes)})</span></label>
+      <span class="ctl-n">(${n(bloqueantes)})</span></label>${tip(AYUDA_BLOQUEA)}
     <label class="ctl-buscar"><span class="vh">Buscar</span>
       <input type="search" id="buscar" placeholder="Buscar por id, fila, columna…"></label>
     <div class="ctl-agrupar" role="group" aria-label="Agrupar hallazgos">
@@ -134,11 +181,11 @@ const controles = (findings, { multiFile }) => {
   </div>`
 }
 
-// ---- Bloques que sobreviven del informe viejo ----
+// ---- Bloques ----
 
 // `corto` es para el resumen plegado: ahí los rótulos van separados por " · " y
-// los largos ya traen un " · " adentro, así que "7 PASA · PARCIAL · 10 PASA"
-// no se puede leer.
+// los largos ya traen un " · " adentro, así que "7 PASA · PARCIAL · 10 PASA" no se
+// puede leer.
 const ESTADO = {
   bad: { cls: 'bad', txt: 'NO SE PUEDE LEER', corto: 'no se pueden leer', orden: 0 },
   parcial: { cls: 'hold', txt: 'PASA · PARCIAL', corto: 'parciales', orden: 1 },
@@ -190,15 +237,14 @@ const tiraArchivos = (results) => {
     .map(([corto, { cuenta }]) => `${cuenta} ${corto}`)
     .join(' · ')
   return `
-  <details class="tira-plegada">
-    <summary><b>${results.length} archivos</b> <span class="tira-res">${esc(resumen)}</span></summary>
+  <details class="plegable">
+    <summary><b>${results.length} archivos</b> <span class="pleg-res">${esc(resumen)}</span></summary>
     <div class="tira">${filas}</div>
   </details>`
 }
 
 const bloqueIlegibles = (results) => {
   const malos = results.filter((r) => r.error || !r.stats?.passed)
-  if (!malos.length) return ''
   return `
   <div class="file-errors">
     <strong>${malos.length} archivo(s) no se pueden leer.</strong> No es que tengan datos malos: el
@@ -222,7 +268,6 @@ const bloqueIlegibles = (results) => {
 
 const bloqueExcluidas = (results) => {
   const conExcluidas = results.filter((r) => (r.excludedIds?.length ?? 0) > 0)
-  if (!conExcluidas.length) return ''
   const total = conExcluidas.reduce((s, r) => s + r.excludedIds.length, 0)
   return `
   <div class="excluidas">
@@ -236,26 +281,31 @@ const bloqueExcluidas = (results) => {
             .join(' ')}</p>`
       )
       .join('')}
-    <p class="fix">Sale la inversión entera y no sólo la fila con el problema: una inversión son
-    varios puntos, y publicar la mitad de un trazado o perder la fila que trae el monto sería una
-    pérdida que no se ve.</p>
   </div>`
 }
 
+/**
+ * La curación va PLEGADA. Es una lista larga (una línea por archivo curado, 21 en
+ * una entrega completa) de cosas que ya están resueltas: tiene que constar, para
+ * que no parezca que arreglamos a escondidas, pero no tiene que ocupar media
+ * pantalla arriba de lo que sí hay que hacer.
+ */
 const bloqueCuraciones = (results) => {
   const conCuraciones = results.filter((r) => r.curaciones?.length)
-  if (!conCuraciones.length) return ''
+  const total = conCuraciones.reduce((s, r) => s + r.curaciones.length, 0)
   return `
-  <div class="curaciones">
-    <strong>Curación aplicada de nuestro lado</strong> (automática, sin pérdida, y listada acá porque
-    se corrige a la vista y no a escondidas):
+  <details class="plegable curaciones">
+    <summary><b>${n(total)} arreglo(s) automáticos</b>
+      <span class="pleg-res">en ${conCuraciones.length} archivo(s) · nada que hacer de tu lado</span></summary>
     ${conCuraciones
       .map(
         (r) =>
-          `<ul><li><b>${esc(r.name)}</b><ul>${r.curaciones.map((c) => `<li>${esc(c.message)}</li>`).join('')}</ul></li></ul>`
+          `<div class="cur-f"><b>${esc(r.name)}</b><ul>${r.curaciones
+            .map((c) => `<li>${esc(c.message)}</li>`)
+            .join('')}</ul></div>`
       )
       .join('')}
-  </div>`
+  </details>`
 }
 
 // ---- Estilos ----
@@ -270,9 +320,8 @@ const style = `
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg);
     font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-  .wrap { max-width:1040px; margin:0 auto; padding:32px 20px 80px; }
+  .wrap { max-width:1180px; margin:0 auto; padding:32px 20px 80px; }
   h1 { font-size:26px; margin:0 0 4px; }
-  h2 { font-size:19px; margin:32px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
   .sub { color:var(--muted); margin:0 0 20px; }
   .vh { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
 
@@ -281,32 +330,66 @@ const style = `
   .veredicto.ok { border-left-color:var(--ok); }
   .veredicto.hold { border-left-color:var(--warn); }
   .veredicto.bad { border-left-color:var(--bad); }
-  .veredicto span { display:block; font-size:14px; font-weight:400; color:var(--muted); margin-top:4px; }
+  .veredicto span.det { display:block; font-size:14px; font-weight:400; color:var(--muted); margin-top:4px; }
 
-  .cards { display:flex; gap:12px; flex-wrap:wrap; margin:0 0 20px; }
+  .cards { display:flex; gap:12px; flex-wrap:wrap; margin:0 0 26px; }
   .stat { background:var(--card); border:1px solid var(--border); border-radius:10px;
     padding:12px 16px; min-width:110px; }
   .stat .n { font-size:24px; font-weight:700; }
-  .stat .l { color:var(--muted); font-size:13px; }
+  .stat .l { color:var(--muted); font-size:13px; display:flex; align-items:center; gap:5px; }
   .stat.ok { border-left:3px solid var(--ok); } .stat.ok .n { color:var(--ok); }
   .stat.bad { border-left:3px solid var(--bad); } .stat.bad .n { color:var(--bad); }
   .stat.hold { border-left:3px solid var(--warn); } .stat.hold .n { color:var(--warn); }
 
-  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin:0 0 18px; flex-wrap:wrap; }
-  .tabs button { font:inherit; font-size:14px; font-weight:600; background:none; cursor:pointer;
-    border:1px solid transparent; border-bottom:none; border-radius:8px 8px 0 0;
-    padding:9px 16px; color:var(--muted); margin-bottom:-1px; }
-  .tabs button:hover { color:var(--accent); }
-  .tabs button[aria-selected="true"] { color:var(--fg); background:var(--bg);
-    border-color:var(--border); }
-  .tabs button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
-  .panel > h2:first-child { margin-top:0; }
+  /* Documento: índice a la izquierda, secciones a la derecha. */
+  .doc { display:grid; grid-template-columns:15rem minmax(0,1fr); gap:36px; align-items:start; }
+  .indice { position:sticky; top:20px; border:1px solid var(--border); border-radius:10px;
+    background:var(--card); padding:6px 4px; max-height:calc(100vh - 40px); overflow:auto; }
+  .indice > summary { display:none; }
+  .indice ol { list-style:none; margin:0; padding:0; counter-reset:none; }
+  .indice li { margin:0; }
+  .indice li.corte { border-top:1px solid var(--border); margin:6px 10px; padding:0; }
+  .indice a { display:flex; gap:8px; padding:6px 12px; border-radius:7px; font-size:13.5px;
+    color:var(--fg); text-decoration:none; line-height:1.35; }
+  .indice a:hover { background:var(--bg); color:var(--accent); }
+  .indice a.aqui { background:var(--bg); font-weight:700; box-shadow:inset 3px 0 0 var(--accent); }
+  .indice a .ix-n { color:var(--muted); font-variant-numeric:tabular-nums; min-width:1.1em; }
+  .indice a.aqui .ix-n { color:var(--accent); }
+
+  /* Título de sección: número grande al costado y línea de ancho completo. Tiene
+     que leerse al hacer scroll rápido, no sólo al detenerse. */
+  .sec { margin:0 0 38px; scroll-margin-top:16px; }
+  .sec-tit { display:flex; align-items:baseline; gap:14px; margin:0 0 14px;
+    padding-bottom:8px; border-bottom:1px solid var(--fg); font-size:19px; }
+  .sec-n { font-size:30px; font-weight:800; color:var(--border); line-height:1;
+    font-variant-numeric:tabular-nums; }
+  .sec-tit .tip { margin-left:auto; }
+  .sec-tit h2 { font-size:19px; margin:0; font-weight:700; }
+  .sec p:first-of-type { margin-top:0; }
+
+  /* El (?) por concepto: <details> y no popover con JS, así funciona impreso y sin
+     scripts. Abre por clic, nunca por hover: en pantalla táctil no hay hover. */
+  .tip { display:inline-block; position:relative; vertical-align:middle; }
+  .tip > summary { list-style:none; cursor:help; width:17px; height:17px; border-radius:50%;
+    border:1px solid var(--border); background:var(--bg); color:var(--muted);
+    font-size:11px; font-weight:700; line-height:15px; text-align:center; }
+  .tip > summary::-webkit-details-marker { display:none; }
+  .tip > summary:hover { border-color:var(--accent); color:var(--accent); }
+  .tip[open] > summary { background:var(--accent); color:#fff; border-color:var(--accent); }
+  .tip-cuerpo { position:absolute; z-index:20; top:24px; left:0; width:22rem; max-width:80vw;
+    background:var(--bg); border:1px solid var(--border); border-radius:10px; padding:12px 15px;
+    box-shadow:0 8px 28px rgba(0,0,0,.14); font-size:13.5px; font-weight:400; text-align:left;
+    color:var(--fg); }
+  .tip-cuerpo p { margin:0 0 8px; }
+  .tip-cuerpo p:last-child { margin:0; }
+  .sec-tit .tip-cuerpo, .cards .tip-cuerpo { left:auto; right:0; }
 
   .controles { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:0 0 12px;
     padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; }
   .controles label { font-size:13.5px; }
+  .ctl-check { margin-right:-8px; }
   .ctl-n { color:var(--muted); }
-  .ctl-buscar input { font:inherit; font-size:13.5px; padding:5px 10px; min-width:15rem;
+  .ctl-buscar input { font:inherit; font-size:13.5px; padding:5px 10px; min-width:14rem;
     border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--fg); }
   .ctl-agrupar { display:flex; gap:0; align-items:center; }
   .ctl-lab { font-size:13.5px; color:var(--muted); margin-right:8px; }
@@ -356,16 +439,17 @@ const style = `
     border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:13.5px; }
   .vacio { color:var(--muted); font-style:italic; padding:14px 0; }
 
-  .tira-plegada { margin:0 0 18px; border:1px solid var(--border); border-radius:10px; }
-  .tira-plegada > summary { cursor:pointer; padding:10px 14px; font-size:13.5px; list-style:none;
-    display:flex; gap:10px; align-items:center; }
-  .tira-plegada > summary::-webkit-details-marker { display:none; }
-  .tira-plegada > summary::before { content:"▸"; color:var(--muted); font-size:11px; }
-  .tira-plegada[open] > summary::before { content:"▾"; }
-  .tira-plegada > summary:hover { background:var(--card); border-radius:9px; }
-  .tira-res { color:var(--muted); }
-  .tira-plegada .tira { margin:0; padding:0 12px 12px; }
-  .tira { display:flex; flex-direction:column; gap:4px; margin:0 0 18px; }
+  /* Plegables de referencia: la tira de archivos y la curación aplicada. */
+  .plegable { border:1px solid var(--border); border-radius:10px; }
+  .plegable > summary { cursor:pointer; padding:10px 14px; font-size:13.5px; list-style:none;
+    display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+  .plegable > summary::-webkit-details-marker { display:none; }
+  .plegable > summary::before { content:"▸"; color:var(--muted); font-size:11px; }
+  .plegable[open] > summary::before { content:"▾"; }
+  .plegable > summary:hover { background:var(--card); border-radius:9px; }
+  .pleg-res { color:var(--muted); }
+  .plegable .tira { margin:0; padding:0 12px 12px; }
+  .tira { display:flex; flex-direction:column; gap:4px; }
   .tira-f { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13.5px;
     padding:7px 12px; border:1px solid var(--border); border-radius:8px; }
   .tira-f.ok { border-left:3px solid var(--ok); }
@@ -374,31 +458,26 @@ const style = `
   .tira-f .fname { font-weight:600; }
   .tira-det { color:var(--muted); margin-left:auto; }
 
-  .curaciones { background:color-mix(in srgb,var(--ok) 8%,transparent); border-radius:8px;
-    padding:10px 14px; margin:14px 0; font-size:13.5px; }
-  .curaciones ul { margin:6px 0 0; padding-left:18px; color:var(--muted); }
+  .curaciones { border-left:3px solid var(--ok); }
+  .cur-f { padding:2px 14px 8px; font-size:13.5px; }
+  .cur-f ul { margin:4px 0 0; padding-left:18px; color:var(--muted); }
   .excluidas { background:color-mix(in srgb,var(--warn) 10%,transparent); border-left:4px solid var(--warn);
-    border-radius:8px; padding:10px 14px; margin:14px 0; font-size:13.5px; }
+    border-radius:8px; padding:10px 14px; font-size:13.5px; }
   .excluidas .ids { margin:6px 0 0; line-height:1.9; }
   .excluidas .ids-pais { color:var(--muted); }
   .excluidas .ids code { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
-  .excluidas .fix { margin:8px 0 0; color:var(--muted); font-size:13px; }
   .callout { background:var(--card); border-left:4px solid var(--accent); border-radius:6px;
-    padding:14px 18px; margin:16px 0; }
-  .pending { background:color-mix(in srgb,var(--warn) 9%,transparent); border:1px solid var(--border);
-    border-left:4px solid var(--warn); border-radius:8px; padding:6px 20px 16px; margin:18px 0; }
+    padding:14px 18px; margin:0 0 20px; }
   .pending tr.grave td { background:color-mix(in srgb,var(--bad) 12%,transparent); font-weight:600; }
   .pending .note { color:var(--muted); font-size:13px; margin:8px 0 0; }
-  .onboarding { background:color-mix(in srgb,var(--accent) 7%,transparent); border:1px solid var(--border);
-    border-left:4px solid var(--accent); border-radius:8px; padding:6px 20px 16px; margin:18px 0; }
-  .onb-card { background:var(--bg); border:1px solid var(--border); border-radius:8px;
+  .onb-card { background:var(--card); border:1px solid var(--border); border-radius:8px;
     padding:12px 16px; margin:10px 0; }
   .onb-name { font-weight:700; font-size:15px; margin-bottom:6px; }
   .onb-gate { font-size:14px; margin:3px 0; }
   .onb-gate .box { font-family:monospace; font-weight:700; margin-right:6px; }
   .onb-gate .muted { color:var(--muted); }
   .file-errors { background:color-mix(in srgb,var(--bad) 8%,transparent); border-left:4px solid var(--bad);
-    border-radius:8px; padding:10px 14px; margin:0 0 16px; font-size:14px; }
+    border-radius:8px; padding:10px 14px; font-size:14px; }
   .file-errors ul { margin:6px 0 0; padding-left:18px; }
   .fix-inline { color:var(--muted); }
   code { background:var(--card); border:1px solid var(--border); border-radius:4px;
@@ -423,25 +502,37 @@ const style = `
   .b-revisar { background:color-mix(in srgb,var(--warn) 15%,transparent); color:var(--warn); }
   .b-nuestro { background:color-mix(in srgb,var(--ok) 15%,transparent); color:var(--ok); }
   .b-inversores { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
-  footer { margin-top:40px; color:var(--muted); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
-
-  /* Pasos del instructivo. Los estilos viven acá y no en el validador porque el
-     panel lo dibuja este render: el consumidor aporta el contenido, no el CSS. */
+  .ayuda-sec h3 { font-size:15px; margin:18px 0 4px; }
+  .ayuda-sec h3:first-child { margin-top:0; }
+  .ayuda-sec p { margin:0 0 8px; }
   .pasos { margin:12px 0 0; padding-left:20px; font-size:14px; }
   .pasos li { margin:0 0 10px; }
   .pasos li b { display:block; }
   .pasos li span { color:var(--muted); }
   .nota { font-size:13px; color:var(--muted); }
+  footer { margin-top:40px; color:var(--muted); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
 
+  /* Angosto: el índice se pliega arriba y ocupa un renglón. Sigue estando. */
+  @media (max-width:900px) {
+    .doc { grid-template-columns:minmax(0,1fr); gap:20px; }
+    .indice { position:static; max-height:none; padding:0; }
+    .indice > summary { display:flex; gap:8px; align-items:center; cursor:pointer;
+      list-style:none; padding:10px 14px; font-size:13.5px; font-weight:600; }
+    .indice > summary::-webkit-details-marker { display:none; }
+    .indice > summary::before { content:"▸"; color:var(--muted); font-size:11px; }
+    .indice[open] > summary::before { content:"▾"; }
+    .indice ol { padding:0 4px 6px; }
+  }
   @media (max-width:640px) {
     .wrap { padding:20px 14px 60px; }
-    .controles { gap:10px; }
     .ctl-conteo { margin-left:0; }
-    .ctl-buscar input { min-width:0; width:100%; }
     .ctl-buscar { flex:1 1 100%; }
+    .ctl-buscar input { min-width:0; width:100%; }
     .h-meta { margin-left:0; }
     .h-val { max-width:100%; }
     .tira-det { margin-left:0; flex:1 1 100%; }
+    .sec-n { font-size:24px; }
+    .tip-cuerpo { width:min(22rem,86vw); }
   }
 `
 
@@ -452,7 +543,7 @@ const style = `
  *
  *  · `String.replace` con una CADENA de reemplazo interpreta `$$` como un `$`
  *    literal, así que el `$$` del módulo llegaba corrompido y el informe quedaba
- *    sin pestañas ni filtros, sin decir nada. Va con función de reemplazo.
+ *    sin índice ni filtros, sin decir nada. Va con función de reemplazo.
  *  · Si el módulo llegara a contener una etiqueta de cierre de script, el navegador
  *    corta ahí. Se comprueba y se avisa fuerte en vez de publicar algo roto.
  *
@@ -478,8 +569,9 @@ export const withInteract = (html, src, { fragment = false } = {}) => {
  * @param {boolean} [opts.fragment] emitir sólo <style> + body, sin el documento
  * @param {string|null} [opts.validatorHref] enlace al validador en el navegador. La página del
  *   validador usa este mismo render y ahí el aviso no va: ya estás adentro.
- * @param {Array<{id:string,label:string,html:string}>} [opts.extraTabs] pestañas que aporta el
- *   consumidor. El validador mete acá el instructivo de subida, que es suyo y no del informe.
+ * @param {Array<{id:string,label:string,html:string}>} [opts.extraSecciones] secciones que aporta el
+ *   consumidor, al final y del lado de la referencia. El validador mete acá el instructivo de
+ *   subida, que es suyo y no del informe.
  * @returns {string} HTML
  */
 export const renderReport = (results, opts = {}) => {
@@ -489,7 +581,7 @@ export const renderReport = (results, opts = {}) => {
     now = new Date().toISOString().slice(0, 16).replace('T', ' '),
     fragment = false,
     validatorHref = null,
-    extraTabs = []
+    extraSecciones = []
   } = opts
 
   const findings = buildFindings(results)
@@ -565,20 +657,31 @@ export const renderReport = (results, opts = {}) => {
           sub: findings.length ? `Quedan ${n(findings.length)} aviso(s), que no sacan nada del mapa.` : ''
         }
 
-  const tabs = [
-    { id: 'resultado', label: 'Resultado' },
-    ...extraTabs.map((t) => ({ id: t.id, label: t.label })),
-    { id: 'leer', label: 'Cómo se lee esto' }
-  ]
+  // ---- Las secciones del documento, en orden ----
+  const secciones = []
 
-  const panelResultado = `
-  ${bloqueIlegibles(results)}
-  ${tiraArchivos(results)}
-  ${bloqueExcluidas(results)}
-
-  <h2>Qué hay que revisar</h2>
-  ${
-    findings.length
+  if (ilegibles) {
+    secciones.push({ id: 'ilegibles', label: 'Archivos que no se pueden leer', html: bloqueIlegibles(results) })
+  }
+  secciones.push({
+    id: 'archivos',
+    label: 'Estado por archivo',
+    ayudaTip: heldCount ? AYUDA_RETENIDO : null,
+    html: tiraArchivos(results)
+  })
+  if (totalExcluded) {
+    secciones.push({
+      id: 'excluidas',
+      label: 'Inversiones que no publican',
+      ayudaTip: AYUDA_ENTERA,
+      html: bloqueExcluidas(results)
+    })
+  }
+  secciones.push({
+    id: 'revisar',
+    label: 'Qué hay que revisar',
+    ayudaTip: AYUDA_CATEGORIA,
+    html: findings.length
       ? `${
           autoGroup
             ? `<p class="autogroup">Son ${n(findings.length)} hallazgos, así que la lista arranca
@@ -592,91 +695,110 @@ export const renderReport = (results, opts = {}) => {
       </ul></div>
       <p class="vacio" id="sin-resultados" hidden>Ningún hallazgo coincide con el filtro.</p>`
       : '<p class="vacio">Nada que revisar: ni un error ni un aviso.</p>'
+  })
+  if (totalCuraciones) {
+    secciones.push({
+      id: 'curaciones',
+      label: 'Curación aplicada de nuestro lado',
+      ayudaTip: AYUDA_CURACION,
+      html: bloqueCuraciones(results)
+    })
   }
-
-  ${bloqueCuraciones(results)}
-
-  ${
-    sectorConflicts.length
-      ? `<div class="pending">
-    <h2 style="border:0;margin-top:8px">Para revisar: sector en conflicto (Area_EN ≠ Area_ES)</h2>
-    <p>No es un problema de formato. En estas inversiones las dos columnas de sector apuntan a
-    categorías <strong>conceptualmente distintas</strong>: una de las dos está mal y no se puede
-    saber cuál sin criterio del equipo.</p>
-    <div class="overflow"><table>
-      <thead><tr><th>Archivo</th><th>Id</th><th>Area_EN</th><th>Area_ES</th><th>Inversor</th></tr></thead>
-      <tbody>${sectorConflicts
-        .sort((a, b) => Number(b.grave) - Number(a.grave))
-        .map(
-          (c) =>
-            `<tr class="${c.grave ? 'grave' : ''}"><td>${esc(c.file)}</td><td>${esc(c.id)}</td><td>${esc(c.en)}</td><td>${esc(c.es)}</td><td>${esc(c.investor)}</td></tr>`
-        )
-        .join('')}</tbody>
-    </table></div>
-    <p class="note">Filas resaltadas = país que ya está en la base (sector real en conflicto). El
-    resto son países en incorporación con <code>Area_EN=Construction</code> como marcador
-    provisional.</p>
-  </div>`
-      : ''
-  }
-
-  ${
-    onboarding.length
-      ? `<div class="onboarding">
-    <h2 style="border:0;margin-top:8px">Países en incorporación</h2>
-    <p>Estos países están reconocidos pero todavía no entran al mapa. Para incorporarse necesitan
-    dos cosas: la <strong>geometría de borde</strong> (la cargamos nosotros) y el <strong>archivo de
-    datos legible</strong>. Cuando ambas estén ✓, el país entra automáticamente.</p>
-    ${onboarding
-      .map(
-        (o) => `<div class="onb-card">
-        <div class="onb-name">${esc(o.name.replace(/\.xlsx$/, ''))}</div>
-        <div class="onb-gate"><span class="box">${o.hasBorder ? '✓' : '☐'}</span> Geometría de país ${o.hasBorder ? '' : '<span class="muted">— falta el borde (lo cargamos nosotros)</span>'}</div>
-        <div class="onb-gate"><span class="box">${o.blocking === 0 ? '✓' : '☐'}</span> Archivo legible ${o.blocking === 0 ? '' : `<span class="muted">— ${o.blocking} problema(s) de estructura${o.tipos.length ? ': ' + esc(o.tipos.join(', ')) : ''}</span>`}</div>
+  if (sectorConflicts.length) {
+    secciones.push({
+      id: 'sector',
+      label: 'Sector en conflicto',
+      html: `<div class="pending">
+        <p>No es un problema de formato. En estas inversiones las dos columnas de sector apuntan a
+        categorías <strong>conceptualmente distintas</strong>: una de las dos está mal y no se puede
+        saber cuál sin criterio del equipo.</p>
+        <div class="overflow"><table>
+          <thead><tr><th>Archivo</th><th>Id</th><th>Area_EN</th><th>Area_ES</th><th>Inversor</th></tr></thead>
+          <tbody>${sectorConflicts
+            .sort((a, b) => Number(b.grave) - Number(a.grave))
+            .map(
+              (c) =>
+                `<tr class="${c.grave ? 'grave' : ''}"><td>${esc(c.file)}</td><td>${esc(c.id)}</td><td>${esc(c.en)}</td><td>${esc(c.es)}</td><td>${esc(c.investor)}</td></tr>`
+            )
+            .join('')}</tbody>
+        </table></div>
+        <p class="note">Filas resaltadas = país que ya está en la base (sector real en conflicto). El
+        resto son países en incorporación con <code>Area_EN=Construction</code> como marcador
+        provisional.</p>
       </div>`
-      )
-      .join('')}
-  </div>`
-      : ''
-  }`
+    })
+  }
+  if (onboarding.length) {
+    secciones.push({
+      id: 'incorporacion',
+      label: 'Países en incorporación',
+      html: `<p>Estos países están reconocidos pero todavía no entran al mapa. Para incorporarse
+        necesitan dos cosas: la <strong>geometría de borde</strong> (la cargamos nosotros) y el
+        <strong>archivo de datos legible</strong>. Cuando ambas estén ✓, el país entra
+        automáticamente.</p>
+        ${onboarding
+          .map(
+            (o) => `<div class="onb-card">
+            <div class="onb-name">${esc(o.name.replace(/\.xlsx$/, ''))}</div>
+            <div class="onb-gate"><span class="box">${o.hasBorder ? '✓' : '☐'}</span> Geometría de país ${o.hasBorder ? '' : '<span class="muted">— falta el borde (lo cargamos nosotros)</span>'}</div>
+            <div class="onb-gate"><span class="box">${o.blocking === 0 ? '✓' : '☐'}</span> Archivo legible ${o.blocking === 0 ? '' : `<span class="muted">— ${o.blocking} problema(s) de estructura${o.tipos.length ? ': ' + esc(o.tipos.join(', ')) : ''}</span>`}</div>
+          </div>`
+          )
+          .join('')}`
+    })
+  }
 
-  // Todo el texto explicativo vive acá, en su propia pestaña. Antes eran cuatro
-  // callouts apilados arriba del resultado, unos cuarenta renglones idénticos en
-  // cada validación, que es lo que hace que un texto deje de leerse.
-  const panelLeer = `
-  <h2>Bloquea o avisa</h2>
-  <p>Cada hallazgo es <span class="pill block">Bloquea</span> o <span class="pill warn">Aviso</span>.
-  Un bloqueante <strong>no bota el archivo</strong>: saca del mapa la <em>inversión</em> a la que
-  pertenece esa fila, y el resto del archivo se publica igual. Los avisos no sacan nada.</p>
+  // De acá para abajo es referencia: se consulta, no se trabaja. El índice lo
+  // separa con una línea, así que está a un clic sin estorbar el trabajo.
+  const primeraReferencia = secciones.length
+  for (const s of extraSecciones) secciones.push({ ...s, referencia: true })
+  secciones.push({
+    id: 'leer',
+    label: 'Cómo se lee este informe',
+    referencia: true,
+    html: `<div class="ayuda-sec">
+      <h3>Bloquea o avisa</h3>
+      ${AYUDA_BLOQUEA}
+      <h3>Por qué sale la inversión entera</h3>
+      ${AYUDA_ENTERA}
+      <h3>La categoría dice de quién es el arreglo</h3>
+      ${AYUDA_CATEGORIA}
+      <h3>Curación automática</h3>
+      ${AYUDA_CURACION}
+      <h3>Validar y publicar son cosas distintas</h3>
+      ${AYUDA_RETENIDO}
+    </div>`
+  })
 
-  <h2>Por qué sale la inversión entera</h2>
-  <p>Una inversión son varias filas, una por punto en el mapa. Botar sólo la fila con el problema
-  publicaría medio trazado, o perdería la fila que trae el monto, las dos en silencio. Por eso la
-  unidad es la inversión.</p>
+  const indice = `
+  <details class="indice" id="indice" open>
+    <summary>Índice</summary>
+    <nav aria-label="Secciones del informe">
+      <ol>
+        ${secciones
+          .map(
+            (s, i) =>
+              `${i === primeraReferencia && i > 0 ? '<li class="corte" aria-hidden="true"></li>' : ''}
+          <li><a href="#sec-${att(s.id)}" data-ix="${att(s.id)}"><span class="ix-n">${i + 1}</span><span>${esc(s.label)}</span></a></li>`
+          )
+          .join('')}
+      </ol>
+    </nav>
+  </details>`
 
-  <h2>Lo único que bota un archivo entero</h2>
-  <p>No poder interpretarlo: un nombre que no corresponde a ningún país del proyecto, más de una
-  hoja, o una columna obligatoria que no está. Nada de lo que digan las celdas bota un archivo.</p>
-
-  <h2>La categoría dice de quién es el arreglo</h2>
-  <p><span class="badge b-formato">Formato</span> es cómo está escrito el dato;
-  <span class="badge b-contenido">Contenido</span> es qué dice, y necesita criterio;
-  <span class="badge b-revisar">Revisar</span> pide mirar la fuente;
-  <span class="badge b-nuestro">Lo resolvemos nosotros</span> no requiere acción de tu lado;
-  <span class="badge b-inversores">Encargado de la tabla de inversores</span> es la cola de ese rol.
-  <strong>No dice si bloquea</strong>: esa es la otra pregunta, y confundirlas hace que el informe se
-  lea como una lista de culpas.</p>
-
-  <h2>Curación automática</h2>
-  <p>Los problemas de <strong>formato</strong> deterministas y sin pérdida se arreglan de nuestro
-  lado: el apóstrofe en <code>COUNTRY_ISO_NUM</code>, el país en MAYÚSCULAS, y el nombre del archivo
-  (vale el nombre del país o cualquiera de sus variantes, así que no hay que renombrarlo). Cada
-  arreglo queda listado en el resultado: se corrige a la vista, no a escondidas.</p>
-
-  <h2>Pasar el validador y publicarse son cosas distintas</h2>
-  <p>Un archivo puede cumplir el esquema y aun así no salir en el mapa, porque el país está marcado
-  como retenido en <code>data/schema/countries.csv</code>. Es una decisión editorial de ICLAC, no un
-  problema del archivo.${heldCount ? ` Hoy hay ${heldCount} en esa situación.` : ''}</p>`
+  const cuerpo = secciones
+    .map(
+      (s, i) => `
+    <section class="sec" id="sec-${att(s.id)}">
+      <div class="sec-tit">
+        <span class="sec-n">${i + 1}</span>
+        <h2>${esc(s.label)}</h2>
+        ${s.ayudaTip ? tip(s.ayudaTip) : ''}
+      </div>
+      ${s.html}
+    </section>`
+    )
+    .join('')
 
   const body = `
 <div class="wrap" id="informe">
@@ -694,34 +816,21 @@ export const renderReport = (results, opts = {}) => {
       : ''
   }
 
-  <div class="veredicto ${veredicto.cls}">${veredicto.txt}${veredicto.sub ? `<span>${veredicto.sub}</span>` : ''}</div>
+  <div class="veredicto ${veredicto.cls}">${veredicto.txt}${veredicto.sub ? `<span class="det">${veredicto.sub}</span>` : ''}</div>
 
   <div class="cards">
     <div class="stat"><div class="n">${n(totalInvestments)}</div><div class="l">inversiones</div></div>
     <div class="stat"><div class="n">${n(totalRows)}</div><div class="l">filas</div></div>
-    <div class="stat ${totalExcluded ? 'hold' : 'ok'}"><div class="n">${n(totalExcluded)}</div><div class="l">no publican</div></div>
+    <div class="stat ${totalExcluded ? 'hold' : 'ok'}"><div class="n">${n(totalExcluded)}</div><div class="l">no publican${totalExcluded ? tip(AYUDA_ENTERA) : ''}</div></div>
     ${ilegibles ? `<div class="stat bad"><div class="n">${ilegibles}</div><div class="l">no se pueden leer</div></div>` : ''}
-    ${heldCount ? `<div class="stat hold"><div class="n">${heldCount}</div><div class="l">países retenidos</div></div>` : ''}
-    ${totalCuraciones ? `<div class="stat"><div class="n">${n(totalCuraciones)}</div><div class="l">curaciones auto</div></div>` : ''}
+    ${heldCount ? `<div class="stat hold"><div class="n">${heldCount}</div><div class="l">países retenidos${tip(AYUDA_RETENIDO)}</div></div>` : ''}
+    ${totalCuraciones ? `<div class="stat"><div class="n">${n(totalCuraciones)}</div><div class="l">curaciones auto${tip(AYUDA_CURACION)}</div></div>` : ''}
   </div>
 
-  <div class="tabs" role="tablist">
-    ${tabs
-      .map(
-        (t, i) =>
-          `<button type="button" role="tab" data-tab="${att(t.id)}" aria-selected="${i === 0}" aria-controls="panel-${att(t.id)}">${esc(t.label)}</button>`
-      )
-      .join('')}
+  <div class="doc">
+    ${indice}
+    <main class="cuerpo">${cuerpo}</main>
   </div>
-
-  <section class="panel" id="panel-resultado" data-panel="resultado" role="tabpanel">${panelResultado}</section>
-  ${extraTabs
-    .map(
-      (t) =>
-        `<section class="panel" id="panel-${att(t.id)}" data-panel="${att(t.id)}" role="tabpanel">${t.html}</section>`
-    )
-    .join('')}
-  <section class="panel" id="panel-leer" data-panel="leer" role="tabpanel">${panelLeer}</section>
 
   <footer>
     <strong>PASA</strong> = el archivo se lee y entra al mapa · <strong>PASA · PARCIAL</strong> =
