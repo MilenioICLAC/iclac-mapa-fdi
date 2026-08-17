@@ -71,6 +71,20 @@ sección por país. Filtrar callado sería el parche que este repositorio prohí
 
 `validPct` y el umbral del 95% **ya no son compuerta**: quedaron como número de salud en el informe.
 
+**Y encima de las cuatro va la guardia de caída brusca** (`scripts/lib/count_guard.mjs`), que es de
+otra naturaleza: las compuertas preguntan si el dato está bien, la guardia pregunta si *cambió
+demasiado*. Existe porque subir a `main` es publicar en producción y un archivo **legible y
+equivocado** —200 filas borradas sin querer, un país subido con otro nombre— pasa las cuatro
+compuertas: el dato es válido, sólo que hay menos. Si un país desaparece o pierde más del 30% de sus
+inversiones respecto de `data/schema/expected_counts.csv`, el ETL sale con código 1, **Netlify
+conserva el deploy anterior** y el sitio sigue con los datos buenos.
+
+La línea base se declara a propósito: `npm run counts:update`, y el CSV va en el **mismo commit** que
+el cambio de datos. Esa es toda la mecánica — la diferencia entre un borrado accidental y un país que
+legítimamente encogió no está en los datos, está en la intención, así que hay que declararla. El
+umbral es generoso a propósito (30%): tiene que disparar con el accidente, no con una edición normal.
+`--skip-count-check` la salta.
+
 Un país con `publish=no` **se sigue validando** y aparece en el informe como «PASA · RETENIDO», pero
 el ETL no lo ingesta y `build_borders` no le arma el polígono (si no, quedaría un país vacío
 clickeable en el mapa). **Sin columna o celda vacía = publica**: el default no puede ser retener, o
@@ -440,6 +454,10 @@ Los que forman parte de la operación:
 - `node scripts/build_borders.mjs [dirDatos]` — desde `data/sources/geo/america.geojson` genera la
   semilla de bordes disponibles y el geojson que dibuja el mapa, filtrado por las dos compuertas.
   **Correrlo es parte de incorporar un país nuevo.** Idempotente.
+- `npm run counts:update` (`scripts/build_expected_counts.mjs`) — regenera `expected_counts.csv`, la
+  línea base de la guardia de caída brusca. Se corre **a propósito**, cuando el cambio de datos es
+  legítimo, y el CSV va en el mismo commit. Acepta `--out` para no pisar la línea base real al
+  probar contra un directorio de prueba.
 - `node scripts/check_investor_coverage.mjs` — lista los inversores de la base que no están en la
   tabla, con monto, para priorizar. Escribe en `reports/`.
 

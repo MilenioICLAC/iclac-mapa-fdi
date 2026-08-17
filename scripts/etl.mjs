@@ -6,6 +6,9 @@ import { fileURLToPath } from 'node:url'
 import { canonCountry } from './lib/normalize.mjs'
 import { validateRows } from './lib/validate.mjs'
 import { alpha3ForFilename } from './lib/countries.mjs'
+import {
+  COUNTS_PATH_REL, countInvestments, parseExpectedCounts, checkCounts, explainProblems
+} from './lib/count_guard.mjs'
 import { loadRegistry, loadCountryBorders, loadCountryBounds, loadInvestorMap } from './lib/load_registry.mjs'
 import { buildInvestorMap } from './lib/investors_map.mjs'
 
@@ -367,18 +370,27 @@ if (existsSync(inputPath) && statSync(inputPath).isDirectory()) {
     .sort()
   const noFilter = process.argv.includes('--no-filter')
   const includeUnpublished = process.argv.includes('--include-unpublished')
-  const flags = [noFilter && 'sin filtro', includeUnpublished && 'incluye retenidos'].filter(Boolean)
+  const skipCountCheck = process.argv.includes('--skip-count-check')
+  const actualCounts = {}
+  const flags = [
+    noFilter && 'sin filtro',
+    includeUnpublished && 'incluye retenidos',
+    skipCountCheck && 'sin guardia de conteo'
+  ].filter(Boolean)
   console.log(`Reading dir: ${inputPath} (${files.length} archivos)${flags.length ? ` [${flags.join(', ')}]` : ''}`)
   for (const f of files) {
     // El nombre se rutea por el registro (canónico, nombre del país o alias), no
     // por comparación literal: si no, un archivo con nombre aceptado por el
     // validador se saltaba la compuerta de publicación por no matchear la clave.
     const a3 = alpha3ForFilename(registry, f)
+    // Se lee y se cuenta ANTES de la compuerta de publicación: la guardia vigila
+    // el archivo, no lo que se publica, así que un país retenido también cuenta.
+    const { rows, sheetCount } = readWorkbook(resolve(inputPath, f))
+    if (a3) actualCounts[a3] = countInvestments(rows)
     if (!includeUnpublished && a3 && registry?.publishByAlpha3?.[a3] === false) {
       console.log(`  ${f}: RETENIDO — countries.csv lo tiene con publish=no`)
       continue
     }
-    const { rows, sheetCount } = readWorkbook(resolve(inputPath, f))
     let usable = rows
     if (!noFilter) {
       const { stats: vstats, excludedIds } = validateRows(rows, {
@@ -401,6 +413,23 @@ if (existsSync(inputPath) && statSync(inputPath).isDirectory()) {
     }
     console.log(`  ${f}: ${rows.length} filas ✓`)
     rawRows.push(...usable)
+  }
+
+  // Guardia de caída brusca. Va DESPUÉS de leer todo y ANTES de escribir nada: si
+  // frena, Netlify conserva el deploy anterior y el sitio sigue con los datos
+  // buenos. Es la única red contra un archivo legible pero equivocado, que las
+  // compuertas no pueden ver porque el dato es válido, sólo que hay menos.
+  const baselinePath = resolve(REPO_ROOT, COUNTS_PATH_REL)
+  if (!skipCountCheck && existsSync(baselinePath)) {
+    const baseline = parseExpectedCounts(readFileSync(baselinePath, 'utf8'))
+    const { problems, nuevos } = checkCounts(baseline, actualCounts)
+    if (nuevos.length) console.log(`  países nuevos (sin línea base todavía): ${nuevos.join(', ')}`)
+    if (problems.length) {
+      console.error(explainProblems(problems))
+      process.exit(1)
+    }
+  } else if (!skipCountCheck) {
+    console.log(`  aviso: no hay línea base en ${COUNTS_PATH_REL}; correr \`npm run counts:update\` para crearla`)
   }
 } else {
   console.log(`Reading: ${inputPath}`)
