@@ -302,9 +302,11 @@ const agrupar = (items, modo, meta, { abrirTodo, multiFile }) => {
     if (abrirTodo) det.open = true
     frag.appendChild(det)
   }
-  // Sin filtro se abre el primero, para que se vea la forma de la lista sin
-  // obligar a un clic que confirme que la página funciona.
-  if (!abrirTodo) frag.firstChild?.setAttribute('open', '')
+  // Sin filtro TODOS arrancan cerrados, incluido el primero. La lista de grupos es
+  // el índice de lo que hay que arreglar, y abrir uno lo desarma: un grupo abierto
+  // de 70 filas empuja los otros doce fuera de la pantalla, que es justo el muro de
+  // texto que la agrupación vino a resolver. La cabecera ya lleva la regla, las
+  // columnas, el alcance y el estado, así que cerrada igual informa.
   return frag
 }
 

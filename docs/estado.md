@@ -282,6 +282,13 @@ pulido, no estructura:
   una por una razón medida. Están en `.claude/CLAUDE.md`.
 - El rótulo genérico «Ocultar lo que no publica» prometía más de lo que hacía. Hoy hay una casilla por
   motivo.
+- **Abrir el primer grupo** «para que se vea la forma de la lista». Lo contrario: el primer grupo son
+  109 casos y empujaba las otras doce reglas fuera de la pantalla. Cerrados, los trece caben en una
+  (870 px). Con un filtro puesto sí se abren solos.
+- **«No hace falta esperar a tenerlo perfecto: subilo y corregí esas después»** salió del panel de
+  acciones. Ahí el usuario ya está mirando 14 inversiones que no van a publicar; la frase suena a que
+  no importan. El mismo dato, dicho como capacidad del sistema y no como permiso, va en el pedido a
+  Francisco («un archivo con filas malas ya no bota el país entero»).
 
 **La dirección del informe cambió** con la transferencia, porque GitHub redirige los enlaces de git y
 web pero **no redirige Pages**: ahora es `https://milenioiclac.github.io/iclac-mapa-fdi/` y la vieja

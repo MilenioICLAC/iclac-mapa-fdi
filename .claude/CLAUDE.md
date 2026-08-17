@@ -160,8 +160,14 @@ despliega si los mensajes de sus filas difieren entre sí. Las 70 filas que dice
 `Project_Type`» no tienen nada que abrir; las de una colisión de id sí, porque cada mensaje nombra al
 otro inversor y su fila. Anidar por anidar sería peor que no anidar.
 
-**Al filtrar o buscar, los grupos se abren solos.** Buscar y después tener que abrir trece grupos
-para ver dónde cayó la coincidencia no es buscar.
+**Sin filtro TODOS los grupos arrancan cerrados, el primero incluido.** Estuvo abierto un rato «para
+que se vea la forma de la lista» y hace lo contrario: un grupo de 70 filas empuja los otros doce fuera
+de la pantalla, que es el muro de texto que la agrupación vino a resolver. Cerradas, las trece reglas
+caben en una pantalla (medido: 870 px de alto), y la cabecera ya lleva regla, columnas, alcance y
+estado, así que informa sin abrirse.
+
+**Al filtrar o buscar, en cambio, los grupos se abren solos.** Buscar y después tener que abrir trece
+grupos para ver dónde cayó la coincidencia no es buscar.
 
 **El validador conoce las CUATRO compuertas, y `scripts/lib/gates.mjs` es donde viven las dos
 últimas.** El umbral de confiabilidad estaba como constante dentro de `scripts/etl.mjs` y el

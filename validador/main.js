@@ -147,8 +147,7 @@ const renderAcciones = (results) => {
     const titulo = excluidas ? 'Se puede subir' : 'Listo para subir'
     const lede = excluidas
       ? `El archivo se lee bien. <strong>${excluidas} inversión(es) no se van a publicar</strong> hasta que
-         se corrijan sus filas, y todo el resto sí entra al mapa. No hace falta esperar a tenerlo perfecto:
-         subilo y corregí esas después.`
+         se corrijan sus filas, y todo el resto sí entra al mapa.`
       : 'No quedó nada pendiente. Al subirlo, el informe se regenera y el mapa se reconstruye solos.'
     $acciones.innerHTML = `
       ${avisoCaida(caidas, results)}
