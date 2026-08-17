@@ -227,6 +227,8 @@ El objetivo, en una línea: **que ICLAC cargue sus propios datos sin romper el s
 | Planilla de pendientes cortada por dueño | `scripts/lib/pendientes.mjs`, botón en la página + `npm run pendientes` |
 | Instructivo de subida, contextual al resultado | `validador/instructivo.js` |
 | Repositorio movido a la organización `MilenioICLAC` | transferido el 17-08 desde la cuenta personal |
+| Informe rediseñado: lista de hallazgos navegable, pestañas, fondo claro fijo | `scripts/lib/findings.mjs`, `report_render.mjs`, `report_interact.mjs` |
+| Guardia de caída brusca **también antes de subir**, en la página | `validador/main.js` (`problemasDeCaida`) |
 
 Las reglas que no caducan de todo esto están en `.claude/CLAUDE.md`. Lo de acá es sólo lo que falta.
 
@@ -242,6 +244,25 @@ O sea que los **81 commits «Delete» contra 14 «Add files via upload»** de la
 de quien lo hacía, no un límite de GitHub. Por eso el instructivo se queda en 4 pasos y le dice
 explícitamente a quien sube que **no** borre el anterior: entre el borrado y la subida el país queda
 fuera del sitio, y ahí es donde una interrupción cualquiera lo deja fuera de verdad.
+
+### Abierto, y depende del cliente
+
+**¿Dónde está la copia maestra de la base?** La historia dice que hoy vive en el Excel de ICLAC y que
+el repositorio es un espejo: las 98 subidas son **siempre el archivo de país completo**, nunca un
+incremento, y los tamaños suben y bajan entre entregas (`argentina.xlsx` fue 93.571 → 68.678 → 67.574
+→ 68.682 bytes en un mismo día). La entrega del 15-08 fue igual: 21 archivos completos en un `.rar`.
+
+Eso tiene una consecuencia que todavía no está resuelta: **nuestras correcciones sobre los xlsx las
+borra en silencio la próxima entrega completa.** Ya pasó con `042c9fe` («restaurar inversor original»)
+y `44b3644`. Es el mismo modo de falla que el proyecto prohíbe —un dato en dos lugares— en el eje que
+no habíamos mirado.
+
+De la respuesta dependen cosas grandes: si nuestras correcciones pueden vivir en el xlsx o tienen que
+vivir siempre en las capas de mapeo, y si tiene sentido que la página **fusione** un archivo de altas
+con lo que ya hay. Ojo con esa fusión: si el maestro sigue siendo el Excel de ellos, fusionar crea un
+**segundo maestro** que la próxima exportación completa pisa, o sea que construye la divergencia en
+vez de arreglarla. Por eso lo que se hizo fue **detectar** la caída antes de subir, que sirve
+cualquiera sea la respuesta, y no fusionar.
 
 ### Pendiente, en orden
 
@@ -265,10 +286,25 @@ fuera del sitio, y ahí es donde una interrupción cualquiera lo deja fuera de v
   se produce.
 - **El cliente sube directo a `main`, no por pull request.** El PR protege producción pero devuelve
   una persona al lazo, y sacarla es justamente el objetivo. El riesgo lo cubre la guardia.
+- **El informe y el validador comparten forma, no sólo núcleo.** Se evaluó dejar el informe de Pages
+  como documento y darle otra vista al validador; se descartó porque son el mismo render y separarlos
+  reabre la divergencia. Lo que cada lado agrega va por opciones (`extraTabs`, `validatorHref`), y eso
+  es una diferencia declarada, no una implementación paralela.
+- **La lista no se recorta nunca.** Por encima de mil hallazgos arranca plegada por regla, pero cada
+  grupo abre con todos sus casos y el número completo está a la vista. Se sacó el
+  «… y 66 caso(s) más» del informe viejo, que era un callejón sin salida: obligaba a bajar el xlsx
+  para ver el resto.
 
 ### Trampas ya pagadas en la cañería, para no repetirlas
 
-Las dos fallaban **en silencio**, que es lo caro:
+Las tres fallaban **en silencio**, que es lo caro:
+
+- **El script de interacción llegaba corrupto al informe publicado.** Se inlinea leyendo
+  `report_interact.mjs` y metiéndolo en el HTML, y se metía con `String.replace` y una **cadena** de
+  reemplazo. En una cadena de reemplazo `$$` significa `$` literal, así que el helper `$$` del módulo
+  llegaba como `$` y el navegador tiraba `Identifier '$' has already been declared`. El informe se
+  veía perfecto, sólo que sin pestañas ni filtros. Hoy el inlineado es `withInteract`, con test que lo
+  fija, y además falla ruidosamente si el módulo trae una etiqueta de cierre de script.
 
 - **El filtro `paths:` del workflow dejó el sitio publicado desactualizado dos veces.** `validador/**`
   nunca estuvo en la lista, así que la página podía cambiar entera sin que nada se reconstruyera, y
@@ -287,9 +323,17 @@ Lo de siempre (`npm test`, `npm run lint`, `npx tsc --noEmit`) más tres cosas p
 
 - **Que el ETL sobre la base actual no cambie**: 386 inversiones, 6832 registros, cero registros
   distintos. Es la red contra cualquier refactor.
-- **Que la página y el CLI no hayan divergido.** El informe y la planilla que produce el navegador
-  tienen que salir **idénticos** a los que produce el CLI para los mismos archivos. Receta headless
-  en `.claude/skills/verify`; se maneja con `playwright-core` y el Edge del sistema.
+- **Que la página y el CLI no hayan divergido.** El panel de resultado del informe y la planilla que
+  produce el navegador tienen que salir **idénticos** a los que produce el CLI para los mismos
+  archivos. Comparar **por DOM** y no como texto: leyendo `innerHTML` desde el mismo navegador en los
+  dos lados, las entidades quedan serializadas igual y una diferencia es una diferencia de verdad.
+  Receta headless en `.claude/skills/verify`; se maneja con `playwright-core` y el Edge del sistema.
+- **Que extraer el modelo no perdiera nada:** `npm run pendientes` sobre las dos bases antes y después
+  del cambio tiene que dar el mismo xlsx, celda por celda.
+- **Que la guardia no grite sobre datos correctos:** soltar un archivo suelto y los diecisiete juntos
+  no tiene que avisar nada; un archivo recortado sí.
+- **El fondo, con el navegador en oscuro** (`colorScheme: 'dark'` en el contexto de Playwright): tiene
+  que salir blanco igual.
 - **Los tres anchos** (1536, 800, 360), sin scroll horizontal y sin errores de consola.
 
 ---

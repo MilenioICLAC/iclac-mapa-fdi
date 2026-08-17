@@ -11,12 +11,12 @@
 // página del validador que corre en el navegador (site/validador/). Si el informe
 // tuviera dos implementaciones, divergirían.
 import XLSX from 'xlsx'
-import { existsSync, mkdirSync, readdirSync, writeFileSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync, statSync } from 'node:fs'
 import { basename, resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { validateRows } from './lib/validate.mjs'
 import { alpha3ForFilename } from './lib/countries.mjs'
-import { renderReport } from './lib/report_render.mjs'
+import { renderReport, withInteract } from './lib/report_render.mjs'
 import { loadRegistry, loadCountryBorders, loadInvestorMap, loadCountryBounds } from './lib/load_registry.mjs'
 
 const __dirname = dirname(fileURLToPath(import.meta.url))
@@ -95,10 +95,17 @@ for (const file of files) {
 // El validador se publica junto al informe, en site/validador/.
 const html = renderReport(results, { registry, countryBorders, fragment, validatorHref: './validador/' })
 
+// La interacción (pestañas, filtros, agrupación) va INLINEADA desde el mismo
+// módulo que importa la página del validador, no reescrita acá. Como módulo, no
+// como script clásico: así el `export` del archivo es legal y no hay que tocarle
+// una línea. Leer disco es legítimo en la cáscara de I/O; el render sigue puro.
+const interact = readFileSync(resolve(__dirname, 'lib', 'report_interact.mjs'), 'utf8')
+const conScript = withInteract(html, interact, { fragment })
+
 const dest = outPath ? resolve(process.cwd(), outPath) : resolve(__dirname, '..', 'validation_report.html')
 // El directorio de salida puede no existir (site/ está ignorado y no se versiona).
 mkdirSync(dirname(dest), { recursive: true })
-writeFileSync(dest, html, 'utf8')
+writeFileSync(dest, conScript, 'utf8')
 
 const totalRows = results.reduce((s, r) => s + (r.stats?.rows ?? 0), 0)
 const totalExcluded = results.reduce((s, r) => s + (r.excludedIds?.length ?? 0), 0)

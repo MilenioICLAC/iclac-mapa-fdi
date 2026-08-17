@@ -132,6 +132,34 @@ Las excepciones son las correcciones **deterministas y sin pérdida**: espacios 
 apóstrofe de Excel, un typo canonizable. Esas se aplican en el ETL y en el validador, y se **listan**
 en el informe como «curación aplicada». Se corrigen a la vista, no a escondidas.
 
+### La forma del informe: una lista de hallazgos, no un acordeón por país
+
+El informe y el validador muestran **una lista plana de hallazgos**, con bloqueantes arriba, y agrupar
+por regla, inversión o país es un **control**, no la estructura. El acordeón por país que había antes
+venía de la CI, donde lo normal son diecisiete archivos de una; **quien valida abre uno**, y ahí el
+país es constante y sobra. Los controles que sólo tienen sentido con varios archivos aparecen sólo
+con varios archivos.
+
+**Hay tres unidades y conviene no mezclarlas**: la unidad de la **acción** es la fila (la celda que
+hay que tocar en Excel), la de la **consecuencia** es la inversión (lo que sale del mapa), y la del
+**trabajo en tanda** es la regla (setenta `Project_Type` vacíos son un solo gesto). Por eso el
+«cómo se corrige» va una vez por grupo y no repetido en los setenta renglones: repetirlo es
+exactamente el muro de texto que hace que un informe deje de leerse. El texto explicativo vive en su
+propia pestaña, no apilado arriba del resultado.
+
+**Todo eso sale de `scripts/lib/findings.mjs`**, que es el modelo compartido: la lista en pantalla y
+la planilla de pendientes son dos vestidos del mismo cálculo. Al agregar un campo, va ahí.
+
+**Fondo claro fijo, sin modo oscuro.** No es preferencia estética: el informe se imprime, se captura
+y se pega en correos, y la paleta semántica (rojo bloquea, ámbar avisa) está calibrada en claro. Y no
+alcanza con borrar el `@media (prefers-color-scheme: dark)`: hay que declarar `color-scheme: light`
+en `:root` más el `<meta>`, o el navegador igual pinta con su esquema las barras de scroll, los
+controles de formulario y el fondo detrás del `<body>`.
+
+**Una regla sin entrada en `RULE_HELP` no rompe nada pero se ve fea**: cae al slug crudo
+(`fila/path`) como título y se rutea a la hoja «Contenido» por defecto. Al agregar una regla al
+validador, agregarle su entrada.
+
 ---
 
 ## Estado de los filtros = la URL (`useFilters`)
@@ -429,29 +457,46 @@ Los que forman parte de la operación:
   enum de propiedad, nombres únicos, un identificador por empresa, propiedad consistente.
 - `npm run validate:report` (`scripts/build_validation_report.mjs`) — el informe HTML que se publica
   en Pages. Autocontenido, escrito para quien mantiene los datos, no para programadores. Es sólo la
-  cáscara de I/O: **el render vive en `scripts/lib/report_render.mjs`, puro**.
+  cáscara de I/O: **el render vive en `scripts/lib/report_render.mjs`, puro**, y la interacción en
+  `scripts/lib/report_interact.mjs`, que el informe lleva **inlineado** (lo lee con `readFileSync` y
+  lo mete con `withInteract`). Dos trampas de ese inlineado, las dos ya pagadas y las dos mudas: si
+  ese módulo llegara a contener una etiqueta de cierre de script el navegador corta el informe ahí, y
+  si el HTML se arma con `String.replace` y una **cadena** de reemplazo, `$$` significa `$` literal y
+  el módulo llega corrompido (`Identifier '$' has already been declared`, informe sin pestañas ni
+  filtros, sin ningún otro síntoma). Por eso el inlineado es una función testeada y no dos líneas
+  sueltas en el script.
 - `npm run validate:page` (`vite.validador.config.ts`) — construye `validador/` a `site/validador/`,
   la página que corre el validador **en el navegador de quien edita los datos**. Existe porque el
   informe de Pages sólo puede generarse después de que el archivo pasó por nosotros, así que nunca
   alcanza a atrapar nada antes del envío: ahí estaba el ida y vuelta. El archivo no se sube, se lee
   con `FileReader`.
-  **La página no reimplementa nada**: importa `scripts/lib/validate.mjs` y
-  `scripts/lib/report_render.mjs`, los mismos del CLI, y el registro va empaquetado con `?raw` para
-  que sea un solo archivo sin fetch que pueda fallar. La prueba de que no divergieron es que el
-  informe del CLI y el de la página salen **idénticos** para los mismos archivos (receta headless en
-  `.claude/skills/verify`); `scripts/registry_parse.test.mjs` fija en CI la parte que sí se puede
-  probar sin navegador: que las dos rutas armen los mismos `opts`.
+  **La página no reimplementa nada**: importa `scripts/lib/validate.mjs`, `report_render.mjs` y
+  `report_interact.mjs`, los mismos del CLI, y el registro va empaquetado con `?raw` para que sea un
+  solo archivo sin fetch que pueda fallar. La prueba de que no divergieron es que el **panel de
+  resultado** del informe del CLI y el de la página salgan idénticos para los mismos archivos (receta
+  headless en `.claude/skills/verify`; comparar por DOM y no como texto, así las entidades quedan
+  serializadas igual en los dos lados). Lo que sí difiere está **declarado por opciones**: el informe
+  lleva el aviso que enlaza al validador, y el validador agrega la pestaña del instructivo vía
+  `extraTabs`. `scripts/registry_parse.test.mjs` fija en CI la parte que se puede probar sin
+  navegador: que las dos rutas armen los mismos `opts`.
   Después del informe la página muestra una **región de acciones** que cambia según el resultado: si
   hay archivos ilegibles no ofrece el botón de subir (sería mandar a romper el sitio), y si hay
   inversiones que no publican dice que se puede subir igual. El texto del instructivo vive aparte, en
   `validador/instructivo.js`, porque lo relee y corrige alguien que no está tocando código; la
   constante `REPO` de ese archivo es el **único** lugar donde está escrito el dueño del repositorio.
+  **La guardia de caída brusca también corre acá, antes de subir**: `expected_counts.csv` va
+  empaquetado con `?raw` y se reusa `checkCounts`. Ojo con acotar la línea base a los archivos que se
+  soltaron: sin eso, validar un archivo suelto marca los otros dieciséis países como ausentes, que es
+  el validador que grita sobre datos correctos.
 - `npm run pendientes` (`scripts/build_pendientes.mjs`) — la planilla de pendientes, **cortada por
   dueño del arreglo** y no por país, reusando el `tipo` de `scripts/lib/rules_help.mjs`. Es la versión
   CLI de lo que la página ofrece como descarga, con el mismo constructor
   (`scripts/lib/pendientes.mjs`). Es un **encargo de trabajo, no un archivo para volver a subir**:
   partir el xlsx del país en «validado» y «pendiente» forkearía la fuente, y con la compuerta por
   inversión lo bueno del archivo ya se publica solo.
+  **La planilla no calcula nada**: viste el modelo de `scripts/lib/findings.mjs` con nombres de
+  columna en español. Ese modelo es el mismo que dibuja la lista en pantalla, y por eso la descarga y
+  lo que se ve no pueden decir cosas distintas.
 - `node scripts/build_investors_map.mjs` — regenera `public/data/investors_map.json` desde el CSV. El
   ETL hace lo mismo en cada build; este sirve para regenerar sin correr el ETL entero.
   **Los dos llaman al mismo núcleo, `scripts/lib/investors_map.mjs`**, y ahí tiene que quedarse

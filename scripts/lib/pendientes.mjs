@@ -14,7 +14,7 @@
 // `import XLSX from 'xlsx'` funciona en Node pero rompe el bundle del navegador.
 // Esta forma anda en los dos, que es lo que este módulo necesita.
 import * as XLSX from 'xlsx'
-import { RULE_HELP } from './rules_help.mjs'
+import { buildFindings, groupByTipo } from './findings.mjs'
 
 // Nombre de hoja por dueño. Excel corta los nombres de hoja en 31 caracteres, así
 // que "Encargado de la tabla de inversores" (35) no cabe y va abreviado.
@@ -32,72 +32,43 @@ const COLUMNAS = [
   'Problema', 'Qué dice la celda', 'Qué pasa', 'Cómo se corrige', 'Corregido'
 ]
 
-const tipoDe = (regla) => RULE_HELP[regla]?.tipo ?? 'contenido'
+/**
+ * Un hallazgo, vestido con los nombres de columna que ve quien abre el xlsx. El
+ * cálculo no vive acá: viene hecho de findings.mjs, y esto es sólo la traducción
+ * a la planilla. Así la pantalla y la descarga no pueden mostrar cosas distintas.
+ */
+const registroDe = (f) => ({
+  'País': f.pais,
+  'Id_Investment': f.id,
+  'Fila': f.fila > 0 ? f.fila : '',
+  'Inversor': f.inversor,
+  'Bloquea': f.bloquea ? 'Sí' : 'No',
+  // Lo que de verdad importa para priorizar: si esto ya está sacando la
+  // inversión del mapa o es sólo un aviso.
+  '¿Publica hoy?': f.publicaHoy === null ? '' : f.publicaHoy ? 'Sí' : 'No',
+  'Problema': f.titulo,
+  'Qué dice la celda': f.valor,
+  'Qué pasa': f.mensaje,
+  'Cómo se corrige': f.fix,
+  'Corregido': ''
+})
 
 /**
  * @param {Array} results lo que devuelve validateRows por archivo, con `rows` y `excludedIds`
  * @returns {{hojas: Array<{nombre: string, filas: Array<Record<string, unknown>>}>, total: number}}
  */
 export const buildPendientes = (results) => {
-  const porTipo = new Map()
-
-  for (const r of results ?? []) {
-    if (r.error) continue
-    const pais = String(r.name ?? '').replace(/\.xlsx$/i, '')
-    const excluidas = new Set(r.excludedIds ?? [])
-
-    // Los problemas de archivo no tienen fila; van igual, con la fila en blanco:
-    // son los que hay que resolver ANTES que nada, porque sin eso el archivo
-    // entero no entra.
-    const items = [
-      ...(r.fileErrors ?? []).map((fe) => ({ ...fe, severity: 'error', row: 0 })),
-      // `info` queda fuera a propósito: son columnas extra permitidas y cosas que
-      // el sistema ignora. Meterlas convierte el encargo en ruido.
-      ...(r.issues ?? []).filter((it) => it.severity === 'error' || it.severity === 'warning')
-    ]
-
-    for (const it of items) {
-      const help = RULE_HELP[it.rule] ?? {}
-      const fila = it.row > 0 ? r.rows?.[it.row - 2] : null
-      const id = String(fila?.Id_Investment ?? '').trim()
-
-      const registro = {
-        'País': pais,
-        'Id_Investment': id,
-        'Fila': it.row > 0 ? it.row : '',
-        'Inversor': String(fila?.Investor ?? '').trim(),
-        'Bloquea': it.severity === 'error' ? 'Sí' : 'No',
-        // Lo que de verdad importa para priorizar: si esto ya está sacando la
-        // inversión del mapa o es sólo un aviso.
-        '¿Publica hoy?': id ? (excluidas.has(id) ? 'No' : 'Sí') : '',
-        'Problema': help.titulo ?? it.rule,
-        'Qué dice la celda': it.value === null || it.value === undefined ? '' : String(it.value),
-        'Qué pasa': it.message ?? '',
-        'Cómo se corrige': help.fix ?? '',
-        'Corregido': ''
-      }
-
-      const tipo = tipoDe(it.rule)
-      if (!porTipo.has(tipo)) porTipo.set(tipo, [])
-      porTipo.get(tipo).push(registro)
-    }
-  }
+  // buildFindings ya ordena bloqueantes primero, después por país y por fila, que
+  // es el orden en que se trabaja la planilla de arriba hacia abajo.
+  const porTipo = groupByTipo(buildFindings(results), HOJAS_POR_DUENO.map((h) => h.tipo))
 
   const hojas = []
   let total = 0
   for (const { tipo, hoja } of HOJAS_POR_DUENO) {
-    const filas = porTipo.get(tipo)
-    if (!filas?.length) continue
-    // Bloqueantes primero, después por país y fila: se trabaja de arriba hacia
-    // abajo sin tener que ordenar a mano.
-    filas.sort(
-      (a, b) =>
-        (a.Bloquea === b.Bloquea ? 0 : a.Bloquea === 'Sí' ? -1 : 1) ||
-        String(a['País']).localeCompare(String(b['País']), 'es') ||
-        (Number(a.Fila) || 0) - (Number(b.Fila) || 0)
-    )
-    hojas.push({ nombre: hoja, filas })
-    total += filas.length
+    const findings = porTipo.get(tipo)
+    if (!findings?.length) continue
+    hojas.push({ nombre: hoja, filas: findings.map(registroDe) })
+    total += findings.length
   }
 
   return { hojas, total, columnas: COLUMNAS }

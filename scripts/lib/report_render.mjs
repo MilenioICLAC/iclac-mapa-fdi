@@ -6,13 +6,29 @@
 // implementaciones diverge, y este repositorio ya pagó esa lección con los dos
 // generadores del mapa de inversores.
 //
-// renderReport(results, opts) recibe lo que devuelve validateRows por archivo y
-// devuelve el HTML como string.
+// FORMA: una LISTA DE HALLAZGOS, no un acordeón por país. La estructura por país
+// venía de la CI, donde lo normal son 17 archivos de una; quien valida abre uno.
+// Y con la compuerta por inversión el país dejó de ser la unidad de nada: la
+// unidad de la acción es la fila y la de la consecuencia es la inversión. Agrupar
+// es un CONTROL, no la estructura.
+//
+// Se emite la vista por defecto ya armada en HTML y el JavaScript sólo mejora
+// (filtra, reagrupa, arma las pestañas). Sin JS esto sigue siendo un documento
+// legible e imprimible, que es la mitad de la razón de ser del informe publicado.
 import { alpha3ForFilename } from './countries.mjs'
 import { SECTOR_PAIRS } from './validate.mjs'
 import { RULE_HELP, tipoBadge } from './rules_help.mjs'
+import { buildFindings } from './findings.mjs'
 
-const MAX_EXAMPLES = 4
+// Por encima de esto la lista arranca agrupada por regla, porque una lista plana
+// de miles de renglones no se navega. No se recorta nada: el JS sólo la pliega, y
+// sin JS salen todos igual.
+const AUTOGROUP_OVER = 1000
+
+// El mismo de la página del validador. Sin esto el navegador pide /favicon.ico y
+// deja un 404 en la consola de una página que el cliente abre todos los días.
+const FAVICON =
+  "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' rx='3' fill='%2300A89C'/%3E%3Cpath d='M4 8.5l2.5 2.5L12 5.5' stroke='%23111' stroke-width='2' fill='none' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"
 
 // ES canónico → concepto EN, más variantes no canónicas pero conceptualmente
 // claras. Sirve para detectar cuando Area_ES apunta a un sector DISTINTO del de
@@ -39,264 +55,419 @@ const esc = (s) =>
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
 
+// Para atributos: además de lo de arriba, las comillas.
+const att = (s) => esc(s).replace(/"/g, '&quot;')
 
-// Agrupar issues por regla dentro de cada archivo.
-const groupByRule = (issues) => {
-  const m = new Map()
-  for (const it of issues) {
-    if (!m.has(it.rule)) m.set(it.rule, [])
-    m.get(it.rule).push(it)
-  }
-  return [...m.entries()].sort((a, b) => {
-    const sev = (xs) => (xs.some((x) => x.severity === 'error') ? 0 : xs.some((x) => x.severity === 'warning') ? 1 : 2)
-    return sev(a[1]) - sev(b[1]) || b[1].length - a[1].length
-  })
-}
+const n = (x) => Number(x ?? 0).toLocaleString('es')
 
-// ---- Render ----
-const blockPill = (sev) =>
-  sev === 'error'
-    ? '<span class="pill block" title="Cuenta contra el % de filas válidas; si el archivo baja del umbral, se rechaza">Bloqueante</span>'
-    : sev === 'warn'
-      ? '<span class="pill warn" title="No bota el archivo; es un aviso a revisar">Aviso</span>'
-      : '<span class="pill info" title="Informativo, no afecta el resultado">Informativo</span>'
+// ---- Hallazgos ----
 
-const ruleCard = (rule, items) => {
-  const help = RULE_HELP[rule] || { titulo: rule, causa: '', fix: '', tipo: 'contenido' }
-  const badge = tipoBadge[help.tipo] || tipoBadge.contenido
-  const sev = items.some((x) => x.severity === 'error') ? 'error' : items.some((x) => x.severity === 'warning') ? 'warn' : 'info'
-  const examples = items
-    .slice(0, MAX_EXAMPLES)
-    .map((it) => {
-      const loc = it.row > 0 ? `fila ${it.row}` : 'archivo'
-      return `<li><span class="loc">${loc}</span> ${esc(it.message)}</li>`
-    })
-    .join('')
-  const more = items.length > MAX_EXAMPLES ? `<li class="more">… y ${items.length - MAX_EXAMPLES} caso(s) más.</li>` : ''
+const sevPill = (bloquea) =>
+  bloquea
+    ? '<span class="pill block" title="Saca del mapa la inversión de esta fila; el resto del archivo se publica igual">Bloquea</span>'
+    : '<span class="pill warn" title="No saca nada del mapa: es algo a revisar">Aviso</span>'
+
+/**
+ * Un hallazgo. La línea de arriba es densa y de un renglón, y el detalle (qué
+ * pasa y cómo se corrige) va adentro de un <details>: repetir el mismo "cómo se
+ * corrige" en las 70 filas de un mismo error es el muro de texto que esta vista
+ * vino a sacar.
+ */
+const findingItem = (f, { multiFile }) => {
+  const badge = tipoBadge[f.tipo] ?? tipoBadge.contenido
+  const buscar = [f.pais, f.id, f.fila || '', f.columna || '', f.titulo, f.valor, f.inversor]
+    .join(' ')
+    .toLowerCase()
+  const donde = f.fila > 0 ? `fila ${f.fila}` : 'archivo'
   return `
-    <div class="rule ${sev}">
-      <div class="rule-head">
-        ${blockPill(sev)}
-        <span class="rule-title">${esc(help.titulo)}</span>
-        <span class="badge ${badge.cls}">${badge.label}</span>
-        <span class="count">${items.length} caso(s)</span>
-      </div>
-      ${help.causa ? `<p class="why"><strong>Qué es:</strong> ${esc(help.causa)}</p>` : ''}
-      ${help.fix ? `<p class="fix"><strong>Cómo se corrige:</strong> ${esc(help.fix)}</p>` : ''}
-      <details><summary>Ver ejemplos</summary><ul class="ex">${examples}${more}</ul></details>
-    </div>`
+    <li class="h" data-regla="${att(f.regla)}" data-tipo="${att(f.tipo)}" data-pais="${att(f.pais)}"
+        data-id="${att(f.id)}" data-fila="${f.fila}" data-bloquea="${f.bloquea ? 1 : 0}"
+        data-buscar="${att(buscar)}">
+      <details>
+        <summary>
+          ${sevPill(f.bloquea)}
+          ${multiFile ? `<span class="h-pais">${esc(f.pais)}</span>` : ''}
+          <span class="h-donde">${f.id ? `<b>${esc(f.id)}</b> · ` : ''}${donde}</span>
+          ${f.columna ? `<code class="h-col">${esc(f.columna)}</code>` : ''}
+          <span class="h-tit">${esc(f.titulo)}</span>
+          ${f.valor ? `<span class="h-val" title="Lo que dice la celda">“${esc(f.valor)}”</span>` : ''}
+          <span class="h-meta">
+            <span class="badge ${badge.cls}">${badge.label}</span>
+            ${f.publicaHoy === false ? '<span class="estado no">no publica</span>' : ''}
+          </span>
+        </summary>
+        <div class="h-det">
+          <p class="msg">${esc(f.mensaje)}</p>
+          ${f.fix ? `<p class="fix"><strong>Cómo se corrige:</strong> ${esc(f.fix)}</p>` : ''}
+        </div>
+      </details>
+    </li>`
 }
 
-// Conteo por tipo (Formato / Contenido / …) sobre reglas de fila + de archivo.
-const TIPO_ORDER = ['contenido', 'formato', 'revisar', 'a-resolver-nuestro-lado', 'tabla-inversores']
-const fileTipoCounts = (r) => {
-  const rules = new Map() // rule -> nº de casos
-  for (const it of r.issues) rules.set(it.rule, (rules.get(it.rule) ?? 0) + 1)
-  for (const fe of r.fileErrors) rules.set(fe.rule, (rules.get(fe.rule) ?? 0) + 1)
-  const byTipo = new Map() // tipo -> { tipos:Set<rule>, casos:n }
-  for (const [rule, casos] of rules) {
-    const tipo = (RULE_HELP[rule] || {}).tipo || 'contenido'
-    if (!byTipo.has(tipo)) byTipo.set(tipo, { tipos: 0, casos: 0 })
-    const e = byTipo.get(tipo)
-    e.tipos += 1
-    e.casos += casos
+/** Metadatos por regla, para que el JS pueda armar las cabeceras al agrupar. */
+const reglasMeta = (findings) => {
+  const out = {}
+  for (const f of findings) {
+    if (out[f.regla]) continue
+    const badge = tipoBadge[f.tipo] ?? tipoBadge.contenido
+    out[f.regla] = { titulo: f.titulo, causa: f.causa, fix: f.fix, badge: badge.label, cls: badge.cls }
   }
-  return byTipo
+  return out
 }
 
-const fileSection = (r) => {
-  if (r.error) {
-    return `<details class="file bad"><summary><span class="fname">${esc(r.name)}</span><span class="status bad">no se pudo leer</span></summary><p class="err">${esc(r.error)}</p></details>`
-  }
-  const s = r.stats
-  const excluidas = r.excludedIds ?? []
-  const held = s.passed && r.published === false
-  const parcial = s.passed && !held && excluidas.length > 0
-  const statusCls = held ? 'hold' : parcial ? 'hold' : s.passed ? 'ok' : 'bad'
-  const statusTxt = held ? 'PASA · RETENIDO' : parcial ? 'PASA · PARCIAL' : s.passed ? 'PASA' : 'NO SE PUEDE LEER'
-  // Motivo, en la mecánica del validador. Un archivo ya no se cae entero por
-  // tener filas malas: sólo por no poder interpretarse. Lo que se cae son las
-  // inversiones afectadas, y eso se lista abajo con nombre y apellido.
-  const blockReason = held
-    ? 'El archivo cumple el esquema. No se publica todavía: es una decisión de ICLAC, no un problema del archivo. Se publica cambiando su fila de countries.csv a publish=yes.'
-    : parcial
-    ? `Aceptado en parte — el archivo se lee bien y publica ${s.investments - excluidas.length} de sus ${s.investments} inversiones. Las otras ${excluidas.length} quedan fuera hasta que se corrijan sus filas.`
-    : s.passed
-    ? s.warnings > 0
-      ? 'Aceptado — solo avisos, no bloquean el pipeline.'
-      : 'Aceptado.'
-    : `Rechazado — ${r.fileErrors.length} problema(s) de estructura: sin resolverlos no hay forma de interpretar el archivo, así que no entra ninguna de sus inversiones.`
-  // Tipos de observación bloqueantes (reglas error) + problemas de archivo.
-  const blockingRules = new Set(r.issues.filter((x) => x.severity === 'error').map((x) => x.rule))
-  const blockingCount = blockingRules.size + r.fileErrors.length
-  const byTipo = fileTipoCounts(r)
-  const totalTipos = [...byTipo.values()].reduce((n, e) => n + e.tipos, 0)
-  const chips = TIPO_ORDER.filter((t) => byTipo.has(t))
-    .map((t) => {
-      const badge = tipoBadge[t] || tipoBadge.contenido
-      const e = byTipo.get(t)
-      return `<span class="chip ${badge.cls}" title="${e.casos} caso(s)">${badge.label}: ${e.tipos}</span>`
-    })
-    .join('')
-  const feHtml = r.fileErrors
-    .map((fe) => {
-      const help = RULE_HELP[fe.rule]
-      const fix = help ? `<span class="fix-inline"> — ${esc(help.fix)}</span>` : ''
-      return `<li>${esc(fe.message)}${fix}</li>`
-    })
-    .join('')
-  const rulesHtml = groupByRule(r.issues)
-    .map(([rule, items]) => ruleCard(rule, items))
-    .join('')
+const controles = (findings, { multiFile }) => {
+  const bloqueantes = findings.filter((f) => f.bloquea).length
   return `
-    <details class="file ${statusCls}">
-      <summary>
+  <div class="controles" data-total="${findings.length}" data-bloqueantes="${bloqueantes}">
+    <label class="ctl-check"><input type="checkbox" id="solo-bloqueantes"> Solo bloqueantes
+      <span class="ctl-n">(${n(bloqueantes)})</span></label>
+    <label class="ctl-buscar"><span class="vh">Buscar</span>
+      <input type="search" id="buscar" placeholder="Buscar por id, fila, columna…"></label>
+    <div class="ctl-agrupar" role="group" aria-label="Agrupar hallazgos">
+      <span class="ctl-lab">Agrupar:</span>
+      <button type="button" data-group="nada" class="on">Nada</button>
+      <button type="button" data-group="regla">Regla</button>
+      <button type="button" data-group="id">Inversión</button>
+      ${multiFile ? '<button type="button" data-group="pais">País</button>' : ''}
+    </div>
+    <p class="ctl-conteo" id="conteo">${n(findings.length)} hallazgo(s)</p>
+  </div>`
+}
+
+// ---- Bloques que sobreviven del informe viejo ----
+
+// `corto` es para el resumen plegado: ahí los rótulos van separados por " · " y
+// los largos ya traen un " · " adentro, así que "7 PASA · PARCIAL · 10 PASA"
+// no se puede leer.
+const ESTADO = {
+  bad: { cls: 'bad', txt: 'NO SE PUEDE LEER', corto: 'no se pueden leer', orden: 0 },
+  parcial: { cls: 'hold', txt: 'PASA · PARCIAL', corto: 'parciales', orden: 1 },
+  hold: { cls: 'hold', txt: 'PASA · RETENIDO', corto: 'retenidos', orden: 2 },
+  ok: { cls: 'ok', txt: 'PASA', corto: 'pasan enteros', orden: 3 }
+}
+
+const estadoDe = (r) => {
+  if (r.error || !r.stats?.passed) return ESTADO.bad
+  if (r.published === false) return ESTADO.hold
+  if ((r.excludedIds?.length ?? 0) > 0) return ESTADO.parcial
+  return ESTADO.ok
+}
+
+/**
+ * Una línea por archivo con el resultado de las compuertas. Resumen, no estructura.
+ *
+ * Se pliega por encima de tres archivos: con los 21 países de una entrega, veinte
+ * renglones de referencia empujan fuera de la pantalla la lista de trabajo, que es
+ * a lo que se vino. Con uno o dos es una línea y conviene verla.
+ */
+const PLEGAR_TIRA_SOBRE = 3
+
+const tiraArchivos = (results) => {
+  const filas = results
+    .map((r) => {
+      const e = estadoDe(r)
+      const excl = r.excludedIds?.length ?? 0
+      const detalle = r.error
+        ? esc(r.error)
+        : `${n(r.stats?.investments)} inversiones · ${n(r.stats?.rows)} filas${excl ? ` · ${n(excl)} no publican` : ''}`
+      return `<div class="tira-f ${e.cls}">
         <span class="fname">${esc(r.name)}</span>
-        <span class="status ${statusCls}">${statusTxt}</span>
-        ${blockingCount > 0 ? `<span class="pill block">${blockingCount} bloqueante(s)</span>` : ''}
-        <span class="tipos">${totalTipos} tipo(s)</span>
-        <span class="chips">${chips}</span>
-      </summary>
-      <p class="meta">${s.investments} inversiones en ${s.rows} filas · ${s.validPct}% de filas válidas · ${s.errors} errores · ${s.warnings} advertencias</p>
-      <p class="reason ${statusCls}">${esc(blockReason)}</p>
-      ${
-        excluidas.length
-          ? `<div class="excluidas"><strong>Estas ${excluidas.length} inversiones no se publican</strong> (tienen al menos una fila con error bloqueante; el resto del archivo sí entra):<p class="ids">${excluidas
-              .map((id) => `<code>${esc(id)}</code>`)
-              .join(' ')}</p><p class="fix">Sale la inversión entera y no sólo la fila con el problema: una inversión son varios puntos, y publicar la mitad de un trazado o perder la fila que trae el monto sería una pérdida que no se ve. Corregir las filas señaladas más abajo las reincorpora.</p></div>`
-          : ''
-      }
-      ${
-        r.curaciones && r.curaciones.length
-          ? `<div class="curaciones"><strong>Curación aplicada de nuestro lado (automática, sin pérdida):</strong><ul>${r.curaciones
-              .map((c) => `<li>${esc(c.message)}</li>`)
-              .join('')}</ul></div>`
-          : ''
-      }
-      ${feHtml ? `<div class="file-errors"><strong>${blockPill('error')} Problemas de archivo</strong> — cualquiera de estos, por sí solo, bota el archivo:<ul>${feHtml}</ul></div>` : ''}
-      ${rulesHtml || '<p class="clean">Sin observaciones por fila.</p>'}
-    </details>`
+        <span class="status ${e.cls}">${e.txt}</span>
+        <span class="tira-det">${detalle}</span>
+      </div>`
+    })
+    .join('')
+
+  if (results.length <= PLEGAR_TIRA_SOBRE) return `<div class="tira">${filas}</div>`
+
+  const porEstado = new Map()
+  for (const r of results) {
+    const e = estadoDe(r)
+    porEstado.set(e.corto, { orden: e.orden, cuenta: (porEstado.get(e.corto)?.cuenta ?? 0) + 1 })
+  }
+  const resumen = [...porEstado.entries()]
+    .sort((a, b) => a[1].orden - b[1].orden)
+    .map(([corto, { cuenta }]) => `${cuenta} ${corto}`)
+    .join(' · ')
+  return `
+  <details class="tira-plegada">
+    <summary><b>${results.length} archivos</b> <span class="tira-res">${esc(resumen)}</span></summary>
+    <div class="tira">${filas}</div>
+  </details>`
 }
 
+const bloqueIlegibles = (results) => {
+  const malos = results.filter((r) => r.error || !r.stats?.passed)
+  if (!malos.length) return ''
+  return `
+  <div class="file-errors">
+    <strong>${malos.length} archivo(s) no se pueden leer.</strong> No es que tengan datos malos: el
+    sistema no puede interpretarlos, así que no entra ninguna de sus inversiones. Esto se resuelve
+    antes que cualquier otra cosa.
+    <ul>${malos
+      .map((r) => {
+        const causas = r.error
+          ? `<li>${esc(r.error)}</li>`
+          : r.fileErrors
+              .map((fe) => {
+                const help = RULE_HELP[fe.rule]
+                return `<li>${esc(fe.message)}${help ? ` <span class="fix-inline">— ${esc(help.fix)}</span>` : ''}</li>`
+              })
+              .join('')
+        return `<li><b>${esc(r.name)}</b><ul>${causas}</ul></li>`
+      })
+      .join('')}</ul>
+  </div>`
+}
+
+const bloqueExcluidas = (results) => {
+  const conExcluidas = results.filter((r) => (r.excludedIds?.length ?? 0) > 0)
+  if (!conExcluidas.length) return ''
+  const total = conExcluidas.reduce((s, r) => s + r.excludedIds.length, 0)
+  return `
+  <div class="excluidas">
+    <strong>Estas ${n(total)} inversiones no se publican</strong> hasta que se corrijan sus filas. El
+    resto de cada archivo entra al mapa igual.
+    ${conExcluidas
+      .map(
+        (r) =>
+          `<p class="ids"><span class="ids-pais">${esc(r.name.replace(/\.xlsx$/i, ''))}</span> ${r.excludedIds
+            .map((id) => `<code>${esc(id)}</code>`)
+            .join(' ')}</p>`
+      )
+      .join('')}
+    <p class="fix">Sale la inversión entera y no sólo la fila con el problema: una inversión son
+    varios puntos, y publicar la mitad de un trazado o perder la fila que trae el monto sería una
+    pérdida que no se ve.</p>
+  </div>`
+}
+
+const bloqueCuraciones = (results) => {
+  const conCuraciones = results.filter((r) => r.curaciones?.length)
+  if (!conCuraciones.length) return ''
+  return `
+  <div class="curaciones">
+    <strong>Curación aplicada de nuestro lado</strong> (automática, sin pérdida, y listada acá porque
+    se corrige a la vista y no a escondidas):
+    ${conCuraciones
+      .map(
+        (r) =>
+          `<ul><li><b>${esc(r.name)}</b><ul>${r.curaciones.map((c) => `<li>${esc(c.message)}</li>`).join('')}</ul></li></ul>`
+      )
+      .join('')}
+  </div>`
+}
+
+// ---- Estilos ----
+// Sin bloques de modo oscuro a propósito. Este informe se imprime, se captura y se
+// pega en correos, y la paleta semántica (rojo bloqueante, ámbar aviso) está
+// calibrada en claro. `color-scheme: light` es lo que de verdad lo fija: sin eso el
+// navegador igual pinta con su esquema las barras de scroll y los controles.
 const style = `
-  :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --card:#f7f7f8; --border:#e2e2e5;
+  :root { color-scheme: light;
+    --bg:#fff; --fg:#1a1a1a; --muted:#666; --card:#f7f7f8; --border:#e2e2e5;
     --ok:#0a7d34; --bad:#c62828; --warn:#b26a00; --accent:#0b4f6c; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#15171a; --fg:#e6e6e8; --muted:#9a9aa2;
-    --card:#1e2126; --border:#2c2f36; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --accent:#38bdf8; } }
-  :root[data-theme="dark"] { --bg:#15171a; --fg:#e6e6e8; --muted:#9a9aa2; --card:#1e2126;
-    --border:#2c2f36; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --accent:#38bdf8; }
-  :root[data-theme="light"] { --bg:#fff; --fg:#1a1a1a; --muted:#666; --card:#f7f7f8;
-    --border:#e2e2e5; --ok:#0a7d34; --bad:#c62828; --warn:#b26a00; --accent:#0b4f6c; }
   * { box-sizing:border-box; }
   body { margin:0; background:var(--bg); color:var(--fg);
     font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-  .wrap { max-width:920px; margin:0 auto; padding:32px 20px 80px; }
+  .wrap { max-width:1040px; margin:0 auto; padding:32px 20px 80px; }
   h1 { font-size:26px; margin:0 0 4px; }
-  h2 { font-size:19px; margin:36px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
-  h3 { font-size:17px; margin:0 0 6px; display:flex; align-items:center; gap:10px; }
-  .sub { color:var(--muted); margin:0 0 24px; }
-  .cards { display:flex; gap:12px; flex-wrap:wrap; margin:16px 0 8px; }
+  h2 { font-size:19px; margin:32px 0 12px; padding-bottom:6px; border-bottom:1px solid var(--border); }
+  .sub { color:var(--muted); margin:0 0 20px; }
+  .vh { position:absolute; width:1px; height:1px; overflow:hidden; clip:rect(0 0 0 0); }
+
+  .veredicto { font-size:17px; font-weight:600; border-radius:10px; padding:14px 18px; margin:0 0 16px;
+    border:1px solid var(--border); border-left:4px solid var(--muted); background:var(--card); }
+  .veredicto.ok { border-left-color:var(--ok); }
+  .veredicto.hold { border-left-color:var(--warn); }
+  .veredicto.bad { border-left-color:var(--bad); }
+  .veredicto span { display:block; font-size:14px; font-weight:400; color:var(--muted); margin-top:4px; }
+
+  .cards { display:flex; gap:12px; flex-wrap:wrap; margin:0 0 20px; }
   .stat { background:var(--card); border:1px solid var(--border); border-radius:10px;
-    padding:14px 18px; min-width:120px; }
-  .stat .n { font-size:26px; font-weight:700; }
+    padding:12px 16px; min-width:110px; }
+  .stat .n { font-size:24px; font-weight:700; }
   .stat .l { color:var(--muted); font-size:13px; }
-  .stat.ok { border-left:3px solid var(--ok); }
-  .stat.ok .n { color:var(--ok); }
-  .stat.bad { border-left:3px solid var(--bad); }
-  .stat.bad .n { color:var(--bad); }
-  .stat.hold { border-left:3px solid var(--warn); }
-  .stat.hold .n { color:var(--warn); }
+  .stat.ok { border-left:3px solid var(--ok); } .stat.ok .n { color:var(--ok); }
+  .stat.bad { border-left:3px solid var(--bad); } .stat.bad .n { color:var(--bad); }
+  .stat.hold { border-left:3px solid var(--warn); } .stat.hold .n { color:var(--warn); }
+
+  .tabs { display:flex; gap:4px; border-bottom:1px solid var(--border); margin:0 0 18px; flex-wrap:wrap; }
+  .tabs button { font:inherit; font-size:14px; font-weight:600; background:none; cursor:pointer;
+    border:1px solid transparent; border-bottom:none; border-radius:8px 8px 0 0;
+    padding:9px 16px; color:var(--muted); margin-bottom:-1px; }
+  .tabs button:hover { color:var(--accent); }
+  .tabs button[aria-selected="true"] { color:var(--fg); background:var(--bg);
+    border-color:var(--border); }
+  .tabs button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .panel > h2:first-child { margin-top:0; }
+
+  .controles { display:flex; gap:14px; align-items:center; flex-wrap:wrap; margin:0 0 12px;
+    padding:10px 14px; background:var(--card); border:1px solid var(--border); border-radius:10px; }
+  .controles label { font-size:13.5px; }
+  .ctl-n { color:var(--muted); }
+  .ctl-buscar input { font:inherit; font-size:13.5px; padding:5px 10px; min-width:15rem;
+    border:1px solid var(--border); border-radius:7px; background:var(--bg); color:var(--fg); }
+  .ctl-agrupar { display:flex; gap:0; align-items:center; }
+  .ctl-lab { font-size:13.5px; color:var(--muted); margin-right:8px; }
+  .ctl-agrupar button { font:inherit; font-size:13px; padding:5px 11px; cursor:pointer;
+    border:1px solid var(--border); background:var(--bg); color:var(--fg); margin-left:-1px; }
+  .ctl-agrupar button:first-of-type { border-radius:7px 0 0 7px; margin-left:0; }
+  .ctl-agrupar button:last-child { border-radius:0 7px 7px 0; }
+  .ctl-agrupar button.on { background:#1a1a1a; color:#fff; border-color:#1a1a1a; }
+  .ctl-agrupar button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+  .ctl-conteo { margin:0 0 0 auto; font-size:13px; color:var(--muted); }
+
+  ul.hallazgos { list-style:none; margin:0; padding:0; }
+  li.h { border:1px solid var(--border); border-radius:9px; margin:0 0 6px; background:var(--bg); }
+  li.h[data-bloquea="1"] { border-left:3px solid var(--bad); }
+  li.h[data-bloquea="0"] { border-left:3px solid var(--warn); }
+  li.h > details > summary { list-style:none; cursor:pointer; padding:9px 14px;
+    display:flex; align-items:center; gap:9px; flex-wrap:wrap; font-size:13.5px; }
+  li.h > details > summary::-webkit-details-marker { display:none; }
+  li.h > details > summary::before { content:"▸"; color:var(--muted); font-size:11px; }
+  li.h > details[open] > summary::before { content:"▾"; }
+  li.h > details > summary:hover { background:var(--card); border-radius:8px; }
+  .h-pais { color:var(--muted); }
+  .h-donde { white-space:nowrap; }
+  .h-col { font-size:12px; }
+  .h-tit { font-weight:600; }
+  .h-val { color:var(--muted); font-style:italic; max-width:22rem; overflow:hidden;
+    text-overflow:ellipsis; white-space:nowrap; }
+  .h-meta { display:flex; gap:6px; align-items:center; margin-left:auto; }
+  .estado.no { font-size:11px; font-weight:700; color:var(--bad); white-space:nowrap; }
+  .h-det { padding:0 14px 12px 34px; font-size:13.5px; }
+  .h-det .msg { margin:0; }
+  .h-det .fix { margin:6px 0 0; color:var(--muted); }
+
+  .grupo { border:1px solid var(--border); border-radius:10px; margin:0 0 8px; overflow:hidden; }
+  .grupo > summary { list-style:none; cursor:pointer; padding:11px 14px; background:var(--card);
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .grupo > summary::-webkit-details-marker { display:none; }
+  .grupo > summary::before { content:"▸"; color:var(--muted); font-size:11px; }
+  .grupo[open] > summary::before { content:"▾"; }
+  .grupo .g-tit { font-weight:700; }
+  .grupo .g-n { color:var(--muted); font-size:13px; margin-left:auto; }
+  .grupo .g-ayuda { padding:10px 14px 2px; font-size:13.5px; border-top:1px solid var(--border); }
+  .grupo .g-ayuda p { margin:0 0 6px; }
+  .grupo .g-ayuda .fix { color:var(--muted); }
+  .grupo ul.hallazgos { padding:8px 10px 10px; }
+  .autogroup { background:color-mix(in srgb,var(--accent) 8%,transparent); border:1px solid var(--border);
+    border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:13.5px; }
+  .vacio { color:var(--muted); font-style:italic; padding:14px 0; }
+
+  .tira-plegada { margin:0 0 18px; border:1px solid var(--border); border-radius:10px; }
+  .tira-plegada > summary { cursor:pointer; padding:10px 14px; font-size:13.5px; list-style:none;
+    display:flex; gap:10px; align-items:center; }
+  .tira-plegada > summary::-webkit-details-marker { display:none; }
+  .tira-plegada > summary::before { content:"▸"; color:var(--muted); font-size:11px; }
+  .tira-plegada[open] > summary::before { content:"▾"; }
+  .tira-plegada > summary:hover { background:var(--card); border-radius:9px; }
+  .tira-res { color:var(--muted); }
+  .tira-plegada .tira { margin:0; padding:0 12px 12px; }
+  .tira { display:flex; flex-direction:column; gap:4px; margin:0 0 18px; }
+  .tira-f { display:flex; align-items:center; gap:10px; flex-wrap:wrap; font-size:13.5px;
+    padding:7px 12px; border:1px solid var(--border); border-radius:8px; }
+  .tira-f.ok { border-left:3px solid var(--ok); }
+  .tira-f.bad { border-left:3px solid var(--bad); }
+  .tira-f.hold { border-left:3px solid var(--warn); }
+  .tira-f .fname { font-weight:600; }
+  .tira-det { color:var(--muted); margin-left:auto; }
+
   .curaciones { background:color-mix(in srgb,var(--ok) 8%,transparent); border-radius:8px;
-    padding:8px 14px; margin:10px 0; font-size:13.5px; }
+    padding:10px 14px; margin:14px 0; font-size:13.5px; }
   .curaciones ul { margin:6px 0 0; padding-left:18px; color:var(--muted); }
   .excluidas { background:color-mix(in srgb,var(--warn) 10%,transparent); border-left:4px solid var(--warn);
-    border-radius:8px; padding:8px 14px; margin:10px 0; font-size:13.5px; }
+    border-radius:8px; padding:10px 14px; margin:14px 0; font-size:13.5px; }
   .excluidas .ids { margin:6px 0 0; line-height:1.9; }
-  .excluidas .ids code { background:var(--card); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
+  .excluidas .ids-pais { color:var(--muted); }
+  .excluidas .ids code { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:1px 6px; }
   .excluidas .fix { margin:8px 0 0; color:var(--muted); font-size:13px; }
   .callout { background:var(--card); border-left:4px solid var(--accent); border-radius:6px;
-    padding:14px 18px; margin:18px 0; }
+    padding:14px 18px; margin:16px 0; }
   .pending { background:color-mix(in srgb,var(--warn) 9%,transparent); border:1px solid var(--border);
-    border-left:4px solid var(--warn); border-radius:8px; padding:6px 20px 16px; margin:20px 0; }
+    border-left:4px solid var(--warn); border-radius:8px; padding:6px 20px 16px; margin:18px 0; }
   .pending tr.grave td { background:color-mix(in srgb,var(--bad) 12%,transparent); font-weight:600; }
   .pending .note { color:var(--muted); font-size:13px; margin:8px 0 0; }
   .onboarding { background:color-mix(in srgb,var(--accent) 7%,transparent); border:1px solid var(--border);
-    border-left:4px solid var(--accent); border-radius:8px; padding:6px 20px 16px; margin:20px 0; }
+    border-left:4px solid var(--accent); border-radius:8px; padding:6px 20px 16px; margin:18px 0; }
   .onb-card { background:var(--bg); border:1px solid var(--border); border-radius:8px;
     padding:12px 16px; margin:10px 0; }
   .onb-name { font-weight:700; font-size:15px; margin-bottom:6px; }
   .onb-gate { font-size:14px; margin:3px 0; }
   .onb-gate .box { font-family:monospace; font-weight:700; margin-right:6px; }
   .onb-gate .muted { color:var(--muted); }
+  .file-errors { background:color-mix(in srgb,var(--bad) 8%,transparent); border-left:4px solid var(--bad);
+    border-radius:8px; padding:10px 14px; margin:0 0 16px; font-size:14px; }
+  .file-errors ul { margin:6px 0 0; padding-left:18px; }
+  .fix-inline { color:var(--muted); }
   code { background:var(--card); border:1px solid var(--border); border-radius:4px;
     padding:1px 5px; font-size:.9em; }
   table { border-collapse:collapse; width:100%; margin:10px 0; }
   th,td { text-align:left; padding:8px 10px; border-bottom:1px solid var(--border); }
   td.num,th.num { text-align:right; font-variant-numeric:tabular-nums; }
   .overflow { overflow-x:auto; }
-  .file { border:1px solid var(--border); border-radius:12px; margin:10px 0; overflow:hidden; }
-  .file.ok { border-left:4px solid var(--ok); }
-  .file.bad { border-left:4px solid var(--bad); }
-  .file.hold { border-left:4px solid var(--warn); }
-  .file > summary { list-style:none; cursor:pointer; padding:14px 18px;
-    display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .file > summary::-webkit-details-marker { display:none; }
-  .file > summary::before { content:"▸"; color:var(--muted); font-size:12px; transition:transform .15s; }
-  .file[open] > summary::before { transform:rotate(90deg); }
-  .file > summary:hover { background:var(--card); }
-  .file > summary .fname { font-weight:700; font-size:16px; }
-  .file > summary .tipos { color:var(--muted); font-size:13px; }
-  .file > summary .chips { display:flex; gap:6px; flex-wrap:wrap; margin-left:auto; }
-  .chip { font-size:11px; font-weight:600; padding:2px 9px; border-radius:999px; border:1px solid var(--border); white-space:nowrap; }
-  .file > .meta, .file > .file-errors, .file > .rule, .file > .clean { margin-left:18px; margin-right:18px; }
-  .file > .rule:last-child { margin-bottom:18px; }
-  .toolbar { display:flex; gap:10px; align-items:center; margin:10px 0 4px; }
-  .toolbar button { font:inherit; font-size:13px; padding:5px 12px; border:1px solid var(--border);
-    background:var(--card); color:var(--fg); border-radius:7px; cursor:pointer; }
-  .toolbar button:hover { border-color:var(--accent); color:var(--accent); }
-  .toolbar button:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
   .status { font-size:12px; font-weight:700; padding:2px 8px; border-radius:999px; }
   .status.ok { background:color-mix(in srgb,var(--ok) 18%,transparent); color:var(--ok); }
   .status.bad { background:color-mix(in srgb,var(--bad) 18%,transparent); color:var(--bad); }
   .status.hold { background:color-mix(in srgb,var(--warn) 18%,transparent); color:var(--warn); }
-  .meta { color:var(--muted); font-size:13px; margin:0 0 12px; }
-  .file-errors { background:color-mix(in srgb,var(--bad) 8%,transparent); border-radius:8px;
-    padding:8px 14px; margin:10px 0; font-size:14px; }
-  .file-errors ul { margin:6px 0 0; padding-left:18px; }
-  .rule { background:var(--card); border:1px solid var(--border); border-radius:9px;
-    padding:12px 14px; margin:10px 0; }
-  .rule.error { border-left:3px solid var(--bad); }
-  .rule.warn { border-left:3px solid var(--warn); }
-  .rule.info { border-left:3px solid var(--muted); }
-  .rule-head { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  .rule-title { font-weight:600; }
-  .count { color:var(--muted); font-size:13px; margin-left:auto; }
   .badge { font-size:11px; font-weight:600; padding:2px 8px; border-radius:999px;
-    border:1px solid var(--border); }
+    border:1px solid var(--border); white-space:nowrap; }
   .pill { font-size:10.5px; font-weight:700; padding:2px 8px; border-radius:5px;
     letter-spacing:.03em; text-transform:uppercase; white-space:nowrap; }
   .pill.block { background:var(--bad); color:#fff; }
   .pill.warn { background:color-mix(in srgb,var(--warn) 22%,transparent); color:var(--warn);
     border:1px solid color-mix(in srgb,var(--warn) 45%,transparent); }
-  .pill.info { background:color-mix(in srgb,var(--muted) 18%,transparent); color:var(--muted); }
-  .reason { font-size:13px; margin:0 0 12px; font-weight:600; }
-  .reason.bad { color:var(--bad); }
-  .reason.ok { color:var(--ok); }
-  .reason.hold { color:var(--warn); }
   .b-formato { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
   .b-contenido { background:color-mix(in srgb,var(--bad) 12%,transparent); color:var(--bad); }
   .b-revisar { background:color-mix(in srgb,var(--warn) 15%,transparent); color:var(--warn); }
   .b-nuestro { background:color-mix(in srgb,var(--ok) 15%,transparent); color:var(--ok); }
   .b-inversores { background:color-mix(in srgb,var(--accent) 15%,transparent); color:var(--accent); }
-  .why,.fix { margin:6px 0 0; font-size:14px; }
-  details { margin-top:8px; }
-  summary { cursor:pointer; color:var(--accent); font-size:13px; }
-  ul.ex { margin:8px 0 0; padding-left:18px; font-size:13px; color:var(--muted); }
-  ul.ex .loc { color:var(--fg); font-weight:600; }
-  ul.ex .more { list-style:none; font-style:italic; }
-  .clean { color:var(--muted); font-style:italic; }
-  footer { margin-top:48px; color:var(--muted); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
+  footer { margin-top:40px; color:var(--muted); font-size:12px; border-top:1px solid var(--border); padding-top:16px; }
+
+  /* Pasos del instructivo. Los estilos viven acá y no en el validador porque el
+     panel lo dibuja este render: el consumidor aporta el contenido, no el CSS. */
+  .pasos { margin:12px 0 0; padding-left:20px; font-size:14px; }
+  .pasos li { margin:0 0 10px; }
+  .pasos li b { display:block; }
+  .pasos li span { color:var(--muted); }
+  .nota { font-size:13px; color:var(--muted); }
+
+  @media (max-width:640px) {
+    .wrap { padding:20px 14px 60px; }
+    .controles { gap:10px; }
+    .ctl-conteo { margin-left:0; }
+    .ctl-buscar input { min-width:0; width:100%; }
+    .ctl-buscar { flex:1 1 100%; }
+    .h-meta { margin-left:0; }
+    .h-val { max-width:100%; }
+    .tira-det { margin-left:0; flex:1 1 100%; }
+  }
 `
+
+/**
+ * Mete el módulo de interacción adentro del informe, para que el archivo publicado
+ * sea autocontenido. Vive acá y no en la cáscara del CLI porque tiene dos trampas
+ * que ya se pagaron y no se ven al leer el resultado:
+ *
+ *  · `String.replace` con una CADENA de reemplazo interpreta `$$` como un `$`
+ *    literal, así que el `$$` del módulo llegaba corrompido y el informe quedaba
+ *    sin pestañas ni filtros, sin decir nada. Va con función de reemplazo.
+ *  · Si el módulo llegara a contener una etiqueta de cierre de script, el navegador
+ *    corta ahí. Se comprueba y se avisa fuerte en vez de publicar algo roto.
+ *
+ * @param {string} html lo que devolvió renderReport
+ * @param {string} src código de scripts/lib/report_interact.mjs
+ * @param {{fragment?: boolean}} [opts]
+ * @returns {string}
+ */
+export const withInteract = (html, src, { fragment = false } = {}) => {
+  if (/<\/script/i.test(src)) {
+    throw new Error('report_interact.mjs contiene una etiqueta de cierre de script: cortaría el informe publicado por la mitad.')
+  }
+  const inline = `<script type="module">\n${src}\nwireReport(document)\n</script>`
+  return fragment ? html + inline : html.replace('</body>', () => `${inline}</body>`)
+}
 
 /**
  * @param {Array} results por archivo: { name, fileErrors, issues, stats, curaciones, excludedIds, rows, published, error? }
@@ -307,6 +478,8 @@ const style = `
  * @param {boolean} [opts.fragment] emitir sólo <style> + body, sin el documento
  * @param {string|null} [opts.validatorHref] enlace al validador en el navegador. La página del
  *   validador usa este mismo render y ahí el aviso no va: ya estás adentro.
+ * @param {Array<{id:string,label:string,html:string}>} [opts.extraTabs] pestañas que aporta el
+ *   consumidor. El validador mete acá el instructivo de subida, que es suyo y no del informe.
  * @returns {string} HTML
  */
 export const renderReport = (results, opts = {}) => {
@@ -315,8 +488,13 @@ export const renderReport = (results, opts = {}) => {
     countryBorders = null,
     now = new Date().toISOString().slice(0, 16).replace('T', ' '),
     fragment = false,
-    validatorHref = null
+    validatorHref = null,
+    extraTabs = []
   } = opts
+
+  const findings = buildFindings(results)
+  const multiFile = results.length > 1
+  const autoGroup = findings.length > AUTOGROUP_OVER
 
   // Conflictos conceptuales Area_EN vs Area_ES (por inversión única), sobre la base cruda.
   const sectorConflicts = []
@@ -346,20 +524,6 @@ export const renderReport = (results, opts = {}) => {
     }
   }
 
-  // Totales globales por regla (para el resumen de arriba).
-  const globalRule = new Map()
-  for (const r of results) {
-    if (r.error) continue
-    const bump = (rule, sev) => {
-      if (!globalRule.has(rule)) globalRule.set(rule, { count: 0, files: new Set(), sev })
-      const e = globalRule.get(rule)
-      e.count += 1
-      e.files.add(r.name)
-    }
-    for (const it of r.issues) bump(it.rule, it.severity)
-    for (const fe of r.fileErrors) bump(fe.rule, 'error')
-  }
-
   // Países en incorporación: país RECONOCIDO cuyo archivo todavía no se puede leer.
   const onboarding = results
     .filter((r) => !r.error && !r.stats.passed && !r.fileErrors.some((f) => f.rule === 'archivo/nombre'))
@@ -373,99 +537,72 @@ export const renderReport = (results, opts = {}) => {
     })
 
   const totalFiles = results.length
-  const failed = results.filter((r) => r.error || !r.stats.passed).length
-  const passedCount = totalFiles - failed
-  const heldCount = results.filter((r) => !r.error && r.stats.passed && r.published === false).length
+  const ilegibles = results.filter((r) => r.error || !r.stats?.passed).length
+  const heldCount = results.filter((r) => !r.error && r.stats?.passed && r.published === false).length
   const totalRows = results.reduce((s, r) => s + (r.stats?.rows ?? 0), 0)
   const totalInvestments = results.reduce((s, r) => s + (r.stats?.investments ?? 0), 0)
   const totalExcluded = results.reduce((s, r) => s + (r.excludedIds?.length ?? 0), 0)
   const totalCuraciones = results.reduce((s, r) => s + (r.stats?.curaciones ?? 0), 0)
+  const bloqueantes = findings.filter((f) => f.bloquea).length
 
-  const sevRank = { error: 0, warning: 1, info: 2 }
-  const globalSortedBySev = [...globalRule.entries()].sort(
-    (a, b) => (sevRank[a[1].sev] ?? 3) - (sevRank[b[1].sev] ?? 3) || b[1].count - a[1].count
-  )
-  const globalRows = globalSortedBySev
-    .map(([rule, info]) => {
-      const help = RULE_HELP[rule] || { titulo: rule, tipo: 'contenido' }
-      const badge = tipoBadge[help.tipo] || tipoBadge.contenido
-      const block =
-        info.sev === 'error'
-          ? '<span class="pill block">Bloqueante</span>'
-          : info.sev === 'warning'
-            ? '<span class="pill warn">Aviso</span>'
-            : '<span class="pill info">Informativo</span>'
-      return `<tr><td>${block}</td><td>${esc(help.titulo)}</td><td><span class="badge ${badge.cls}">${badge.label}</span></td><td class="num">${info.files.size}</td><td class="num">${info.count.toLocaleString('es')}</td></tr>`
-    })
-    .join('')
+  // Un solo veredicto, en una línea. Antes el estado se decía dos veces con
+  // palabras distintas (arriba en el estado, abajo en el título de acciones).
+  const veredicto = ilegibles
+    ? {
+        cls: 'bad',
+        txt: `${ilegibles} archivo(s) no se pueden leer.`,
+        sub: 'Hay que arreglar la estructura antes que nada: por ahora no entra ninguna de sus inversiones.'
+      }
+    : totalExcluded
+      ? {
+          cls: 'hold',
+          txt: `Los archivos se leen bien. ${n(totalExcluded)} inversión(es) no se publican.`,
+          sub: `Todo el resto entra al mapa. No hace falta esperar a tenerlo perfecto: son ${n(bloqueantes)} correccion(es) puntuales.`
+        }
+      : {
+          cls: 'ok',
+          txt: 'Todo en orden: los archivos se leen bien y todas las inversiones publican.',
+          sub: findings.length ? `Quedan ${n(findings.length)} aviso(s), que no sacan nada del mapa.` : ''
+        }
 
-const body = `
-<div class="wrap">
-  <h1>Informe de validación de datos</h1>
-  <p class="sub">Base por país del repositorio · ${totalFiles} archivos · generado ${now}</p>
+  const tabs = [
+    { id: 'resultado', label: 'Resultado' },
+    ...extraTabs.map((t) => ({ id: t.id, label: t.label })),
+    { id: 'leer', label: 'Cómo se lee esto' }
+  ]
 
-  ${validatorHref ? `<div class="callout">
-    <strong>Este informe se genera cuando el archivo ya está en el repositorio</strong>, así que no
-    alcanza a avisarte antes de mandarlo. Para revisar el tuyo <em>mientras lo estás editando</em>,
-    abrí el <a href="${validatorHref}">validador</a>: es el mismo chequeo, con las mismas reglas, y
-    el archivo no se sube a ningún lado — se lee en tu propio navegador.
-  </div>` : ''}
+  const panelResultado = `
+  ${bloqueIlegibles(results)}
+  ${tiraArchivos(results)}
+  ${bloqueExcluidas(results)}
 
-  <div class="cards">
-    <div class="stat"><div class="n">${totalFiles}</div><div class="l">archivos</div></div>
-    <div class="stat"><div class="n">${totalInvestments.toLocaleString('es')}</div><div class="l">inversiones</div></div>
-    <div class="stat"><div class="n">${totalRows.toLocaleString('es')}</div><div class="l">filas</div></div>
-    <div class="stat ok"><div class="n">${passedCount}</div><div class="l">archivos legibles</div></div>
-    ${failed ? `<div class="stat bad"><div class="n">${failed}</div><div class="l">no se pueden leer</div></div>` : ''}
-    <div class="stat ${totalExcluded ? 'hold' : 'ok'}"><div class="n">${totalExcluded.toLocaleString('es')}</div><div class="l">inversiones que no publican</div></div>
-    ${heldCount ? `<div class="stat hold"><div class="n">${heldCount}</div><div class="l">países retenidos</div></div>` : ''}
-    <div class="stat"><div class="n">${totalCuraciones.toLocaleString('es')}</div><div class="l">curaciones auto</div></div>
-  </div>
+  <h2>Qué hay que revisar</h2>
+  ${
+    findings.length
+      ? `${
+          autoGroup
+            ? `<p class="autogroup">Son ${n(findings.length)} hallazgos, así que la lista arranca
+               plegada por regla. No se recortó ninguno: cada grupo se abre y muestra todos sus casos.</p>`
+            : ''
+        }
+      ${controles(findings, { multiFile })}
+      <script type="application/json" id="reglas-meta">${JSON.stringify(reglasMeta(findings)).replace(/</g, '\\u003c')}</script>
+      <div id="lista"><ul class="hallazgos" data-autogroup="${autoGroup ? 1 : 0}">
+        ${findings.map((f) => findingItem(f, { multiFile })).join('')}
+      </ul></div>
+      <p class="vacio" id="sin-resultados" hidden>Ningún hallazgo coincide con el filtro.</p>`
+      : '<p class="vacio">Nada que revisar: ni un error ni un aviso.</p>'
+  }
 
-  <div class="callout">
-    <strong>Cómo leer esto.</strong> Cada observación es <span class="pill block">Bloqueante</span>
-    o <span class="pill warn">Aviso</span>. Un bloqueante <strong>no bota el archivo</strong>: saca
-    del mapa la <em>inversión</em> a la que pertenece esa fila, y el resto del archivo se publica
-    igual. Sale la inversión completa y no sólo la fila, porque una inversión son varios puntos y
-    publicar medio trazado o perder la fila del monto sería una pérdida que no se ve. Lo único que
-    deja un archivo entero afuera es no poder interpretarlo: nombre que no corresponde a ningún
-    país, más de una hoja, o una columna obligatoria que no está. Los <strong>avisos</strong> no
-    sacan nada, son cosas a revisar. La categoría (<span class="badge b-formato">Formato</span>,
-    <span class="badge b-contenido">Contenido</span>,
-    <span class="badge b-nuestro">Lo resolvemos nosotros</span>,
-    <span class="badge b-inversores">Encargado de la tabla de inversores</span>) dice <strong>de quién
-    es el arreglo</strong>, no si bloquea.
-  </div>
-  ${heldCount ? `<div class="callout">
-    <strong>Pasar el validador y publicarse son dos cosas distintas.</strong> ${heldCount} archivo(s)
-    cumplen el esquema pero todavía no salen en el mapa, porque el país está marcado como retenido
-    en <code>data/schema/countries.csv</code> (columna <code>publish</code>). Es una decisión
-    editorial de ICLAC, no un problema del archivo: cuando quieran publicarlo, esa fila pasa a
-    <code>publish,yes</code> y el país entra en el siguiente build.
-  </div>` : ''}
-  <div class="callout">
-    <strong>Curación automática activa.</strong> El validador arregla de nuestro lado los problemas
-    de <strong>formato</strong> que son deterministas y sin pérdida: el apóstrofe en
-    <code>COUNTRY_ISO_NUM</code>, el país en MAYÚSCULAS y el nombre del archivo (vale el nombre del
-    país o cualquiera de sus variantes, no hay que renombrarlo). Cada arreglo aparece listado por
-    archivo, no se esconde.
-  </div>${totalExcluded ? `
-  <div class="callout">
-    <strong>Qué significa que una inversión no publique.</strong> ${totalExcluded} inversión(es)
-    tienen alguna fila con un error del esquema, así que quedan fuera del mapa hasta que se corrija;
-    todo lo demás de esos archivos entra igual. Aparecen listadas por id en cada archivo, más abajo.
-    Un archivo con inversiones afuera <strong>no es un archivo rechazado</strong>: la corrección es
-    puntual y no hay que rehacer la entrega.
-  </div>` : ''}
+  ${bloqueCuraciones(results)}
 
   ${
     sectorConflicts.length
       ? `<div class="pending">
-    <h2 style="border:0;margin-top:8px">⚠ Pendiente para revisar: sector en conflicto (Area_EN ≠ Area_ES)</h2>
+    <h2 style="border:0;margin-top:8px">Para revisar: sector en conflicto (Area_EN ≠ Area_ES)</h2>
     <p>No es un problema de formato. En estas inversiones las dos columnas de sector apuntan a
     categorías <strong>conceptualmente distintas</strong>: una de las dos está mal y no se puede
-    saber cuál sin criterio del equipo. Por eso, aunque dejemos de exigir el formato de
-    <code>Area_ES</code>, conviene resolver estos casos en origen.</p>
+    saber cuál sin criterio del equipo.</p>
     <div class="overflow"><table>
       <thead><tr><th>Archivo</th><th>Id</th><th>Area_EN</th><th>Area_ES</th><th>Inversor</th></tr></thead>
       <tbody>${sectorConflicts
@@ -489,7 +626,7 @@ const body = `
     <h2 style="border:0;margin-top:8px">Países en incorporación</h2>
     <p>Estos países están reconocidos pero todavía no entran al mapa. Para incorporarse necesitan
     dos cosas: la <strong>geometría de borde</strong> (la cargamos nosotros) y el <strong>archivo de
-    datos sin errores bloqueantes</strong>. Cuando ambas estén ✓, el país entra automáticamente.</p>
+    datos legible</strong>. Cuando ambas estén ✓, el país entra automáticamente.</p>
     ${onboarding
       .map(
         (o) => `<div class="onb-card">
@@ -501,33 +638,100 @@ const body = `
       .join('')}
   </div>`
       : ''
+  }`
+
+  // Todo el texto explicativo vive acá, en su propia pestaña. Antes eran cuatro
+  // callouts apilados arriba del resultado, unos cuarenta renglones idénticos en
+  // cada validación, que es lo que hace que un texto deje de leerse.
+  const panelLeer = `
+  <h2>Bloquea o avisa</h2>
+  <p>Cada hallazgo es <span class="pill block">Bloquea</span> o <span class="pill warn">Aviso</span>.
+  Un bloqueante <strong>no bota el archivo</strong>: saca del mapa la <em>inversión</em> a la que
+  pertenece esa fila, y el resto del archivo se publica igual. Los avisos no sacan nada.</p>
+
+  <h2>Por qué sale la inversión entera</h2>
+  <p>Una inversión son varias filas, una por punto en el mapa. Botar sólo la fila con el problema
+  publicaría medio trazado, o perdería la fila que trae el monto, las dos en silencio. Por eso la
+  unidad es la inversión.</p>
+
+  <h2>Lo único que bota un archivo entero</h2>
+  <p>No poder interpretarlo: un nombre que no corresponde a ningún país del proyecto, más de una
+  hoja, o una columna obligatoria que no está. Nada de lo que digan las celdas bota un archivo.</p>
+
+  <h2>La categoría dice de quién es el arreglo</h2>
+  <p><span class="badge b-formato">Formato</span> es cómo está escrito el dato;
+  <span class="badge b-contenido">Contenido</span> es qué dice, y necesita criterio;
+  <span class="badge b-revisar">Revisar</span> pide mirar la fuente;
+  <span class="badge b-nuestro">Lo resolvemos nosotros</span> no requiere acción de tu lado;
+  <span class="badge b-inversores">Encargado de la tabla de inversores</span> es la cola de ese rol.
+  <strong>No dice si bloquea</strong>: esa es la otra pregunta, y confundirlas hace que el informe se
+  lea como una lista de culpas.</p>
+
+  <h2>Curación automática</h2>
+  <p>Los problemas de <strong>formato</strong> deterministas y sin pérdida se arreglan de nuestro
+  lado: el apóstrofe en <code>COUNTRY_ISO_NUM</code>, el país en MAYÚSCULAS, y el nombre del archivo
+  (vale el nombre del país o cualquiera de sus variantes, así que no hay que renombrarlo). Cada
+  arreglo queda listado en el resultado: se corrige a la vista, no a escondidas.</p>
+
+  <h2>Pasar el validador y publicarse son cosas distintas</h2>
+  <p>Un archivo puede cumplir el esquema y aun así no salir en el mapa, porque el país está marcado
+  como retenido en <code>data/schema/countries.csv</code>. Es una decisión editorial de ICLAC, no un
+  problema del archivo.${heldCount ? ` Hoy hay ${heldCount} en esa situación.` : ''}</p>`
+
+  const body = `
+<div class="wrap" id="informe">
+  <h1>Informe de validación de datos</h1>
+  <p class="sub">Base por país del repositorio · ${totalFiles} archivo(s) · generado ${now}</p>
+
+  ${
+    validatorHref
+      ? `<div class="callout">
+    <strong>Este informe se genera cuando el archivo ya está en el repositorio</strong>, así que no
+    alcanza a avisarte antes de mandarlo. Para revisar el tuyo <em>mientras lo estás editando</em>,
+    abrí el <a href="${validatorHref}">validador</a>: es el mismo chequeo, con las mismas reglas, y
+    el archivo no se sube a ningún lado, se lee en tu propio navegador.
+  </div>`
+      : ''
   }
 
-  <h2>Resumen por tipo de observación</h2>
-  <div class="overflow">
-  <table>
-    <thead><tr><th>Bloqueante</th><th>Observación</th><th>Categoría</th><th class="num"># países</th><th class="num">Casos</th></tr></thead>
-    <tbody>${globalRows}</tbody>
-  </table>
+  <div class="veredicto ${veredicto.cls}">${veredicto.txt}${veredicto.sub ? `<span>${veredicto.sub}</span>` : ''}</div>
+
+  <div class="cards">
+    <div class="stat"><div class="n">${n(totalInvestments)}</div><div class="l">inversiones</div></div>
+    <div class="stat"><div class="n">${n(totalRows)}</div><div class="l">filas</div></div>
+    <div class="stat ${totalExcluded ? 'hold' : 'ok'}"><div class="n">${n(totalExcluded)}</div><div class="l">no publican</div></div>
+    ${ilegibles ? `<div class="stat bad"><div class="n">${ilegibles}</div><div class="l">no se pueden leer</div></div>` : ''}
+    ${heldCount ? `<div class="stat hold"><div class="n">${heldCount}</div><div class="l">países retenidos</div></div>` : ''}
+    ${totalCuraciones ? `<div class="stat"><div class="n">${n(totalCuraciones)}</div><div class="l">curaciones auto</div></div>` : ''}
   </div>
 
-  <h2>Detalle por archivo</h2>
-  <p class="sub">Cada país está colapsado. El encabezado muestra cuántos <em>tipos</em> de observación tiene, por categoría. Abrí el que quieras ver en detalle.</p>
-  <div class="toolbar">
-    <button type="button" onclick="document.querySelectorAll('details.file').forEach(d=>d.open=true)">Expandir todo</button>
-    <button type="button" onclick="document.querySelectorAll('details.file').forEach(d=>d.open=false)">Colapsar todo</button>
+  <div class="tabs" role="tablist">
+    ${tabs
+      .map(
+        (t, i) =>
+          `<button type="button" role="tab" data-tab="${att(t.id)}" aria-selected="${i === 0}" aria-controls="panel-${att(t.id)}">${esc(t.label)}</button>`
+      )
+      .join('')}
   </div>
-  ${results.map(fileSection).join('')}
+
+  <section class="panel" id="panel-resultado" data-panel="resultado" role="tabpanel">${panelResultado}</section>
+  ${extraTabs
+    .map(
+      (t) =>
+        `<section class="panel" id="panel-${att(t.id)}" data-panel="${att(t.id)}" role="tabpanel">${t.html}</section>`
+    )
+    .join('')}
+  <section class="panel" id="panel-leer" data-panel="leer" role="tabpanel">${panelLeer}</section>
 
   <footer>
-    Informe de validación generado automáticamente al subir los datos. <strong>PASA</strong> = el
-    archivo se lee y entra al mapa; <strong>PASA · PARCIAL</strong> = entra, menos las inversiones
-    listadas; <strong>PASA · RETENIDO</strong> = está bien pero ICLAC todavía no lo publica;
-    <strong>NO SE PUEDE LEER</strong> = hay que arreglar la estructura antes que nada.
+    <strong>PASA</strong> = el archivo se lee y entra al mapa · <strong>PASA · PARCIAL</strong> =
+    entra, menos las inversiones listadas · <strong>PASA · RETENIDO</strong> = está bien pero ICLAC
+    todavía no lo publica · <strong>NO SE PUEDE LEER</strong> = hay que arreglar la estructura antes
+    que nada.
   </footer>
 </div>`
 
   return fragment
     ? `<style>${style}</style>${body}`
-    : `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Informe de validación de datos</title><style>${style}</style></head><body>${body}</body></html>`
+    : `<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Informe de validación de datos</title><link rel="icon" href="${FAVICON}"><style>${style}</style></head><body>${body}</body></html>`
 }

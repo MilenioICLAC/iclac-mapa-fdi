@@ -3,6 +3,10 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!-- Fondo claro pase lo que pase. Sin esto el navegador pinta con SU esquema
+         las barras de scroll, los controles de formulario y el fondo detrás del
+         body, y este informe se imprime, se captura y se pega en correos. -->
+    <meta name="color-scheme" content="light" />
     <title>Validador de datos — Repositorio ICLAC</title>
     <!-- Favicon embebido: sin esto el navegador pide /favicon.ico y deja un 404 en
          la consola de una página que va a abrir el cliente. -->
@@ -12,15 +16,15 @@
     />
     <style>
       /* Mismos tokens que el informe, para que la página no cambie de aspecto
-         cuando el informe inyecta su hoja de estilos al validar. */
-      :root { --bg:#fff; --fg:#1a1a1a; --muted:#666; --card:#f7f7f8; --border:#e2e2e5;
+         cuando el informe inyecta su hoja de estilos al validar. Sin bloques de
+         modo oscuro a propósito: ver el <meta> de arriba. */
+      :root { color-scheme: light;
+        --bg:#fff; --fg:#1a1a1a; --muted:#666; --card:#f7f7f8; --border:#e2e2e5;
         --ok:#0a7d34; --bad:#c62828; --warn:#b26a00; --accent:#0b4f6c; }
-      @media (prefers-color-scheme: dark) { :root { --bg:#15171a; --fg:#e6e6e8; --muted:#9a9aa2;
-        --card:#1e2126; --border:#2c2f36; --ok:#4ade80; --bad:#f87171; --warn:#fbbf24; --accent:#38bdf8; } }
       * { box-sizing:border-box; }
       body { margin:0; background:var(--bg); color:var(--fg);
         font:15px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif; }
-      .top { max-width:920px; margin:0 auto; padding:32px 20px 0; }
+      .top { max-width:1040px; margin:0 auto; padding:32px 20px 0; }
       h1 { font-size:26px; margin:0 0 4px; }
       .sub { color:var(--muted); margin:0 0 20px; }
       .drop { border:2px dashed var(--border); border-radius:12px; background:var(--card);
@@ -32,8 +36,6 @@
       .drop label:hover { filter:brightness(1.1); }
       .drop input[type=file] { position:absolute; width:1px; height:1px; opacity:0; }
       .privacy { margin:14px 0 0; font-size:13px; color:var(--muted); }
-      .status { margin:18px 0 0; font-size:14px; min-height:1.5em; }
-      .status.err { color:var(--bad); font-weight:600; }
       .files { margin:14px 0 0; padding:0; list-style:none; font-size:13px; color:var(--muted); }
       .files li::before { content:'· '; }
       .again { margin:20px 0 0; }
@@ -41,7 +43,11 @@
         border-radius:8px; padding:8px 14px; font-size:13px; cursor:pointer; }
       .again button:hover { border-color:var(--accent); color:var(--accent); }
       .hidden { display:none; }
+      .cargando { margin:18px 0 0; font-size:14px; color:var(--muted); min-height:1.5em; }
 
+      /* El bloque de acciones queda FUERA de las pestañas del informe y arriba de
+         ellas: el botón de subir tiene que estar siempre a la vista, sin importar
+         qué pestaña esté abierta. */
       .acciones { margin:26px 0 0; border:1px solid var(--border); border-radius:12px;
         background:var(--card); padding:20px 22px; }
       .acciones h2 { font-size:19px; margin:0 0 4px; }
@@ -54,13 +60,16 @@
       .acciones .cta .secondary { background:transparent; color:var(--fg); border-color:var(--border); }
       .acciones .cta .secondary:hover { border-color:var(--accent); color:var(--accent); }
       .acciones .nota { margin:12px 0 0; font-size:13px; color:var(--muted); }
-      .acciones details { margin:16px 0 0; border-top:1px solid var(--border); padding-top:14px; }
-      .acciones details summary { font-size:14px; font-weight:600; color:var(--accent); }
-      .acciones ol, .acciones ul { margin:12px 0 0; padding-left:20px; font-size:14px; }
-      .acciones li { margin:0 0 8px; }
-      .acciones li b { display:block; }
-      .acciones li span { color:var(--muted); }
       .acciones code { background:var(--bg); border:1px solid var(--border); border-radius:4px; padding:1px 5px; }
+
+      /* Aviso de caída brusca: la guardia del build, movida a antes de subir. */
+      .caida { background:color-mix(in srgb,#c62828 9%,transparent); border:1px solid #c62828;
+        border-radius:10px; padding:14px 18px; margin:0 0 16px; font-size:14px; }
+      .caida strong { display:block; margin-bottom:6px; }
+      .caida ul { margin:8px 0; padding-left:20px; }
+      .caida .que-hacer { margin:10px 0 0; color:var(--muted); font-size:13.5px; }
+
+      @media (max-width:640px) { .top { padding:20px 14px 0; } }
     </style>
   </head>
   <body>
@@ -85,7 +94,7 @@
         <a href="../">esta misma dirección, un nivel más arriba</a>.
       </p>
 
-      <p class="status" id="status"></p>
+      <p class="cargando" id="cargando"></p>
       <ul class="files" id="files"></ul>
 
       <p class="again hidden" id="again"><button type="button" id="reset">Validar otros archivos</button></p>

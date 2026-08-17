@@ -84,6 +84,12 @@ export const RULE_HELP = {
     fix: 'Usar exactamente Adquisición, Greenfield o Construcción (español, con tilde).',
     tipo: 'contenido'
   },
+  'fila/path': {
+    titulo: 'Path no concuerda con Vector',
+    causa: 'Path es el orden del punto dentro del trazado: 0 si la inversión es un Punto suelto, y 1, 2, 3… si es un Vector. Acá los dos campos dicen cosas distintas, o Path no es un número entero.',
+    fix: 'Si la inversión es un punto solo, Vector="Punto" y Path=0. Si es un trazado, Vector="Vector" y cada fila numerada desde 1 en el orden del recorrido. Requiere saber cuál de las dos cosas es.',
+    tipo: 'contenido'
+  },
   'fila/requerido-vacio': {
     titulo: 'Columna obligatoria vacía',
     causa: 'Falta un valor requerido por el esquema.',
