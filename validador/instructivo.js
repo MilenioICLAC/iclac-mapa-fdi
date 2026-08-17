@@ -45,7 +45,7 @@ export const CADA_VEZ = [
   {
     titulo: 'Arrastrar el archivo',
     cuerpo:
-      'Con el MISMO nombre que ya tiene (por ejemplo argentina.xlsx). El nombre es lo que dice de qué país es.'
+      'Con el MISMO nombre que ya tiene (por ejemplo argentina.xlsx). El nombre es lo que dice de qué país es. Que ya haya un archivo con ese nombre no es problema: se reemplaza solo, en un paso. NO hace falta borrar el anterior, y conviene no hacerlo: entre el borrado y la subida el país queda fuera del sitio.'
   },
   {
     titulo: 'Escribir en una línea qué cambió',

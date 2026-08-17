@@ -236,19 +236,20 @@ deja de servir. Por eso se movió antes de repartirla y no después. Lo que la o
 es permisos por carpeta: eso no existe en GitHub para repos públicos en ningún plan (los rulesets por
 ruta piden repo privado y plan Team). Lo que da es continuidad institucional y manejo de miembros.
 
+**La subida por web SÍ reemplaza un archivo del mismo nombre**, en un solo commit y sin borrar antes.
+Probado el 17-08 en la copia de pruebas: git registra el cambio como `M`, no como `Delete` + `Add`.
+O sea que los **81 commits «Delete» contra 14 «Add files via upload»** de la historia son costumbre
+de quien lo hacía, no un límite de GitHub. Por eso el instructivo se queda en 4 pasos y le dice
+explícitamente a quien sube que **no** borre el anterior: entre el borrado y la subida el país queda
+fuera del sitio, y ahí es donde una interrupción cualquiera lo deja fuera de verdad.
+
 ### Pendiente, en orden
 
-1. **Confirmar a mano si la web de GitHub reemplaza un archivo del mismo nombre** sin borrarlo antes.
-   El instructivo hoy asume que sí. La historia del repositorio dice lo contrario: sobre
-   `data/sources/countries/` hay **81 commits «Delete» contra 14 «Add files via upload»**, y ninguna
-   subida quedó nunca como modificación. Puede ser limitación de GitHub o costumbre de quien lo
-   hacía. De la respuesta depende que el instructivo sean 4 pasos o 6. Es una prueba de 30 segundos
-   **en la copia de pruebas, no en el repositorio del cliente**.
-2. **Invitar a Flo y Fran con cuentas propias.** Hasta ahora todos los commits del cliente salieron
+1. **Invitar a Flo y Fran con cuentas propias.** Hasta ahora todos los commits del cliente salieron
    de una cuenta compartida (`comunicaciones.iclac@gmail.com`, 104 commits), así que no se puede
    saber quién hizo qué. Rol acordado: Write, y el instructivo acota por convención — el candado
    técnico no existe y la red es la guardia del build.
-3. **Llevar la rama a `origin`.** Recién cuando 1 y 2 estén resueltos.
+2. **Llevar la rama a `origin`.** Recién cuando 1 esté resuelto.
 
 ### Decisiones ya tomadas, para no rediscutirlas
 
