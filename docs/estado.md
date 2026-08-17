@@ -116,11 +116,36 @@ ICLAC:
    sueltos dentro del texto de las notas. Si se conservan, alimentan el filtro, las fuentes citadas de
    la ficha y una hoja de las descargas; si no, hay que decidir qué pasa con los ya cargados.
 
-**Comprometido de nuestro lado en el correo del 10-08:** los proyectos cancelados se publicarán en el
-anexo de evidencia limitada en vez de agregar una dimensión de estado al esquema. Eso exige leer la
-columna `cancelled` en el ETL, que hoy la ignora y arma el anexo sólo por puntaje, y **reescribir la
-descripción del anexo en los tres idiomas**, porque hoy afirma que son inversiones sin evidencia
-suficiente y varias de las canceladas están bien documentadas: sólo no se concretaron.
+**Hecho el 17-08 (comprometido en el correo del 10-08):** el ETL lee `cancelled` y enruta esas
+inversiones al anexo, en vez de agregarle una dimensión de estado al esquema. El corte es **por
+inversión**, no por fila. Sobre la base publicada hoy es un no-op: esos archivos todavía no traen la
+columna.
+
+**Pero la columna no significa lo que su nombre dice, y eso hay que hablarlo con ICLAC.** De las 103
+inversiones con `cancelled=1` en la entrega del 15-08, sólo unas 31 son proyectos que no se
+concretaron. El resto son otras decisiones metidas bajo la misma marca:
+
+| `cancelled_motivo` | Inversiones |
+|---|---|
+| evidencia insuficiente (score <3) | **67** |
+| cancelado | 26 |
+| duplicado de CHL-0041 / PER-0069 / PER-0053 / PER-0037 | **4** |
+| anuncio no ejecutado · MoU sin ejecución · en estudio · fuera de alcance | 6 |
+
+Tres cosas que salen de ahí:
+
+- **Los 67 «evidencia insuficiente» duplican a mano nuestra compuerta de puntaje.** Verificado: sobre
+  esa entrega, la compuerta no encontró **ninguna** inversión que no estuviera ya marcada.
+- **Los 4 duplicados no son caso de anexo, son un error a corregir en origen.** Publicarlos los
+  conserva en vez de fusionarlos, y el motivo ya dice con cuál se duplica. Van al correo a Fran.
+- **Por eso el texto del anexo no afirma que sean cancelaciones.** Describe lo que el anexo es (lo que
+  queda fuera del principal) y deja el porqué en `cancelled_motivo`, que ahora viaja en las dos
+  descargas. La redacción que estaba comprometida habría salido falsa para 72 de 103.
+
+El título visible pasó a «Anexo: registros fuera del dataset» en los tres idiomas. **El nombre del
+archivo no cambió** (`iclac_anexo_evidencia_limitada.xlsx`): es un enlace publicado y renombrarlo lo
+rompe. El texto chino se escribió sin la revisión externa que pide la convención, por decisión de
+Felipe el 17-08.
 
 ### 1.3 México
 

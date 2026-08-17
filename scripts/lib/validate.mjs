@@ -513,7 +513,7 @@ export const validateRows = (rows, opts = {}) => {
     const cancelledRaw = cleanStr(row.cancelled)
     if (cancelledRaw !== null && !CANCELLED_VALUES.includes(cancelledRaw)) {
       push('warning', 'fila/cancelled', excelRow, 'cancelled', cancelledRaw,
-        `cancelled "${cancelledRaw}" no está en el enum (0 = vigente, 1 = cancelada). Es la columna que decide si la inversión va al mapa o al descargable de canceladas.`)
+        `cancelled "${cancelledRaw}" no está en el enum (0 = vigente, 1 = cancelada).`)
     }
 
     // -- Province_ISO: el prefijo es el alpha-2 del país de la fila --

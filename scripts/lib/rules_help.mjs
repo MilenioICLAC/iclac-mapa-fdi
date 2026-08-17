@@ -141,7 +141,7 @@ export const RULE_HELP = {
   'fila/cancelled': {
     titulo: 'cancelled fuera del enum',
     causa: 'La celda trae algo distinto de 0 o 1.',
-    fix: 'Usar 0 para vigente y 1 para cancelada. Es la columna que decide si la inversión va al mapa o al descargable de canceladas.',
+    fix: 'Usar 0 para vigente y 1 para cancelada. Es la columna que saca la inversión del mapa y la manda al anexo, así que un valor fuera del enum se lee como vigente y la deja publicada.',
     tipo: 'formato'
   },
   'fila/cancelled-inconsistente': {

@@ -133,6 +133,10 @@ const stats = {
   // porque "sin revisar" no es lo mismo que "revisado y sin evidencia".
   rowsBelowMinScore: 0,
   rowsNoScore: 0,
+  // Canceladas: van al mismo anexo, por otra razón. Se cuentan aparte porque el
+  // anexo mezcla dos grupos y confundirlos es lo que hace falso su encabezado.
+  rowsCancelled: 0,
+  cancelledInvestments: 0,
   annexInvestments: 0,
   // Compuerta de contenido: inversiones que quedan fuera por errores de esquema
   // en alguna de sus filas. Se cuentan aparte para que la exclusión sea visible
@@ -333,6 +337,10 @@ const cleanRow = row => {
     // investments.json, que lo carga cada visitante.
     reliability_score: parseNumber(row.reliability_score),
     reliability_notes: cleanStr(row.reliability_notes),
+    // `cancelled` (esquema v1.5): 1 = el proyecto no se concretó. Enum cerrado,
+    // así que cualquier otra cosa se lee como vigente y el validador la avisa.
+    cancelled: String(row.cancelled ?? '').trim() === '1',
+    cancelled_motivo: cleanStr(row.cancelled_motivo),
     sources,
     province_iso: cleanStr(row.Province_ISO),
     has_news: RESEARCH_YES.has(String(row.News ?? '').trim())
@@ -447,12 +455,28 @@ for (const r of rawRows) {
 // La contesta la metodología (rúbrica 0-5), no el validador ni el cliente.
 // Fila sin puntaje = todavía no revisada: pasa, y se cuenta aparte.
 const passesScore = r => r.reliability_score === null || r.reliability_score >= minScore
+
+// --- Y las canceladas van al mismo anexo, comprometido con ICLAC el 10-08.
+// La alternativa era agregarle al esquema una dimensión de estado, que obliga a
+// decidir qué hace cada cifra del sitio con un proyecto que no existe. Publicarlas
+// aparte contesta lo mismo sin tocar el modelo: no están en el mapa ni en los
+// totales, y siguen siendo rastreables.
+//
+// El corte es por INVERSIÓN y no por fila, aunque `cancelled` sea atributo de la
+// inversión y deba repetirse en todas: si una entrega lo trae a medias (el
+// validador lo avisa, no lo bloquea) partir por fila mandaría la mitad del trazado
+// a cada archivo, y eso es una pérdida que no se ve.
+const cancelledIds = new Set(cleaned.filter(r => r.cancelled).map(r => r.id))
+const goesToAnnex = r => !passesScore(r) || cancelledIds.has(r.id)
+
 const cleanedMain = []
 const cleanedAnnex = []
 for (const r of cleaned) {
   if (r.reliability_score === null) stats.rowsNoScore++
-  if (passesScore(r)) cleanedMain.push(r)
-  else { cleanedAnnex.push(r); stats.rowsBelowMinScore++ }
+  if (!passesScore(r)) stats.rowsBelowMinScore++
+  if (cancelledIds.has(r.id)) stats.rowsCancelled++
+  if (goesToAnnex(r)) cleanedAnnex.push(r)
+  else cleanedMain.push(r)
 }
 
 // Agrupa filas → registros de geometría. Una fila `Punto` es un registro; las filas
@@ -492,6 +516,8 @@ const buildOutput = (rows, { countStats = true } = {}) => {
     vector_raw: r.vector_raw,
     reliability_score: r.reliability_score,
     reliability_notes: r.reliability_notes,
+    cancelled: r.cancelled,
+    cancelled_motivo: r.cancelled_motivo,
     sources: r.sources,
     province_iso: r.province_iso,
     has_news: r.has_news,
@@ -546,6 +572,7 @@ const buildOutput = (rows, { countStats = true } = {}) => {
 const output = buildOutput(cleanedMain)
 const annexOutput = buildOutput(cleanedAnnex, { countStats: false })
 stats.annexInvestments = new Set(annexOutput.map(r => r.id)).size
+stats.cancelledInvestments = new Set(annexOutput.filter(r => r.cancelled).map(r => r.id)).size
 
 // Estudios de caso por inversión, deduplicados. Se juntan los de TODOS los grupos de
 // geometría del mismo id: una inversión con dos tramos puede traer citas distintas en
@@ -569,8 +596,13 @@ const casesById = records => {
 const researchById = casesById(output)
 // Las columnas de procedencia (puntaje, fuentes, notas) son de las descargas: en el
 // JSON del sitio serían peso muerto para cada visitante, porque no se renderizan.
+// `cancelled` y su motivo también salen: en el JSON del sitio serían siempre
+// falso y vacío, porque las canceladas no llegan hasta acá.
 const leanOutput = output.map(
-  ({ research_cases, reliability_score, reliability_notes, sources, province_iso, has_news, ...rest }) => rest
+  ({
+    research_cases, reliability_score, reliability_notes, sources, province_iso, has_news,
+    cancelled, cancelled_motivo, ...rest
+  }) => rest
 )
 const researchPath = resolve(dirname(outputPath), 'research.json')
 
@@ -631,6 +663,11 @@ const buildWorkbook = (records, { readmeExtras = [] } = {}) => {
         stake: r.stake,
         has_research: r.has_research,
         has_news: r.has_news,
+        // En la base principal `cancelled` es siempre 0. Va igual, para que las
+        // dos descargas tengan las mismas columnas y se puedan concatenar, y para
+        // que en el anexo se distinga de un vistazo por qué está cada fila ahí.
+        cancelled: r.cancelled ? 1 : 0,
+        cancelled_motivo: r.cancelled_motivo,
         reliability_score: r.reliability_score,
         source1: r.sources[0] ?? null,
         source2: r.sources[1] ?? null,
@@ -704,27 +741,38 @@ const main = buildWorkbook(output, {
   readmeExtras: [
     {
       field: 'scope',
-      value: `Investments with reliability_score >= ${minScore}, or not yet scored. Those below the threshold are published separately in the limited-evidence annex.`
+      value: `Active investments with reliability_score >= ${minScore}, or not yet scored. Two groups are published separately in the annex: those below the threshold, and those recorded as cancelled (cancelled = 1).`
     }
   ]
 })
 XLSX.writeFile(main.wb, xlsxPath)
 console.log(`XLSX público: ${xlsxPath} (${main.investments} inversiones · ${main.sites} sitios · ${main.cases} estudios)`)
 
-// --- Anexo de evidencia limitada. Mismas hojas y mismas columnas que la base principal,
-// para que se puedan concatenar. Se emite siempre, aunque quede vacío: un archivo que
-// desaparece del sitio cuando no hay filas rompe el enlace publicado.
+// --- Anexo. Mismas hojas y mismas columnas que la base principal, para que se puedan
+// concatenar. Se emite siempre, aunque quede vacío: un archivo que desaparece del sitio
+// cuando no hay filas rompe el enlace publicado.
+//
+// OJO CON EL ENCABEZADO. En la entrega del 15-08 la columna `cancelled` no marca
+// sólo proyectos cancelados: de las 103 inversiones con `cancelled=1`, 67 traen
+// `cancelled_motivo = "evidencia insuficiente (score <3)"`, 4 dicen «duplicado de
+// X» y una «fuera de alcance». O sea que ICLAC la está usando como «no va al
+// dataset principal», no como «no se concretó».
+//
+// Por eso el texto describe el anexo por lo que ES (lo que queda fuera del
+// principal) y deja el porqué en `cancelled_motivo`, que viaja fila por fila.
+// Afirmar que son proyectos que no se concretaron sería falso para 72 de 103.
 const annexPath = resolve(dirname(outputPath), 'iclac_anexo_evidencia_limitada.xlsx')
 const annex = buildWorkbook(annexOutput, {
   readmeExtras: [
     {
       field: 'scope',
-      value: `Investments recorded in the ICLAC base whose documentary evidence falls below the repository threshold (reliability_score < ${minScore}): no independent source confirms the amount or the type of transaction. Published for traceability. NOT included in the main dataset, the map, or the aggregate figures.`
+      value: `Investments recorded in the ICLAC base that are NOT included in the main dataset, the map, or the aggregate figures. Published for traceability. An investment is here for one of two reasons: its documentary evidence falls below the repository threshold (reliability_score < ${minScore}), or the base marks it as excluded from the main dataset (cancelled = 1). The "cancelled_motivo" column gives the reason recorded for each one — cancelled projects, announcements never executed, duplicates and out-of-scope entries are all flagged this way, so the reason is not uniform across the file.`
     }
   ]
 })
 XLSX.writeFile(annex.wb, annexPath)
 console.log(`XLSX anexo: ${annexPath} (${annex.investments} inversiones · ${annex.sites} sitios · ${annex.cases} estudios)`)
+console.log(`  del anexo, ${stats.cancelledInvestments} son canceladas y ${stats.annexInvestments - stats.cancelledInvestments} por evidencia bajo el umbral`)
 
 // --- investors_map.json: emit the map already loaded above (source of truth for
 // both the Sankey and the ownership derived into investments.json). Keyed by

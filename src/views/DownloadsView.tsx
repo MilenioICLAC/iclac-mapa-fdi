@@ -75,7 +75,7 @@ export default function DownloadsView() {
       <section className="mt-10 rounded-md border border-gray-200 bg-gray-50 p-5">
         <h2 className="mb-2 text-lg font-semibold text-[#093b4d]">{t('downloads.annex_title')}</h2>
         <div
-          className="mb-4 text-justify text-sm leading-relaxed text-gray-700 [&_p]:mb-3"
+          className="mb-4 text-justify text-sm leading-relaxed text-gray-700 [&_code]:rounded [&_code]:bg-gray-200 [&_code]:px-1 [&_code]:text-xs [&_p]:mb-3"
           dangerouslySetInnerHTML={{ __html: t('downloads.annex_description') }}
         />
         <a
