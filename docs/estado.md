@@ -235,9 +235,16 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
 
 ## 2.4 El validador y la carga por el cliente — EN CURSO
 
-Trabajo abierto al 17-08, en la rama **`compuerta-por-inversion`**. **Nada de esto está en el
-repositorio del cliente todavía**: vive en la copia de pruebas `fsotoj/iclac-mapa-fdi`, cuyo `main`
-apunta a esa rama. `origin` sigue intacto en `ac6413b`.
+Trabajo abierto al 17-08, en la rama **`compuerta-por-inversion`**. **Publicado en el repositorio del
+cliente el 17-08** (`ac6413b..d2faeae`, fast-forward sobre `MilenioICLAC/iclac-mapa-fdi`). La copia de
+pruebas `fsotoj/iclac-mapa-fdi` sigue existiendo y su `main` apunta a la misma rama.
+
+Antes de ese push se comprobó que **no cambia ni un dato del mapa**: el `investments.json` que genera
+el ETL con las cuatro compuertas salió **byte a byte idéntico** al que servía producción (6.832 grupos,
+386 inversiones, 0 diferencias campo por campo, 4.280.536 bytes los dos). Lo único que ve un visitante
+son el título y el texto del anexo en la pestaña Datos. Vale como receta: antes de publicar un cambio
+del ETL, comparar contra `https://app.iclac.cl/data/investments.json`, que es la única prueba de que
+la compuerta nueva no se llevó nada puesto.
 
 El objetivo, en una línea: **que ICLAC cargue sus propios datos sin romper el sitio.** El criterio de
 éxito es que suban datos no corruptos por sí solos.
@@ -349,7 +356,17 @@ cualquiera sea la respuesta, y no fusionar.
    de una cuenta compartida (`comunicaciones.iclac@gmail.com`, 104 commits), así que no se puede
    saber quién hizo qué. Rol acordado: Write, y el instructivo acota por convención — el candado
    técnico no existe y la red es la guardia del build.
-2. **Llevar la rama a `origin`.** Recién cuando 1 esté resuelto.
+2. **Pasar la interfaz del validador a tuteo chileno.** Quedaron ocho formas de voseo en texto que lee
+   el cliente (`querés`, `subís`, `tenés`, `entrás`, `acabás`, `renombrás`, `podés` ×2, más los
+   imperativos `Revisá` y `Abrí`), repartidas en `validador/index.html`, `validador/instructivo.js`,
+   `validador/main.js` y `scripts/lib/report_render.mjs`. Es la misma familia de la frase que se sacó
+   del panel de acciones. Va en un commit propio porque es copy, no lógica, y cada push a `main` es un
+   despliegue a producción.
+
+El orden de esta lista cambió a propósito: la rama se llevó a `origin` **antes** de resolver 1, porque
+publicar el validador no depende de que Flo y Fran tengan cuenta. La consecuencia es que la herramienta
+está viva antes que sus usuarios: si suben algo en estos días, va a salir de la cuenta compartida igual
+que los 104 commits anteriores.
 
 ### Decisiones ya tomadas, para no rediscutirlas
 
