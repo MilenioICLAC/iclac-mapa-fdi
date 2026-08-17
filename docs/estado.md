@@ -7,34 +7,39 @@ leerse.
 Las reglas de código que no caducan están en `.claude/CLAUDE.md`. El contrato de datos, en
 `data/schema/schema.md`.
 
-**Última actualización:** 2026-08-03.
+**Última actualización:** 2026-08-17.
+
+> **Hay trabajo en curso fuera de `main`:** el validador y la carga por el cliente viven en la rama
+> `compuerta-por-inversion` y en la copia de pruebas `fsotoj/iclac-mapa-fdi`. Ver §2.4 antes de
+> tocar el validador, el ETL o el workflow.
 
 El sitio está publicado en **https://app.iclac.cl**. Cómo quedó montado, en `docs/traspaso.md`.
 
 ---
 
-## 0. Lo que cambia en el sitio en el próximo deploy
+## 0. Cómo se citan las cifras del repositorio
 
-**Un consorcio dejó de tener propiedad propia.** Es un acuerdo entre empresas y no una empresa, así
-que su fila lleva `ownership` vacío y el sitio la resuelve desde sus miembros al filtrar. Una
-inversión de consorcio aparece si **cualquiera** de sus miembros es del tipo pedido.
+**Toda cifra va sobre el universo SIN construcción**, que es lo que el sitio muestra por defecto, con
+la cifra con construcción entre paréntesis. La metodología no cuenta construcción como IED, así que
+dar el número con construcción a secas describe un universo que el lector nunca ve.
 
-| Filtro | Antes | Ahora |
+Los documentos anteriores a esta regla, incluido el informe de propiedad del 03-08, usan el número con
+construcción **sin declararlo**. Cualquier cifra que se reutilice de ahí hay que convertirla primero.
+
+Verificado el 11-08 contra `public/data/` (datos del 10-08):
+
+| | Sin construcción (lo que se ve) | Con construcción |
 |---|---|---|
-| Estatal central | 205 · US$153.717 MM | **220 · US$176.250 MM** |
-| Privada | 106 · US$24.805 MM | 109 · US$26.411 MM |
-| Estatal local | 35 · US$11.572 MM | 42 · US$22.297 MM |
-| Capital mixto | 40 · US$29.504 MM | **21 · US$4.096 MM** |
+| Total publicado | **272** | 386 |
+| Estatal central | **132 · US$122.793 MM** | 221 · US$176.328 MM |
+| Privada | **100 · US$21.725 MM** | 109 · US$26.411 MM |
+| Estatal local | **27 · US$12.866 MM** | 40 · US$20.269 MM |
+| Capital mixto | **17 · US$2.683 MM** | 21 · US$4.096 MM |
 
-`MIXED` queda en las 21 inversiones de las 12 empresas de capital genuinamente mixto, que es lo que la
-etiqueta siempre quiso decir. Se le sacó el «/ Joint venture» del rótulo, porque ningún vehículo JV
-cae ahí.
-
-**Consecuencia que hay que decirle a ICLAC:** los cuatro filtros **ya no suman el total** (392 contra
-386), porque 6 inversiones tienen miembros de dos tipos y aparecen en los dos. No es un defecto, es el
-dato. No rompe nada visible, porque ningún lugar de la interfaz desglosa montos por propiedad.
-
-**Falta el aval de ICLAC** y es reversible en un commit.
+Los cuatro filtros de propiedad **no suman el total**: 276 contra 272 sin construcción, 391 contra 386
+con ella. Son las inversiones de consorcios con miembros de dos tipos, que aparecen en los dos filtros.
+Hoy son BRA-0067, ECU-0023, PAN-0028 y PER-0042, más COL-0026 sólo con construcción activada. No es un
+defecto, es el dato, y **ICLAC ya lo aceptó por correo**.
 
 ---
 
@@ -83,6 +88,40 @@ Antes de publicarlos conviene resolver dos cosas de contenido:
 - Cuatro filas de Honduras anotan a Sinohydro como contratista EPC con la propiedad del activo en
   manos de una empresa hondureña. Si es solo la obra, es construcción y no inversión china.
 
+### 1.2.b La entrega de países nuevos, sin cargar (estado al 10-08)
+
+ICLAC entregó una base de 93 inversiones en 20 países, ocho de ellos nuevos (Costa Rica, Honduras,
+Nicaragua, Trinidad y Tobago, El Salvador, Jamaica, Cuba y República Dominicana). **No está cargada al
+pipeline.** Pasó por tres versiones y sólo la primera trae la geometría completa; el corte por país la
+aplanó y la auditoría posterior se hizo encima de esa versión ya aplanada.
+
+El archivo auditado **pasa el validador**: 18 de 20 archivos con 100% de filas válidas, y los dos que
+fallan lo hacen por el nombre, no por los datos. Lo que falta antes de ingerirla, todo del lado de
+ICLAC:
+
+1. **Reponer la geometría.** 29 inversiones llegaron aplanadas a un punto y se pierden 416 filas de
+   vértices que sí existen en la versión georreferenciada. Trazados y sitios múltiples se dibujan como
+   un pin, y **el ETL no avisa**: un grupo `Vector` de una sola fila se emite como punto en silencio.
+   La regla para el próximo corte es una fila por vértice, y que varios sitios no es un trazado
+   (esos van con `Path = 0`, o el mapa dibuja una raya entre lugares que no están conectados).
+2. **Renumerar los identificadores.** Parten de `0001` en cada país y 27 pisan inversiones ya
+   publicadas. Falta además llenar `Id_Investment_Original`, sin la cual no hay trazabilidad hacia la
+   entrega anterior.
+3. **Clasificar `Research` y `News`.** Vienen constantes en las 93 filas, así que el filtro de
+   estudios queda vacío para toda la entrega. **La misma revisión hace falta sobre lo ya publicado**,
+   donde tampoco son confiables: hay inversiones marcadas como noticia cuya única cita cargada es un
+   trabajo académico, y otras cuyo estudio quedó sólo en las columnas de respaldo del puntaje, sin
+   pasar nunca a `CasoN`/`LinkN`.
+4. **Decidir si se conservan los estudios de caso.** `CasoN` y `LinkN` vienen vacías y quedan enlaces
+   sueltos dentro del texto de las notas. Si se conservan, alimentan el filtro, las fuentes citadas de
+   la ficha y una hoja de las descargas; si no, hay que decidir qué pasa con los ya cargados.
+
+**Comprometido de nuestro lado en el correo del 10-08:** los proyectos cancelados se publicarán en el
+anexo de evidencia limitada en vez de agregar una dimensión de estado al esquema. Eso exige leer la
+columna `cancelled` en el ETL, que hoy la ignora y arma el anexo sólo por puntaje, y **reescribir la
+descripción del anexo en los tres idiomas**, porque hoy afirma que son inversiones sin evidencia
+suficiente y varias de las canceladas están bien documentadas: sólo no se concretaron.
+
 ### 1.3 México
 
 Está deliberadamente fuera del registro de países, por una decisión metodológica de julio de 2026.
@@ -121,13 +160,8 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
 
 ### 2.1 Despliegue y CI
 
-- **`validate-data` todavía no corre en `main`.** Su última ejecución fue el 28-07 en la rama vieja
-  `iclac-mapa-fdi`, así que el informe de Pages sigue saliendo de ahí y el job `registro` (el que
-  valida `countries.csv`) **nunca se ha ejecutado**. GitHub no aplica el filtro `paths:` cuando un
-  push *crea* una rama, que es lo que pasó al traspasar. Se destraba una sola vez: Actions →
-  validate-data → Run workflow → `main`. Después vuelve a dispararse solo con cada subida de datos.
-- **Borrar la rama `iclac-mapa-fdi`** una vez que el informe de Pages se republique desde `main`.
-  Quedó como resto del traspaso y `main` ya la contiene entera.
+- **Borrar la rama `iclac-mapa-fdi`** del repositorio del cliente. Quedó como resto del traspaso y
+  `main` ya la contiene entera. (Verificado el 17-08: sigue ahí, en `042c9fe`.)
 
 ### 2.2 Interfaz
 
@@ -171,6 +205,99 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
   quedó mentiroso. Renombrarlo toca el ETL, `build_borders` y el `fetch` del mapa, así que conviene
   hacerlo de una vez y no a medias.
 - Borrar `data/schema/investors_map.csv.bak` cuando ya no haga falta.
+
+---
+
+## 2.4 El validador y la carga por el cliente — EN CURSO
+
+Trabajo abierto al 17-08, en la rama **`compuerta-por-inversion`**. **Nada de esto está en el
+repositorio del cliente todavía**: vive en la copia de pruebas `fsotoj/iclac-mapa-fdi`, cuyo `main`
+apunta a esa rama. `origin` sigue intacto en `ac6413b`.
+
+El objetivo, en una línea: **que ICLAC cargue sus propios datos sin romper el sitio.** El criterio de
+éxito es que suban datos no corruptos por sí solos.
+
+### Qué ya está hecho
+
+| | Dónde |
+|---|---|
+| Compuerta de validación por **inversión** en vez de por archivo | `scripts/lib/validate.mjs` (`excludedIds`), `scripts/etl.mjs` |
+| Validador que corre **en el navegador de quien edita** | `validador/`, publicado en `/validador/` |
+| Guardia de caída brusca en el build | `scripts/lib/count_guard.mjs`, `data/schema/expected_counts.csv` |
+| Planilla de pendientes cortada por dueño | `scripts/lib/pendientes.mjs`, botón en la página + `npm run pendientes` |
+| Instructivo de subida, contextual al resultado | `validador/instructivo.js` |
+
+Las reglas que no caducan de todo esto están en `.claude/CLAUDE.md`. Lo de acá es sólo lo que falta.
+
+### Pendiente, en orden
+
+1. **Transferir el repositorio a la organización `MilenioICLAC`.** Existe desde el 17-04 y está
+   vacía; el repositorio quedó en la cuenta **personal** `nucleomilenioiclac`, que hoy controla
+   Felipe. O sea que el traspaso del 29-07 está a medias: el activo del cliente vive en una cuenta
+   personal que operamos nosotros. La cuenta personal es *owner* de la organización, así que la
+   transferencia no necesita permiso de nadie.
+   **Va antes de repartir la URL**: al transferir, GitHub redirige los enlaces de git y web pero
+   **no redirige Pages**, así que la dirección del informe cambiaría de
+   `nucleomilenioiclac.github.io/…` a `milenioiclac.github.io/…`. Netlify y app.iclac.cl no corren
+   riesgo (webhooks y deploy keys sobreviven).
+   Ojo con no vender de más: la organización **no** da permisos por carpeta. Eso no existe en GitHub
+   para repos públicos en ningún plan (los rulesets por ruta piden repo privado y plan Team). Lo que
+   da es continuidad institucional y manejo de miembros.
+2. **Cambiar la constante `REPO`** en `validador/instructivo.js` después de transferir. Hoy apunta a
+   `nucleomilenioiclac` a propósito, para que el botón de subida no esté roto. Es una línea y no hay
+   otra.
+3. **Confirmar a mano si la web de GitHub reemplaza un archivo del mismo nombre** sin borrarlo antes.
+   El instructivo hoy asume que sí. La historia del repositorio dice lo contrario: sobre
+   `data/sources/countries/` hay **81 commits «Delete» contra 14 «Add files via upload»**, y ninguna
+   subida quedó nunca como modificación. Puede ser limitación de GitHub o costumbre de quien lo
+   hacía. De la respuesta depende que el instructivo sean 4 pasos o 6. Es una prueba de 30 segundos
+   **en la copia de pruebas, no en el repositorio del cliente**.
+4. **Invitar a Flo y Fran con cuentas propias.** Hasta ahora todos los commits del cliente salieron
+   de una cuenta compartida (`comunicaciones.iclac@gmail.com`, 104 commits), así que no se puede
+   saber quién hizo qué. Rol acordado: Write, y el instructivo acota por convención — el candado
+   técnico no existe y la red es la guardia del build.
+5. **Llevar la rama a `origin`.** Recién cuando 1 a 4 estén resueltos.
+
+### Decisiones ya tomadas, para no rediscutirlas
+
+- **La planilla de pendientes no parte el archivo del país en dos.** Sería forkear la fuente —un
+  dato, un lugar— y además ya no hace falta: con la compuerta por inversión, lo bueno del archivo se
+  publica solo. Es un **encargo de trabajo**, y la hoja `LÉEME` lo dice para que nadie la suba de
+  vuelta creyendo que es la base corregida.
+- **La página no commitea al repositorio.** Necesitaría un token: o se lo pedimos a quien la usa
+  (mala práctica), o montamos un backend con el nuestro, y ahí pasamos de publicar una página a
+  operar un servicio con permiso de escritura sobre el repositorio del cliente. El enlace a la
+  pantalla de subida de GitHub da casi todo el valor con cero infraestructura.
+- **La página no edita datos.** Sería un CMS sobre XLSX compitiendo con Excel, que es donde el dato
+  se produce.
+- **El cliente sube directo a `main`, no por pull request.** El PR protege producción pero devuelve
+  una persona al lazo, y sacarla es justamente el objetivo. El riesgo lo cubre la guardia.
+
+### Trampas ya pagadas en la cañería, para no repetirlas
+
+Las dos fallaban **en silencio**, que es lo caro:
+
+- **El filtro `paths:` del workflow dejó el sitio publicado desactualizado dos veces.** `validador/**`
+  nunca estuvo en la lista, así que la página podía cambiar entera sin que nada se reconstruyera, y
+  no había ningún rojo: simplemente no había corrida. Se sacó el filtro entero. Si alguien lo quiere
+  reponer: el sitio depende de datos, esquema, scripts, la página, la config de vite, `package.json`
+  y del propio workflow, o sea de casi todo, y mantener esa lista al día es lo que falló.
+- **La concurrencia estaba agrupada en `pages` a secas**, así que un push a cualquier rama entraba al
+  mismo grupo que `main` y lo cancelaba. Encima el job de construcción declaraba
+  `environment: github-pages`, que sólo acepta la rama por defecto, así que toda corrida de rama
+  quedaba roja por una razón ajena a los datos. Hoy el grupo lleva la referencia y publicar es un job
+  aparte, condicionado a la rama por defecto.
+
+### Cómo se verifica
+
+Lo de siempre (`npm test`, `npm run lint`, `npx tsc --noEmit`) más tres cosas propias:
+
+- **Que el ETL sobre la base actual no cambie**: 386 inversiones, 6832 registros, cero registros
+  distintos. Es la red contra cualquier refactor.
+- **Que la página y el CLI no hayan divergido.** El informe y la planilla que produce el navegador
+  tienen que salir **idénticos** a los que produce el CLI para los mismos archivos. Receta headless
+  en `.claude/skills/verify`; se maneja con `playwright-core` y el Edge del sistema.
+- **Los tres anchos** (1536, 800, 360), sin scroll horizontal y sin errores de consola.
 
 ---
 

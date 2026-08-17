@@ -441,6 +441,17 @@ Los que forman parte de la operación:
   informe del CLI y el de la página salen **idénticos** para los mismos archivos (receta headless en
   `.claude/skills/verify`); `scripts/registry_parse.test.mjs` fija en CI la parte que sí se puede
   probar sin navegador: que las dos rutas armen los mismos `opts`.
+  Después del informe la página muestra una **región de acciones** que cambia según el resultado: si
+  hay archivos ilegibles no ofrece el botón de subir (sería mandar a romper el sitio), y si hay
+  inversiones que no publican dice que se puede subir igual. El texto del instructivo vive aparte, en
+  `validador/instructivo.js`, porque lo relee y corrige alguien que no está tocando código; la
+  constante `REPO` de ese archivo es el **único** lugar donde está escrito el dueño del repositorio.
+- `npm run pendientes` (`scripts/build_pendientes.mjs`) — la planilla de pendientes, **cortada por
+  dueño del arreglo** y no por país, reusando el `tipo` de `scripts/lib/rules_help.mjs`. Es la versión
+  CLI de lo que la página ofrece como descarga, con el mismo constructor
+  (`scripts/lib/pendientes.mjs`). Es un **encargo de trabajo, no un archivo para volver a subir**:
+  partir el xlsx del país en «validado» y «pendiente» forkearía la fuente, y con la compuerta por
+  inversión lo bueno del archivo ya se publica solo.
 - `node scripts/build_investors_map.mjs` — regenera `public/data/investors_map.json` desde el CSV. El
   ETL hace lo mismo en cada build; este sirve para regenerar sin correr el ETL entero.
   **Los dos llaman al mismo núcleo, `scripts/lib/investors_map.mjs`**, y ahí tiene que quedarse
