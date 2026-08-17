@@ -134,17 +134,34 @@ en el informe como «curación aplicada». Se corrigen a la vista, no a escondid
 
 ### La forma del informe: una lista de hallazgos, no un acordeón por país
 
-El informe y el validador muestran **una lista plana de hallazgos**, con bloqueantes arriba, y agrupar
-por regla, inversión o país es un **control**, no la estructura. El acordeón por país que había antes
-venía de la CI, donde lo normal son diecisiete archivos de una; **quien valida abre uno**, y ahí el
-país es constante y sobra. Los controles que sólo tienen sentido con varios archivos aparecen sólo
-con varios archivos.
+El informe y el validador muestran **una lista de hallazgos agrupada en dos niveles: regla → inversión**.
+El acordeón por país que había antes venía de la CI, donde lo normal son diecisiete archivos de una;
+**quien valida abre uno**, y ahí el país es constante y sobra. Los controles que sólo tienen sentido
+con varios archivos aparecen sólo con varios archivos.
 
 **Hay tres unidades y conviene no mezclarlas**: la unidad de la **acción** es la fila (la celda que
 hay que tocar en Excel), la de la **consecuencia** es la inversión (lo que sale del mapa), y la del
-**trabajo en tanda** es la regla (setenta `Project_Type` vacíos son un solo gesto). Por eso el
-«cómo se corrige» va una vez por grupo y no repetido en los setenta renglones: repetirlo es
-exactamente el muro de texto que hace que un informe deje de leerse.
+**trabajo en tanda** es la regla (109 `Project_Type` vacíos son un solo gesto). Por eso el
+«cómo se corrige» va una vez por grupo y no repetido en los 109 renglones: repetirlo es exactamente
+el muro de texto que hace que un informe deje de leerse.
+
+**Por qué la regla arriba y la inversión abajo, y no al revés.** Medido sobre una entrega de 21
+países: **251 hallazgos, 13 reglas, 52 inversiones**, y una concentración enorme — los 109 «columna
+obligatoria vacía» son **4** inversiones y los 25 de inversor son **una** (`URY-0002`, un vector de
+25 puntos). O sea que la lista plana gasta 251 renglones en describir muchísimo menos. Por regla son
+13 renglones de entrada, por inversión 52. Y hay reglas 1:1 con la inversión (los 35 inversores sin
+mapear son 35 inversiones): por inversión serían 35 entradas de una línea, puro ruido; por regla es
+una. Además la acción tiene forma de regla: «rellenar `Project_Type` en costa_rica» es un gesto,
+«arreglar CRI-0003» son gestos repartidos. **Empezar plano no funciona: abruma.**
+
+El segundo nivel es una línea por inversión con los números de fila **colapsados en rangos**
+(«filas 4-73»), no una línea por fila. Y hay un tercer nivel, pero **sólo cuando aporta**: se
+despliega si los mensajes de sus filas difieren entre sí. Las 70 filas que dicen todas «falta
+`Project_Type`» no tienen nada que abrir; las de una colisión de id sí, porque cada mensaje nombra al
+otro inversor y su fila. Anidar por anidar sería peor que no anidar.
+
+**Al filtrar o buscar, los grupos se abren solos.** Buscar y después tener que abrir trece grupos
+para ver dónde cayó la coincidencia no es buscar.
 
 **El armazón es un documento con secciones numeradas e índice lateral, y NO pestañas.** Las pestañas
 estuvieron un rato y se sacaron: resuelven el muro de texto pero esconden. «Cómo se lee esto» quedó

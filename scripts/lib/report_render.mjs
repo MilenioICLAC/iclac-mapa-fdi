@@ -24,10 +24,15 @@ import { SECTOR_PAIRS } from './validate.mjs'
 import { RULE_HELP, tipoBadge } from './rules_help.mjs'
 import { buildFindings } from './findings.mjs'
 
-// Por encima de esto la lista arranca agrupada por regla, porque una lista plana
-// de miles de renglones no se navega. No se recorta nada: el JS sólo la pliega, y
-// sin JS salen todos igual.
-const AUTOGROUP_OVER = 1000
+// La lista arranca SIEMPRE agrupada por regla, y el HTML la emite plana para que
+// sin JavaScript siga siendo un documento completo. Medido sobre una entrega de 21
+// países: 251 hallazgos, 13 reglas, 52 inversiones. Plana son 251 renglones de
+// entrada; por regla son 13. Y la concentración es enorme —los 109 "columna
+// obligatoria vacía" son 4 inversiones, y los 25 de inversor son UNA— así que la
+// lista plana describe con 251 renglones muchísimo menos que eso.
+//
+// No se recorta nada nunca: agrupar pliega, no esconde, y cada grupo dice cuántos
+// casos tiene.
 
 // El mismo de la página del validador. Sin esto el navegador pide /favicon.ico y
 // deja un 404 en la consola de una página que el cliente abre todos los días.
@@ -100,6 +105,7 @@ const findingItem = (f, { multiFile }) => {
   return `
     <li class="h" data-regla="${att(f.regla)}" data-tipo="${att(f.tipo)}" data-pais="${att(f.pais)}"
         data-id="${att(f.id)}" data-fila="${f.fila}" data-bloquea="${f.bloquea ? 1 : 0}"
+        data-inversor="${att(f.inversor)}" data-publica="${f.publicaHoy === null ? '' : f.publicaHoy ? 1 : 0}"
         data-buscar="${att(buscar)}">
       <details>
         <summary>
@@ -172,10 +178,10 @@ const controles = (findings, { multiFile }) => {
       <input type="search" id="buscar" placeholder="Buscar por id, fila, columna…"></label>
     <div class="ctl-agrupar" role="group" aria-label="Agrupar hallazgos">
       <span class="ctl-lab">Agrupar:</span>
-      <button type="button" data-group="nada" class="on">Nada</button>
-      <button type="button" data-group="regla">Regla</button>
+      <button type="button" data-group="regla" class="on">Regla</button>
       <button type="button" data-group="id">Inversión</button>
       ${multiFile ? '<button type="button" data-group="pais">País</button>' : ''}
+      <button type="button" data-group="nada">Nada</button>
     </div>
     <p class="ctl-conteo" id="conteo">${n(findings.length)} hallazgo(s)</p>
   </div>`
@@ -435,9 +441,32 @@ const style = `
   .grupo .g-ayuda p { margin:0 0 6px; }
   .grupo .g-ayuda .fix { color:var(--muted); }
   .grupo ul.hallazgos { padding:8px 10px 10px; }
-  .autogroup { background:color-mix(in srgb,var(--accent) 8%,transparent); border:1px solid var(--border);
-    border-radius:8px; padding:10px 14px; margin:0 0 12px; font-size:13.5px; }
   .vacio { color:var(--muted); font-style:italic; padding:14px 0; }
+
+  /* Segundo nivel: una línea por inversión (o por regla, si el corte es por
+     inversión), con los números de fila colapsados en rangos. No es desplegable a
+     menos que haga falta: se abre sólo cuando los mensajes de sus filas difieren
+     entre sí, que es cuando hay algo distinto que leer. */
+  .sub { margin:0; padding:6px 12px 10px; }
+  .sub-f { border-top:1px solid var(--border); }
+  .sub-f:first-child { border-top:0; }
+  .sub-l { display:flex; align-items:center; gap:9px; flex-wrap:wrap; padding:7px 4px;
+    font-size:13.5px; }
+  details.sub-f > summary.sub-l { cursor:pointer; list-style:none; }
+  details.sub-f > summary.sub-l::-webkit-details-marker { display:none; }
+  details.sub-f > summary.sub-l::before { content:"▸"; color:var(--muted); font-size:11px; }
+  details.sub-f[open] > summary.sub-l::before { content:"▾"; }
+  details.sub-f > summary.sub-l:hover { background:var(--card); border-radius:7px; }
+  div.sub-f > .sub-l { padding-left:19px; }
+  .sub-id { font-weight:700; }
+  .sub-pais, .sub-inv { color:var(--muted); }
+  .sub-filas { font-variant-numeric:tabular-nums; }
+  .sub-meta { margin-left:auto; display:flex; gap:8px; align-items:center; }
+  .sub-fix { flex:1 1 100%; color:var(--muted); font-size:13px; padding:0 4px 4px 19px; margin:0; }
+  .sub-f ul.hallazgos { padding:2px 0 8px 19px; }
+  .sub-f ul.hallazgos li.h { border:0; border-left:2px solid var(--border); border-radius:0;
+    margin:0 0 2px; }
+  .sub-f ul.hallazgos li.h > details > summary { padding:5px 10px; }
 
   /* Plegables de referencia: la tira de archivos y la curación aplicada. */
   .plegable { border:1px solid var(--border); border-radius:10px; }
@@ -586,7 +615,6 @@ export const renderReport = (results, opts = {}) => {
 
   const findings = buildFindings(results)
   const multiFile = results.length > 1
-  const autoGroup = findings.length > AUTOGROUP_OVER
 
   // Conflictos conceptuales Area_EN vs Area_ES (por inversión única), sobre la base cruda.
   const sectorConflicts = []
@@ -682,15 +710,9 @@ export const renderReport = (results, opts = {}) => {
     label: 'Qué hay que revisar',
     ayudaTip: AYUDA_CATEGORIA,
     html: findings.length
-      ? `${
-          autoGroup
-            ? `<p class="autogroup">Son ${n(findings.length)} hallazgos, así que la lista arranca
-               plegada por regla. No se recortó ninguno: cada grupo se abre y muestra todos sus casos.</p>`
-            : ''
-        }
-      ${controles(findings, { multiFile })}
+      ? `${controles(findings, { multiFile })}
       <script type="application/json" id="reglas-meta">${JSON.stringify(reglasMeta(findings)).replace(/</g, '\\u003c')}</script>
-      <div id="lista"><ul class="hallazgos" data-autogroup="${autoGroup ? 1 : 0}">
+      <div id="lista"><ul class="hallazgos">
         ${findings.map((f) => findingItem(f, { multiFile })).join('')}
       </ul></div>
       <p class="vacio" id="sin-resultados" hidden>Ningún hallazgo coincide con el filtro.</p>`

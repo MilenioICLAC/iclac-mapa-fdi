@@ -24,46 +24,160 @@
 //   · Que la cáscara arme el HTML con String.replace y una CADENA de reemplazo:
 //     ahí `$$` significa `$` literal y este archivo se corrompe. Va con función.
 
-/** Rearma la lista agrupando los nodos que YA existen. Nunca clona ni recrea. */
-const agrupar = (items, modo, meta) => {
-  if (modo === 'nada') return null
+// Dos niveles, no uno. Medido sobre una entrega de 21 países: 251 hallazgos, 13
+// reglas, 52 inversiones, y una concentración enorme —los 109 "columna obligatoria
+// vacía" son 4 inversiones y los 25 de inversor son UNA— así que la lista plana
+// gasta 251 renglones en describir muchísimo menos.
+//
+// El primer nivel es la REGLA porque la acción tiene forma de regla: con Excel
+// abierto, "rellenar la columna Project_Type" es un gesto, mientras que "arreglar
+// CRI-0012" son tres gestos repartidos. Y hay reglas que son 1:1 con la inversión
+// (los 35 inversores sin mapear son 35 inversiones): agrupando por inversión
+// primero, ésas serían 35 entradas de una línea cada una, que es puro ruido.
+//
+// El segundo nivel es la INVERSIÓN, con los números de fila colapsados en rangos.
+// Y hay un tercero, pero SÓLO cuando aporta: si los mensajes de las filas de esa
+// inversión difieren entre sí. Las 27 filas que dicen todas "falta Project_Type"
+// no tienen nada que desplegar; las de una colisión de id sí, porque cada una
+// nombra al otro inversor y su fila.
+const NIVELES = {
+  regla: ['regla', 'id'],
+  id: ['id', 'regla'],
+  pais: ['pais', 'regla']
+}
 
-  const grupos = new Map()
+const clave = (li, eje) =>
+  eje === 'regla' ? li.dataset.regla : eje === 'id' ? li.dataset.id || `(${li.dataset.pais})` : li.dataset.pais
+
+const porClave = (items, eje) => {
+  const m = new Map()
   for (const li of items) {
-    const key =
-      modo === 'regla' ? li.dataset.regla : modo === 'id' ? li.dataset.id || '—' : li.dataset.pais
-    if (!grupos.has(key)) grupos.set(key, [])
-    grupos.get(key).push(li)
+    const k = clave(li, eje)
+    if (!m.has(k)) m.set(k, [])
+    m.get(k).push(li)
   }
-
   // Los que bloquean primero, después los más numerosos: el orden en que se
-  // trabaja. Un grupo de 70 celdas vacías es un solo gesto en Excel.
-  const orden = [...grupos.entries()].sort((a, b) => {
+  // trabaja. Un grupo de 109 celdas vacías es un solo gesto en Excel.
+  return [...m.entries()].sort((a, b) => {
     const bloq = (xs) => (xs.some((li) => li.dataset.bloquea === '1') ? 0 : 1)
     return bloq(a[1]) - bloq(b[1]) || b[1].length - a[1].length
   })
+}
+
+/** "filas 114-140" / "filas 12-28, 31" / "fila 269" / "archivo". */
+const rangos = (lis) => {
+  const xs = [...new Set(lis.map((li) => Number(li.dataset.fila)).filter((x) => x > 0))].sort(
+    (a, b) => a - b
+  )
+  if (!xs.length) return 'archivo'
+  const partes = []
+  let ini = xs[0]
+  let prev = xs[0]
+  for (const x of xs.slice(1)) {
+    if (x === prev + 1) {
+      prev = x
+      continue
+    }
+    partes.push(ini === prev ? `${ini}` : `${ini}-${prev}`)
+    ini = x
+    prev = x
+  }
+  partes.push(ini === prev ? `${ini}` : `${ini}-${prev}`)
+  return (xs.length === 1 ? 'fila ' : 'filas ') + partes.join(', ')
+}
+
+const mensajeDe = (li) => li.querySelector('.h-det .msg')?.textContent.trim() ?? ''
+
+// En esta vista la mayoría de las líneas tienen un solo caso, así que "1 caso(s)"
+// se ve por todos lados y queda mal escrito.
+const casos = (n) => (n === 1 ? '1 caso' : n.toLocaleString('es') + ' casos')
+
+const span = (cls, texto) => {
+  const s = document.createElement('span')
+  s.className = cls
+  s.textContent = texto
+  return s
+}
+
+/** La línea del segundo nivel. Se abre sólo si sus filas dicen cosas distintas. */
+const subLinea = (key, lis, eje, meta, { conFix, multiFile }) => {
+  const mensajes = new Set(lis.map(mensajeDe))
+  const desplegable = mensajes.size > 1
+  const caja = document.createElement(desplegable ? 'details' : 'div')
+  caja.className = 'sub-f'
+
+  const linea = document.createElement(desplegable ? 'summary' : 'div')
+  linea.className = 'sub-l'
+
+  const m = eje === 'regla' ? meta[key] : null
+  if (m) {
+    linea.appendChild(span('sub-id', m.titulo))
+  } else {
+    // Eje inversión: el país sólo si la entrega trae más de uno. Con un archivo
+    // solo, repetirlo en cada línea es ruido: es constante.
+    if (multiFile) linea.appendChild(span('sub-pais', lis[0].dataset.pais))
+    linea.appendChild(span('sub-id', key))
+    const inv = lis[0].dataset.inversor
+    if (inv) linea.appendChild(span('sub-inv', inv))
+  }
+  linea.appendChild(span('sub-filas', rangos(lis)))
+
+  const meta2 = document.createElement('span')
+  meta2.className = 'sub-meta'
+  if (m) {
+    const b = span('badge ' + m.cls, m.badge)
+    meta2.appendChild(b)
+  }
+  meta2.appendChild(span('g-n', casos(lis.length)))
+  if (lis.some((li) => li.dataset.publica === '0')) {
+    meta2.appendChild(span('estado no', 'no publica'))
+  }
+  linea.appendChild(meta2)
+  caja.appendChild(linea)
+
+  // Con el corte por inversión el arreglo no cabe en la cabecera del grupo (la
+  // cabecera es la inversión, no la regla), así que va acá, una vez por regla.
+  if (conFix && m?.fix) {
+    const p = document.createElement('p')
+    p.className = 'sub-fix'
+    p.textContent = m.fix
+    caja.appendChild(p)
+  }
+
+  if (desplegable) {
+    const ul = document.createElement('ul')
+    ul.className = 'hallazgos'
+    for (const li of lis) ul.appendChild(li)
+    caja.appendChild(ul)
+  }
+  return caja
+}
+
+/**
+ * Rearma la lista. Los nodos originales se MUEVEN, nunca se clonan: cuando el
+ * segundo nivel no se despliega quedan fuera del documento, pero el arreglo
+ * `items` los sigue teniendo y vuelven enteros al pasar a plano.
+ */
+const agrupar = (items, modo, meta, { abrirTodo, multiFile }) => {
+  if (modo === 'nada') return null
+  const [eje1, eje2] = NIVELES[modo] ?? NIVELES.regla
 
   const frag = document.createDocumentFragment()
-  for (const [key, lis] of orden) {
+  const grupos = porClave(items, eje1)
+  for (const [key, lis] of grupos) {
     const det = document.createElement('details')
     det.className = 'grupo'
-    const m = modo === 'regla' ? meta[key] : null
+    const m = eje1 === 'regla' ? meta[key] : null
 
     const sum = document.createElement('summary')
-    const tit = document.createElement('span')
-    tit.className = 'g-tit'
-    tit.textContent = m ? m.titulo : key
-    sum.appendChild(tit)
-    if (m) {
-      const b = document.createElement('span')
-      b.className = 'badge ' + m.cls
-      b.textContent = m.badge
-      sum.appendChild(b)
+    sum.appendChild(span('g-tit', m ? m.titulo : key))
+    if (m) sum.appendChild(span('badge ' + m.cls, m.badge))
+    if (eje1 === 'id') {
+      const inv = lis[0].dataset.inversor
+      if (inv) sum.appendChild(span('sub-inv', inv))
+      if (lis.some((li) => li.dataset.publica === '0')) sum.appendChild(span('estado no', 'no publica'))
     }
-    const cuenta = document.createElement('span')
-    cuenta.className = 'g-n'
-    cuenta.textContent = lis.length + ' caso(s)'
-    sum.appendChild(cuenta)
+    sum.appendChild(span('g-n', casos(lis.length)))
     det.appendChild(sum)
 
     // La causa y el arreglo van UNA vez por grupo, no repetidos en cada caso.
@@ -78,19 +192,28 @@ const agrupar = (items, modo, meta) => {
       if (m.fix) {
         const p = document.createElement('p')
         p.className = 'fix'
-        p.innerHTML = '<strong>Cómo se corrige:</strong> '
-        p.appendChild(document.createTextNode(m.fix))
+        p.appendChild(document.createElement('strong')).textContent = 'Cómo se corrige:'
+        p.appendChild(document.createTextNode(' ' + m.fix))
         ayuda.appendChild(p)
       }
       det.appendChild(ayuda)
     }
 
-    const ul = document.createElement('ul')
-    ul.className = 'hallazgos'
-    for (const li of lis) ul.appendChild(li)
-    det.appendChild(ul)
+    const cuerpo = document.createElement('div')
+    cuerpo.className = 'sub'
+    for (const [k2, lis2] of porClave(lis, eje2)) {
+      cuerpo.appendChild(subLinea(k2, lis2, eje2, meta, { conFix: eje1 !== 'regla', multiFile }))
+    }
+    det.appendChild(cuerpo)
+
+    // Con un filtro puesto se abre todo: buscar y tener que abrir trece grupos
+    // para ver dónde cayó la coincidencia no es buscar.
+    if (abrirTodo) det.open = true
     frag.appendChild(det)
   }
+  // Sin filtro se abre el primero, para que se vea la forma de la lista sin
+  // obligar a un clic que confirme que la página funciona.
+  if (!abrirTodo) frag.firstChild?.setAttribute('open', '')
   return frag
 }
 
@@ -189,13 +312,15 @@ export const wireReport = (root) => {
     }
   }
 
-  const ul0 = lista.querySelector('ul.hallazgos')
-  const autogroup = ul0?.dataset.autogroup === '1'
-  let modo = autogroup ? 'regla' : 'nada'
+  // Por regla desde el arranque, siempre. El HTML se emite plano para que sin JS
+  // el informe siga completo; el default de la herramienta es el agrupado.
+  let modo = 'regla'
+  const multiFile = new Set(items.map((li) => li.dataset.pais)).size > 1
 
   const aplicar = () => {
     const soloBloq = !!$solo?.checked
     const q = ($buscar?.value ?? '').trim().toLowerCase()
+    const filtrando = soloBloq || !!q
 
     const visibles = []
     for (const li of items) {
@@ -205,12 +330,9 @@ export const wireReport = (root) => {
     }
 
     lista.textContent = ''
-    const frag = agrupar(visibles, modo, meta)
+    const frag = agrupar(visibles, modo, meta, { abrirTodo: filtrando, multiFile })
     if (frag) {
       lista.appendChild(frag)
-      // Con la lista plegada por volumen, abrir el primer grupo da algo que mirar
-      // sin obligar a un clic para ver que la página funciona.
-      if (autogroup) lista.querySelector('details.grupo')?.setAttribute('open', '')
     } else {
       const ul = document.createElement('ul')
       ul.className = 'hallazgos'

@@ -301,10 +301,12 @@ cualquiera sea la respuesta, y no fusionar.
   esconden, y dejaron «Cómo se lee esto» detrás de un clic que nadie iba a dar. El índice lateral
   hace lo contrario, que es mostrar de un vistazo todo lo que hay. Si vuelve a aparecer la idea, la
   razón está acá.
-- **La lista no se recorta nunca.** Por encima de mil hallazgos arranca plegada por regla, pero cada
-  grupo abre con todos sus casos y el número completo está a la vista. Se sacó el
-  «… y 66 caso(s) más» del informe viejo, que era un callejón sin salida: obligaba a bajar el xlsx
-  para ver el resto.
+- **La lista no se recorta nunca.** Arranca agrupada por regla, pero cada grupo abre con todos sus
+  casos y el número completo está a la vista. Se sacó el «… y 66 caso(s) más» del informe viejo, que
+  era un callejón sin salida: obligaba a bajar el xlsx para ver el resto.
+- **La lista plana no es el default.** Se probó y abruma: 251 renglones donde 109 dicen lo mismo. La
+  concentración medida (109 hallazgos en 4 inversiones, 25 en una) es lo que decide el corte. Plano
+  queda como opción, no como punto de partida.
 
 ### Trampas ya pagadas en la cañería, para no repetirlas
 
