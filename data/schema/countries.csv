@@ -12,17 +12,17 @@ SUR,SR,740,Suriname,Surinam,SURINAME,yes
 URY,UY,858,Uruguay,,URUGUAY,yes
 VEN,VE,862,Venezuela,,VENEZUELA,yes
 BLZ,BZ,084,Belize,Belice,BELIZE,yes
-CRI,CR,188,Costa Rica,,COSTA_RICA,no
+CRI,CR,188,Costa Rica,,COSTA_RICA,yes
 SLV,SV,222,El Salvador,,EL_SALVADOR,yes
 GTM,GT,320,Guatemala,,GUATEMALA,yes
-HND,HN,340,Honduras,,HONDURAS,no
-NIC,NI,558,Nicaragua,,NICARAGUA,no
+HND,HN,340,Honduras,,HONDURAS,yes
+NIC,NI,558,Nicaragua,,NICARAGUA,yes
 PAN,PA,591,Panama,,PANAMA,yes
 CUB,CU,192,Cuba,,CUBA,yes
 DOM,DO,214,Dominican Republic,Republica Dominicana,DOMINICAN_REPUBLIC,yes
 HTI,HT,332,Haiti,,HAITI,yes
 JAM,JM,388,Jamaica,,JAMAICA,yes
-TTO,TT,780,Trinidad and Tobago,Trinidad y Tobago,TRINIDAD_TOBAGO,no
+TTO,TT,780,Trinidad and Tobago,Trinidad y Tobago,TRINIDAD_TOBAGO,yes
 BHS,BS,044,Bahamas,,BAHAMAS,yes
 BRB,BB,052,Barbados,,BARBADOS,yes
 ATG,AG,028,Antigua and Barbuda,Antigua y Barbuda,ANTIGUA_BARBUDA,yes
