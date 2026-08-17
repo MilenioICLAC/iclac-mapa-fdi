@@ -27,9 +27,12 @@ permissions:
   pages: write
   id-token: write
 
-# Un solo despliegue a la vez.
+# Un solo despliegue a la vez POR REFERENCIA. El grupo era `pages` a secas, así que
+# un push a una rama entraba al mismo grupo que main y lo cancelaba: el 17-08 una
+# corrida de rama mató la de main —la única que puede desplegar— y la página se
+# quedó con la versión anterior sin que nada dijera por qué.
 concurrency:
-  group: pages
+  group: pages-${{ github.ref }}
   cancel-in-progress: true
 
 env:
@@ -52,11 +55,12 @@ jobs:
       - name: Validar registro de países
         run: node scripts/validate_countries.mjs
 
+  # Construye el sitio (informe + validador). Corre en CUALQUIER rama: validar una
+  # rama antes de llevarla a main es señal útil. No declara `environment` a
+  # propósito — el entorno github-pages sólo acepta despliegues de la rama por
+  # defecto, así que tenerlo acá hacía fallar toda corrida de rama.
   report:
     runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deploy.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -98,5 +102,18 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
+
+  # Publicar es un job aparte y SOLO desde la rama por defecto. Antes iba pegado a
+  # la construcción, y como el entorno github-pages rechaza las otras ramas,
+  # cualquier push a una rama dejaba el run en rojo por algo que no era un problema
+  # de los datos ni del código.
+  deploy:
+    needs: report
+    if: github.ref == format('refs/heads/{0}', github.event.repository.default_branch)
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
       - id: deploy
         uses: actions/deploy-pages@v4
