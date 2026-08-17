@@ -254,8 +254,34 @@ El objetivo, en una línea: **que ICLAC cargue sus propios datos sin romper el s
 | Repositorio movido a la organización `MilenioICLAC` | transferido el 17-08 desde la cuenta personal |
 | Informe rediseñado: documento con índice, lista de hallazgos navegable, fondo claro fijo | `scripts/lib/findings.mjs`, `report_render.mjs`, `report_interact.mjs` |
 | Guardia de caída brusca **también antes de subir**, en la página | `validador/main.js` (`problemasDeCaida`) |
+| Lista en dos niveles, regla → inversión, con el mensaje en la línea | `report_interact.mjs` (`agrupar`, `subLinea`) |
+| Las cuatro compuertas, compartidas entre ETL y validador | `scripts/lib/gates.mjs` |
+| `cancelled` enruta al anexo, y el texto del anexo dejó de mentir | `scripts/etl.mjs`, `src/locales/*.json` |
 
 Las reglas que no caducan de todo esto están en `.claude/CLAUDE.md`. Lo de acá es sólo lo que falta.
+
+### Lo que se sigue puliendo del validador
+
+El diseño se afinó a lo largo del 17-08 con el usuario mirando la página sobre datos reales, y las
+decisiones que se tomaron están en `.claude/CLAUDE.md` («La forma del informe»). Lo que queda es
+pulido, no estructura:
+
+- **Las casillas cuentan hallazgos y el veredicto cuenta inversiones**, así que se lee «Ocultar
+  canceladas (39)» arriba y «93 canceladas» en el veredicto. Los dos números son correctos y cada zona
+  es consistente consigo misma (todo lo de la barra son hallazgos, igual que «Solo bloqueantes»), pero
+  si al usarlo confunde, hay que ponerle la unidad.
+- **En el corte por país el segundo número son problemas, no inversiones.** Es consistente con la regla
+  («el número dice qué hay adentro») pero para un país lo más útil sería cuántas inversiones están
+  afectadas. Ese corte sólo aparece con varios archivos y es el menos usado.
+- **21 reglas del validador no tienen entrada en `RULE_HELP`.** No disparan sobre ningún dato real, así
+  que muestran el slug crudo sólo en teoría. Al agregar una regla, agregarle su entrada.
+
+### Pulido ya cerrado, para no reabrirlo
+
+- El acordeón por país, las pestañas y la lista plana por defecto se probaron y se descartaron, cada
+  una por una razón medida. Están en `.claude/CLAUDE.md`.
+- El rótulo genérico «Ocultar lo que no publica» prometía más de lo que hacía. Hoy hay una casilla por
+  motivo.
 
 **La dirección del informe cambió** con la transferencia, porque GitHub redirige los enlaces de git y
 web pero **no redirige Pages**: ahora es `https://milenioiclac.github.io/iclac-mapa-fdi/` y la vieja
@@ -281,8 +307,22 @@ Comprobado sobre `BASE_FINAL_CORREGIDA`, comparando `Id_Investment` país por pa
 publicado: **la entrega trae lo antiguo.** Conserva todas las inversiones publicadas salvo dos
 (`HND-0003` y `VEN-0101`), suma cuatro países nuevos (cuba, dominican_republic, el_salvador, jamaica)
 y Trinidad llega **renombrado** (`trinidad_tobago` → `trinidad_and_tobago`) conservando sus 7. O sea
-que mantienen la base entera y la exportan completa, no mandan altas sueltas. Las dos que faltan van
-al correo a Fran: puede ser un borrado a propósito o un descuido, y desde acá no se distingue.
+que mantienen la base entera y la exportan completa, no mandan altas sueltas.
+
+**El pedido y los comentarios para Francisco están redactados en
+`docs/sprint_6/pedido_francisco.md`**, con los números re-verificados el 17-08. Lo que lleva: los 9
+identificadores repetidos, las 4 inversiones con columna obligatoria vacía, la pregunta por la columna
+`cancelled`, los 4 duplicados declarados, las dos inversiones que no vienen, y la cifra que más
+sorprende: la entrega suma **7** inversiones a la vista por defecto (272 → 279 sin construcción, 386 →
+421 con construcción), porque 93 vienen marcadas con `cancelled = 1` y 67 de esas por evidencia
+insuficiente.
+
+**Un hallazgo que ahorra trabajo y conviene no perder:** los 9 identificadores repetidos son la causa
+única de tres síntomas. Siete de ellos traen además `cancelled` a medias (filas en 0 y filas en 1) y
+seis traen puntajes de confiabilidad distintos dentro de la misma inversión. No son 22 problemas: son
+9, y al separar las inversiones desaparecen los tres. Lo mismo del otro lado: el chequeo de geometrías
+compartidas confirma por su cuenta tres de los cuatro duplicados que ellos declararon en
+`cancelled_motivo`, sin leer ese texto.
 
 Eso tiene una consecuencia que todavía no está resuelta: **nuestras correcciones sobre los xlsx las
 borra en silencio la próxima entrega completa.** Ya pasó con `042c9fe` («restaurar inversor original»)
