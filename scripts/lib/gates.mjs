@@ -39,19 +39,30 @@ export const passesScore = (score, minScore = MIN_SCORE_DEFAULT) =>
   score === null || score >= minScore
 
 /**
- * Por qué una inversión NO llega al mapa, o null si llega. El orden es el del
- * pipeline y no es arbitrario: la compuerta de contenido va primero porque es la
- * única que se arregla editando el archivo, y decirle a alguien «está cancelada»
- * cuando además tiene una fila rota lo manda a no hacer nada.
+ * Por qué una inversión NO llega al mapa, o null si llega.
+ *
+ * EL ORDEN NO ES ARBITRARIO, y son dos criterios encadenados:
+ *
+ * 1. El **error de esquema** va primero porque es el único que se arregla editando
+ *    el archivo. Decirle a alguien «está cancelada» cuando además tiene una fila
+ *    rota lo manda a no hacer nada.
+ * 2. Entre los otros tres gana **el que va a seguir siendo cierto** cuando los
+ *    demás se resuelvan. Una cancelación es una propiedad del dato y no se va a
+ *    mover; el umbral de evidencia se levanta cuando aparecen fuentes; la retención
+ *    del país es temporal y editorial, la decide ICLAC y se cae con un `publish=yes`.
  *
  * @param {object} inv
  * @param {boolean} inv.excluida   la sacó la compuerta de contenido (`excludedIds`)
  * @param {boolean} inv.cancelada  alguna de sus filas trae `cancelled = 1`
  * @param {Array<number|null>} inv.scores puntajes vistos en sus filas
+ * @param {boolean} [inv.retenido] su país está con `publish=no` en countries.csv
  * @param {{minScore?: number}} [opts]
- * @returns {'contenido'|'cancelada'|'evidencia'|null}
+ * @returns {'contenido'|'cancelada'|'evidencia'|'retenido'|null}
  */
-export const exclusionReason = ({ excluida, cancelada, scores }, { minScore = MIN_SCORE_DEFAULT } = {}) => {
+export const exclusionReason = (
+  { excluida, cancelada, scores, retenido = false },
+  { minScore = MIN_SCORE_DEFAULT } = {}
+) => {
   if (excluida) return 'contenido'
   if (cancelada) return 'cancelada'
   // Basta una fila bajo el umbral: el ETL corta por FILA en esta compuerta, así que
@@ -59,6 +70,7 @@ export const exclusionReason = ({ excluida, cancelada, scores }, { minScore = MI
   // únicos casos con puntajes mezclados son colisiones de id, o sea que la
   // compuerta de contenido los saca antes y esta rama no llega a decidir.
   if (scores.some((s) => !passesScore(s, minScore))) return 'evidencia'
+  if (retenido) return 'retenido'
   return null
 }
 
@@ -66,17 +78,28 @@ export const exclusionReason = ({ excluida, cancelada, scores }, { minScore = MI
 export const REASON_LABEL = {
   contenido: 'error de esquema',
   cancelada: 'cancelada',
-  evidencia: 'evidencia bajo el umbral'
+  evidencia: 'evidencia insuficiente',
+  retenido: 'país retenido'
 }
+
+/**
+ * Los motivos que NO son un error del archivo: no hay nada que corregir en ellos, y
+ * son los que la interfaz deja esconder. `contenido` queda fuera a propósito.
+ */
+export const DECIDED_REASONS = ['cancelada', 'evidencia', 'retenido']
 
 /**
  * Resume cada inversión de un archivo: si publica y, si no, por qué.
  *
  * @param {Array<Record<string, unknown>>} rows filas crudas del xlsx
- * @param {{excludedIds?: Iterable<string>, minScore?: number}} [opts]
+ * @param {{excludedIds?: Iterable<string>, minScore?: number, retenido?: boolean}} [opts]
+ *   `retenido` es del ARCHIVO, no de la fila: el país entero está con `publish=no`.
  * @returns {Map<string, {publica: boolean, motivo: string|null}>}
  */
-export const investmentDestinies = (rows, { excludedIds = [], minScore = MIN_SCORE_DEFAULT } = {}) => {
+export const investmentDestinies = (
+  rows,
+  { excludedIds = [], minScore = MIN_SCORE_DEFAULT, retenido = false } = {}
+) => {
   const excluidas = new Set(excludedIds)
   const acc = new Map() // id -> { cancelada, scores }
   for (const row of rows ?? []) {
@@ -90,7 +113,7 @@ export const investmentDestinies = (rows, { excludedIds = [], minScore = MIN_SCO
 
   const out = new Map()
   for (const [id, e] of acc) {
-    const motivo = exclusionReason({ excluida: excluidas.has(id), ...e }, { minScore })
+    const motivo = exclusionReason({ excluida: excluidas.has(id), retenido, ...e }, { minScore })
     out.set(id, { publica: motivo === null, motivo })
   }
   return out

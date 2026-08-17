@@ -139,22 +139,29 @@ const span = (cls, texto) => {
  * editando el archivo de lo que es una decisión ya tomada: sobre una cancelada no
  * hay nada que corregir.
  */
-const ESTADO_TXT = { cancelada: 'cancelada', evidencia: 'al anexo', contenido: 'no publica' }
+// Mismos rótulos que REASON_LABEL de gates.mjs. Van copiados porque este archivo se
+// inlinea en el informe estático y no puede importar nada.
+const ESTADO_TXT = {
+  contenido: 'error de esquema',
+  cancelada: 'cancelada',
+  evidencia: 'evidencia insuficiente',
+  retenido: 'país retenido'
+}
+const ESTADO_TITULO = {
+  contenido: 'Tiene una fila con error de esquema: se corrige editando el archivo',
+  cancelada: 'Cancelada en la base: va al anexo, no al mapa',
+  evidencia: 'Su evidencia queda bajo el umbral del Repositorio: va al anexo, no al mapa',
+  retenido: 'Su país está marcado como retenido en countries.csv: es una decisión editorial de ICLAC'
+}
 
 const chipDestino = (lis) => {
   const fuera = lis.filter((li) => li.dataset.publica === '0')
   if (!fuera.length) return null
   const motivos = new Set(fuera.map((li) => li.dataset.motivo || 'contenido'))
-  const txt = motivos.size === 1 ? ESTADO_TXT[[...motivos][0]] ?? 'no publica' : 'no publica'
-  const s = span(motivos.has('contenido') ? 'estado no' : 'estado anexo', txt)
-  s.title =
-    motivos.size > 1
-      ? 'No llega al mapa por más de un motivo'
-      : motivos.has('cancelada')
-        ? 'Cancelada en la base: va al anexo, no al mapa'
-        : motivos.has('evidencia')
-          ? 'Evidencia bajo el umbral del Repositorio: va al anexo, no al mapa'
-          : 'Tiene una fila con error de esquema: se corrige editando el archivo'
+  const uno = motivos.size === 1 ? [...motivos][0] : null
+  const s = span(motivos.has('contenido') ? 'estado no' : 'estado anexo',
+    uno ? ESTADO_TXT[uno] ?? 'no publica' : 'no llega al mapa')
+  s.title = uno ? ESTADO_TITULO[uno] ?? '' : 'No llega al mapa por más de un motivo'
   return s
 }
 
@@ -381,7 +388,8 @@ export const wireReport = (root) => {
 
   const items = $$('#lista li.h')
   const $solo = $('#solo-bloqueantes')
-  const $ocultarAnexo = $('#ocultar-anexo')
+  // Una casilla por motivo: cada una esconde sólo lo suyo y el rótulo lo nombra.
+  const ocultadores = $$('.controles input[data-oculta]')
   const $buscar = $('#buscar')
   const $conteo = $('#conteo')
   const $vacio = $('#sin-resultados')
@@ -404,15 +412,15 @@ export const wireReport = (root) => {
 
   const aplicar = () => {
     const soloBloq = !!$solo?.checked
-    const sinAnexo = !!$ocultarAnexo?.checked
+    const ocultos = new Set(ocultadores.filter((c) => c.checked).map((c) => c.dataset.oculta))
     const q = ($buscar?.value ?? '').trim().toLowerCase()
-    const filtrando = soloBloq || sinAnexo || !!q
+    const filtrando = soloBloq || ocultos.size > 0 || !!q
 
     const visibles = []
     for (const li of items) {
       const ok =
         (!soloBloq || li.dataset.bloquea === '1') &&
-        (!sinAnexo || li.dataset.corregible === '1') &&
+        !ocultos.has(li.dataset.motivo) &&
         (!q || li.dataset.buscar.includes(q))
       li.hidden = !ok
       if (ok) visibles.push(li)
@@ -439,7 +447,7 @@ export const wireReport = (root) => {
   }
 
   $solo?.addEventListener('change', aplicar)
-  $ocultarAnexo?.addEventListener('change', aplicar)
+  for (const c of ocultadores) c.addEventListener('change', aplicar)
   $buscar?.addEventListener('input', aplicar)
   for (const b of botones) {
     if (b.dataset.group === modo) b.classList.add('on')

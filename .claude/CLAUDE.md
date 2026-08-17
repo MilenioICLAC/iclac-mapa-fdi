@@ -169,12 +169,21 @@ validador no lo conocía, así que la página decía «publica: sí» sobre una 
 el sitio manda al anexo, y ese «sí» falso salía impreso en la planilla que se le pasa a otra persona.
 El número no se duplica: el ETL y la página importan el mismo módulo.
 
-**Y hay dos formas de no publicar, que no se mezclan:** por **error de esquema**, que se arregla
-editando el archivo, o por **decisión ya tomada** (cancelada en la base, o evidencia bajo el umbral),
-donde no hay nada que corregir. `corregible` en el modelo de hallazgos es ese eje, el chip ámbar lo
-muestra y el control «Ocultar lo que no publica» cuelga de él: corregirle el formato a una cancelada
-es trabajo tirado. El orden de `exclusionReason` tampoco es arbitrario: el error de esquema gana,
-porque decirle a alguien «está cancelada» cuando además tiene una fila rota lo manda a no hacer nada.
+**Y hay CUATRO motivos por los que una inversión no publica, no dos**, y cada uno se decide en un
+lugar distinto: **error de esquema** (el archivo), **cancelada** (el dato), **evidencia
+insuficiente** (la metodología) y **país retenido** (`countries.csv`). El primero es el único que se
+arregla editando el archivo; los otros tres son decisiones ya tomadas. El chip nombra el motivo, la
+planilla lo lleva en su columna, y hay **una casilla de ocultar por motivo**, que aparece sólo si ese
+motivo existe en lo cargado.
+
+Un rótulo genérico no sirve acá: «Ocultar lo que no publica» prometía más de lo que hacía, porque las
+inversiones con error de esquema tampoco publican y no las escondía.
+
+**El orden de `exclusionReason` son dos criterios encadenados.** El error de esquema va primero
+porque es el único accionable: decirle a alguien «está cancelada» cuando además tiene una fila rota lo
+manda a no hacer nada. Entre los otros tres gana **el que va a seguir siendo cierto** cuando los demás
+se resuelvan, y por eso la retención va última: se levanta con un `publish=yes`, el umbral de evidencia
+se levanta con fuentes nuevas, y una cancelación no se mueve.
 
 **Las cifras del veredicto se cuentan sobre TODAS las inversiones del archivo, no sobre los
 hallazgos.** Una cancelada sin ningún problema de esquema no genera hallazgos, así que contar desde

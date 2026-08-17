@@ -75,7 +75,12 @@ export const buildFindings = (results) => {
     // contenido. Antes `publicaHoy` decía «sí» para una inversión con puntaje 1
     // que el sitio manda al anexo, y eso salía impreso en la planilla que se le
     // pasa a otra persona.
-    const destinos = investmentDestinies(r.rows, { excludedIds: r.excludedIds ?? [] })
+    const destinos = investmentDestinies(r.rows, {
+      excludedIds: r.excludedIds ?? [],
+      // La compuerta de publicación es del país entero y vive en countries.csv. Sin
+      // esto, un país retenido mostraba «publica: sí» en todas sus inversiones.
+      retenido: r.published === false
+    })
 
     // Los problemas de archivo no tienen fila ni columna. Van igual, con fila 0:
     // son los que hay que resolver ANTES que nada, porque sin eso no entra

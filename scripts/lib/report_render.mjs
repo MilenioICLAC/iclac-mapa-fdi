@@ -23,7 +23,7 @@ import { alpha3ForFilename } from './countries.mjs'
 import { SECTOR_PAIRS } from './validate.mjs'
 import { RULE_HELP, tipoBadge } from './rules_help.mjs'
 import { buildFindings } from './findings.mjs'
-import { investmentDestinies } from './gates.mjs'
+import { investmentDestinies, REASON_LABEL, DECIDED_REASONS } from './gates.mjs'
 
 // La lista arranca SIEMPRE agrupada por regla, y el HTML la emite plana para que
 // sin JavaScript siga siendo un documento completo. Medido sobre una entrega de 21
@@ -97,15 +97,18 @@ const sevPill = (bloquea) =>
  * bajo el umbral de evidencia no hay nada que corregir, y corregirle el formato es
  * trabajo tirado.
  */
+const MOTIVO_TITULO = {
+  contenido: 'Tiene una fila con error de esquema: se corrige editando el archivo',
+  cancelada: 'Cancelada en la base: va al anexo, no al mapa',
+  evidencia: 'Su evidencia queda bajo el umbral del Repositorio: va al anexo, no al mapa',
+  retenido: 'Su país está marcado como retenido en countries.csv: es una decisión editorial de ICLAC'
+}
+
 const estadoChip = (f) => {
   if (f.publicaHoy !== false) return ''
-  if (f.motivoNoPublica === 'cancelada') {
-    return '<span class="estado anexo" title="Cancelada en la base: va al anexo, no al mapa">cancelada</span>'
-  }
-  if (f.motivoNoPublica === 'evidencia') {
-    return '<span class="estado anexo" title="Evidencia bajo el umbral del Repositorio: va al anexo, no al mapa">al anexo</span>'
-  }
-  return '<span class="estado no">no publica</span>'
+  const motivo = f.motivoNoPublica ?? 'contenido'
+  const cls = motivo === 'contenido' ? 'estado no' : 'estado anexo'
+  return `<span class="${cls}" title="${att(MOTIVO_TITULO[motivo] ?? '')}">${esc(REASON_LABEL[motivo] ?? 'no publica')}</span>`
 }
 
 /**
@@ -187,25 +190,44 @@ const AYUDA_CURACION = `<p>Los problemas de <strong>formato</strong> determinist
   renombrarlo).</p>
   <p>Se listan uno por uno a propósito: se corrige a la vista, no a escondidas.</p>`
 
-const AYUDA_CORREGIBLE = `<p>Hay hallazgos que caen sobre inversiones que <strong>no van a publicarse
-  igual</strong>, porque están canceladas en la base o porque su evidencia queda bajo el umbral del
-  Repositorio. Esas van al anexo, no al mapa.</p>
-  <p>Corregirles el formato es trabajo que no cambia nada: lo que las saca no es un error del archivo,
-  es una decisión ya tomada. Este control las quita de la vista para trabajar sólo lo que rinde.</p>`
+// Una casilla POR MOTIVO, y sólo si ese motivo existe en lo que se cargó. El rótulo
+// nombra lo que esconde: «Ocultar lo que no publica» prometía más de lo que hacía,
+// porque las inversiones con error de esquema tampoco publican y no las escondía.
+const AYUDA_MOTIVO = {
+  cancelada: `<p>La base marca estas inversiones como canceladas, así que van al anexo y no al mapa.</p>
+    <p>Corregirles el formato es trabajo que no cambia nada: lo que las saca no es un error del
+    archivo, es una decisión ya tomada.</p>`,
+  evidencia: `<p>Su evidencia documental queda bajo el mínimo del Repositorio: ninguna fuente
+    independiente confirma el monto o el tipo de operación. Van al anexo, no al mapa.</p>
+    <p>Se resuelve sumando fuentes y subiendo el puntaje, no editando el formato de la fila.</p>`,
+  retenido: `<p>El país entero está marcado como retenido en <code>countries.csv</code>, así que
+    ninguna de sus inversiones sale en el mapa todavía. Es una decisión editorial de ICLAC, no un
+    problema del archivo, y se levanta cambiando esa fila a <code>publish=yes</code>.</p>
+    <p>Ojo: acá sí hay trabajo real. Cuando el país se publique, estos hallazgos van a importar.</p>`
+}
+
+const ROTULO_MOTIVO = {
+  cancelada: 'Ocultar canceladas',
+  evidencia: 'Ocultar con evidencia insuficiente',
+  retenido: 'Ocultar de países retenidos'
+}
 
 const controles = (findings, { multiFile }) => {
   const bloqueantes = findings.filter((f) => f.bloquea).length
-  const noRinden = findings.filter((f) => !f.corregible).length
+  const porMotivo = new Map(
+    DECIDED_REASONS.map((m) => [m, findings.filter((f) => f.motivoNoPublica === m).length])
+  )
   return `
   <div class="controles" data-total="${findings.length}" data-bloqueantes="${bloqueantes}">
     <label class="ctl-check"><input type="checkbox" id="solo-bloqueantes"> Solo bloqueantes
       <span class="ctl-n">(${n(bloqueantes)})</span></label>${tip(AYUDA_BLOQUEA)}
-    ${
-      noRinden
-        ? `<label class="ctl-check"><input type="checkbox" id="ocultar-anexo"> Ocultar lo que no publica
-      <span class="ctl-n">(${n(noRinden)})</span></label>${tip(AYUDA_CORREGIBLE)}`
-        : ''
-    }
+    ${DECIDED_REASONS.filter((m) => porMotivo.get(m))
+      .map(
+        (m) =>
+          `<label class="ctl-check"><input type="checkbox" id="ocultar-${m}" data-oculta="${m}"> ${esc(ROTULO_MOTIVO[m])}
+      <span class="ctl-n">(${n(porMotivo.get(m))})</span></label>${tip(AYUDA_MOTIVO[m])}`
+      )
+      .join('')}
     <label class="ctl-buscar"><span class="vh">Buscar</span>
       <input type="search" id="buscar" placeholder="Buscar por id, fila, columna…"></label>
     <div class="ctl-agrupar" role="group" aria-label="Agrupar hallazgos">
@@ -713,23 +735,29 @@ export const renderReport = (results, opts = {}) => {
   // Se cuenta sobre TODAS las inversiones del archivo y no sobre los hallazgos: una
   // cancelada sin ningún problema de esquema no genera hallazgos, así que contar
   // desde ahí decía «otras 14» donde eran noventa y tres.
-  let nCanceladas = 0
-  let nEvidencia = 0
+  const porDecision = new Map(DECIDED_REASONS.map((m) => [m, 0]))
   for (const r of results) {
     if (r.error || !r.rows) continue
-    for (const { motivo } of investmentDestinies(r.rows, { excludedIds: r.excludedIds ?? [] }).values()) {
-      if (motivo === 'cancelada') nCanceladas++
-      else if (motivo === 'evidencia') nEvidencia++
+    const destinos = investmentDestinies(r.rows, {
+      excludedIds: r.excludedIds ?? [],
+      retenido: r.published === false
+    })
+    for (const { motivo } of destinos.values()) {
+      if (porDecision.has(motivo)) porDecision.set(motivo, porDecision.get(motivo) + 1)
     }
   }
-  const nAnexo = nCanceladas + nEvidencia
+  const nAnexo = [...porDecision.values()].reduce((a, b) => a + b, 0)
   const plural = (cuenta, sing, plur) => `${n(cuenta)} ${cuenta === 1 ? sing : plur}`
-  const detalleAnexo = [
-    nCanceladas ? plural(nCanceladas, 'cancelada', 'canceladas') : '',
-    nEvidencia ? plural(nEvidencia, 'con evidencia bajo el umbral', 'con evidencia bajo el umbral') : ''
-  ]
-    .filter(Boolean)
-    .join(' y ')
+  // Desglosado: las tres se deciden en lugares distintos (el dato, la metodología y
+  // el registro de países), así que juntarlas esconde a quién hay que preguntarle.
+  const DETALLE = {
+    cancelada: (c) => plural(c, 'cancelada', 'canceladas'),
+    evidencia: (c) => `${n(c)} con evidencia insuficiente`,
+    retenido: (c) => `${n(c)} de ${c === 1 ? 'un país retenido' : 'países retenidos'}`
+  }
+  const detalleAnexo = DECIDED_REASONS.filter((m) => porDecision.get(m))
+    .map((m) => DETALLE[m](porDecision.get(m)))
+    .join(' · ')
 
   // Un solo veredicto, en una línea. Antes el estado se decía dos veces con
   // palabras distintas (arriba en el estado, abajo en el título de acciones).
@@ -745,7 +773,7 @@ export const renderReport = (results, opts = {}) => {
           txt: `Los archivos se leen bien. ${plural(totalExcluded, 'inversión no se publica', 'inversiones no se publican')} por errores que podés corregir.`,
           sub: `${
             nAnexo
-              ? `Otras ${n(nAnexo)} van al anexo por una decisión ya tomada (${detalleAnexo}), y ahí no hay nada que arreglar. `
+              ? `Otras ${n(nAnexo)} no llegan al mapa por decisiones ya tomadas: ${detalleAnexo}. Ahí no hay nada que corregir en el archivo. `
               : ''
           }Todo el resto entra al mapa: son ${plural(bloqueantes, 'una corrección puntual', 'correcciones puntuales')}.`
         }

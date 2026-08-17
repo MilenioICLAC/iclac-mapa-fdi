@@ -65,6 +65,18 @@ describe('exclusionReason', () => {
     expect(exclusionReason({ ...base, scores: [5, 5, 2] })).toBe('evidencia')
     expect(exclusionReason({ ...base, scores: [5, null] })).toBeNull()
   })
+
+  it('un país retenido tampoco publica', () => {
+    expect(exclusionReason({ ...base, retenido: true })).toBe('retenido')
+  })
+
+  // Entre los motivos "ya decididos" gana el que va a seguir siendo cierto cuando
+  // los demás se resuelvan: la retención del país se levanta con un publish=yes,
+  // el umbral de evidencia se levanta con fuentes nuevas, y una cancelación no.
+  it('la retención es el último, porque es el más temporal', () => {
+    expect(exclusionReason({ ...base, retenido: true, cancelada: true })).toBe('cancelada')
+    expect(exclusionReason({ ...base, retenido: true, scores: [1] })).toBe('evidencia')
+  })
 })
 
 describe('investmentDestinies', () => {
@@ -106,5 +118,15 @@ describe('investmentDestinies', () => {
 
   it('ignora las filas sin id', () => {
     expect(investmentDestinies([{ Id_Investment: '  ', reliability_score: 1 }]).size).toBe(0)
+  })
+
+  // La compuerta de publicación es del ARCHIVO, no de la fila: sin esto un país
+  // retenido mostraba «publica: sí» en todas sus inversiones.
+  it('la retención del país alcanza a todas sus inversiones', () => {
+    const d = investmentDestinies(filas, { retenido: true })
+    expect(d.get('CHL-0001')).toEqual({ publica: false, motivo: 'retenido' })
+    expect(d.get('CHL-0004')).toEqual({ publica: false, motivo: 'retenido' })
+    // Y no tapa un motivo más durable.
+    expect(d.get('CHL-0003').motivo).toBe('cancelada')
   })
 })
