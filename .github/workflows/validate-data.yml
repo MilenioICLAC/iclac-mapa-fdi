@@ -13,12 +13,18 @@
 # Pages solo (la org lo restringe), así que hay que habilitarlo a mano una vez.
 name: validate-data
 
+# Sin filtro de rutas, a propósito. Lo tenía, y dejó el sitio publicado desatendido
+# dos veces: `validador/**` nunca estuvo en la lista, así que la página podía
+# cambiar sin que nada se reconstruyera, y un cambio al propio workflow tampoco
+# disparaba. El sitio depende de los datos, del esquema, de los scripts, de la
+# página, de la config de vite, de package.json y de este archivo — o sea de casi
+# todo el repositorio, y mantener esa lista al día es justo lo que falló.
+#
+# El costo de disparar de más es un minuto de runner. El de disparar de menos es
+# una página pública desactualizada sin que nada lo diga, que es peor y además es
+# mudo.
 on:
   push:
-    paths:
-      - 'data/sources/countries/**'
-      - 'data/schema/**'
-      - 'scripts/**'
   workflow_dispatch:
 
 # Permisos para desplegar a Pages.
