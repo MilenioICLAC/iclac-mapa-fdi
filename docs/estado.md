@@ -226,37 +226,29 @@ El objetivo, en una línea: **que ICLAC cargue sus propios datos sin romper el s
 | Guardia de caída brusca en el build | `scripts/lib/count_guard.mjs`, `data/schema/expected_counts.csv` |
 | Planilla de pendientes cortada por dueño | `scripts/lib/pendientes.mjs`, botón en la página + `npm run pendientes` |
 | Instructivo de subida, contextual al resultado | `validador/instructivo.js` |
+| Repositorio movido a la organización `MilenioICLAC` | transferido el 17-08 desde la cuenta personal |
 
 Las reglas que no caducan de todo esto están en `.claude/CLAUDE.md`. Lo de acá es sólo lo que falta.
 
+**La dirección del informe cambió** con la transferencia, porque GitHub redirige los enlaces de git y
+web pero **no redirige Pages**: ahora es `https://milenioiclac.github.io/iclac-mapa-fdi/` y la vieja
+deja de servir. Por eso se movió antes de repartirla y no después. Lo que la organización **no** da
+es permisos por carpeta: eso no existe en GitHub para repos públicos en ningún plan (los rulesets por
+ruta piden repo privado y plan Team). Lo que da es continuidad institucional y manejo de miembros.
+
 ### Pendiente, en orden
 
-1. **Transferir el repositorio a la organización `MilenioICLAC`.** Existe desde el 17-04 y está
-   vacía; el repositorio quedó en la cuenta **personal** `nucleomilenioiclac`, que hoy controla
-   Felipe. O sea que el traspaso del 29-07 está a medias: el activo del cliente vive en una cuenta
-   personal que operamos nosotros. La cuenta personal es *owner* de la organización, así que la
-   transferencia no necesita permiso de nadie.
-   **Va antes de repartir la URL**: al transferir, GitHub redirige los enlaces de git y web pero
-   **no redirige Pages**, así que la dirección del informe cambiaría de
-   `nucleomilenioiclac.github.io/…` a `milenioiclac.github.io/…`. Netlify y app.iclac.cl no corren
-   riesgo (webhooks y deploy keys sobreviven).
-   Ojo con no vender de más: la organización **no** da permisos por carpeta. Eso no existe en GitHub
-   para repos públicos en ningún plan (los rulesets por ruta piden repo privado y plan Team). Lo que
-   da es continuidad institucional y manejo de miembros.
-2. **Cambiar la constante `REPO`** en `validador/instructivo.js` después de transferir. Hoy apunta a
-   `nucleomilenioiclac` a propósito, para que el botón de subida no esté roto. Es una línea y no hay
-   otra.
-3. **Confirmar a mano si la web de GitHub reemplaza un archivo del mismo nombre** sin borrarlo antes.
+1. **Confirmar a mano si la web de GitHub reemplaza un archivo del mismo nombre** sin borrarlo antes.
    El instructivo hoy asume que sí. La historia del repositorio dice lo contrario: sobre
    `data/sources/countries/` hay **81 commits «Delete» contra 14 «Add files via upload»**, y ninguna
    subida quedó nunca como modificación. Puede ser limitación de GitHub o costumbre de quien lo
    hacía. De la respuesta depende que el instructivo sean 4 pasos o 6. Es una prueba de 30 segundos
    **en la copia de pruebas, no en el repositorio del cliente**.
-4. **Invitar a Flo y Fran con cuentas propias.** Hasta ahora todos los commits del cliente salieron
+2. **Invitar a Flo y Fran con cuentas propias.** Hasta ahora todos los commits del cliente salieron
    de una cuenta compartida (`comunicaciones.iclac@gmail.com`, 104 commits), así que no se puede
    saber quién hizo qué. Rol acordado: Write, y el instructivo acota por convención — el candado
    técnico no existe y la red es la guardia del build.
-5. **Llevar la rama a `origin`.** Recién cuando 1 a 4 estén resueltos.
+3. **Llevar la rama a `origin`.** Recién cuando 1 y 2 estén resueltos.
 
 ### Decisiones ya tomadas, para no rediscutirlas
 

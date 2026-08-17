@@ -52,7 +52,7 @@ formulario.
 Ya está funcionando: cada vez que se sube un archivo de datos, la validación corre y publica el
 informe en
 
-**https://nucleomilenioiclac.github.io/iclac-mapa-fdi/**
+**https://milenioiclac.github.io/iclac-mapa-fdi/**
 
 No hay que hacer nada, salvo saber que ese enlace es fijo y siempre muestra el estado más reciente.
 

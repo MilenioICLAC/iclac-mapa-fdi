@@ -7,9 +7,9 @@
 
 // ── OJO ────────────────────────────────────────────────────────────────────────
 // Dueño actual del repositorio. Apunta a donde el repositorio está HOY, para que
-// el enlace nunca esté roto. Si se transfiere a la organización MilenioICLAC,
-// esta constante cambia acá y en ningún otro lado.
-export const REPO = 'nucleomilenioiclac/iclac-mapa-fdi'
+// el enlace nunca esté roto. Si vuelve a moverse, esta constante cambia acá y en
+// ningún otro lado. Transferido a la organización el 17-08-2026.
+export const REPO = 'MilenioICLAC/iclac-mapa-fdi'
 export const CARPETA_DATOS = 'data/sources/countries'
 
 export const urlSubida = () => `https://github.com/${REPO}/upload/main/${CARPETA_DATOS}`
@@ -24,7 +24,7 @@ export const PRIMERA_VEZ = [
   {
     titulo: 'Pedir acceso al repositorio',
     cuerpo:
-      'Alguien de ICLAC tiene que invitarte desde Settings → Collaborators. Te llega un correo con una invitación que hay que aceptar; hasta que no la aceptes, la pantalla de subida no te va a dejar.'
+      'Alguien de ICLAC con permiso de administrador tiene que invitarte, desde Settings → Collaborators and teams del repositorio. Te llega un correo con una invitación que hay que aceptar; hasta que no la aceptes, la pantalla de subida no te va a dejar.'
   },
   {
     titulo: 'Comprobar que entrás',

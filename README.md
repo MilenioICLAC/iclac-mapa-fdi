@@ -18,7 +18,7 @@ No hace falta programar ni instalar nada. El trabajo es sobre archivos de Excel.
    repositorio, reemplazando el anterior.
 2. Al subirlo, la validación corre sola y publica un **informe** con el resultado país por país:
 
-   **https://nucleomilenioiclac.github.io/iclac-mapa-fdi/**
+   **https://milenioiclac.github.io/iclac-mapa-fdi/**
 
    El informe dice qué está correcto, qué conviene revisar y qué impide que un país entre al sitio.
    Está escrito para leerse sin conocimientos técnicos.
