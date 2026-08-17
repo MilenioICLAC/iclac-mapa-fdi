@@ -163,6 +163,15 @@ otro inversor y su fila. Anidar por anidar sería peor que no anidar.
 **Al filtrar o buscar, los grupos se abren solos.** Buscar y después tener que abrir trece grupos
 para ver dónde cayó la coincidencia no es buscar.
 
+**El mensaje de una regla dice sólo lo que pasa en ESA fila; qué significa y cómo se arregla viven en
+`RULE_HELP`.** Medido: 88 de las 90 líneas de una entrega tienen un solo mensaje distinto, así que el
+mensaje **es** lo que distingue un caso de otro y va en la línea, sin recortar: es lo que contesta
+cuál columna está vacía, o qué otra inversión se quedó con el id y en qué fila. Justamente por eso no
+puede llevar la explicación adentro: el informe la imprime una vez por grupo, y repetirla en el
+mensaje la imprime en cada caso — nueve colisiones eran nueve párrafos idénticos. La cabecera del
+grupo además muestra las **columnas** involucradas cuando son pocas, que es la respuesta corta a
+«qué hay que arreglar» sin abrir nada.
+
 **El armazón es un documento con secciones numeradas e índice lateral, y NO pestañas.** Las pestañas
 estuvieron un rato y se sacaron: resuelven el muro de texto pero esconden. «Cómo se lee esto» quedó
 detrás de un clic, en una barra que no se lee como navegación, y nadie iba a encontrarla nunca. Un

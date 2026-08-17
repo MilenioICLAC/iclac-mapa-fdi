@@ -88,6 +88,22 @@ const rangos = (lis) => {
 
 const mensajeDe = (li) => li.querySelector('.h-det .msg')?.textContent.trim() ?? ''
 
+/** Columnas distintas que toca un conjunto de hallazgos, en el orden en que salen. */
+const columnasDe = (lis) => [...new Set(lis.map((li) => li.dataset.columna).filter(Boolean))]
+
+/** Cuántas columnas todavía sirven como etiqueta y no como párrafo. */
+const MAX_COLUMNAS_EN_CABECERA = 3
+
+/** Agrega `<code>` por columna, que es la respuesta corta a "qué arreglo". */
+const chipsColumnas = (destino, cols) => {
+  for (const c of cols) {
+    const code = document.createElement('code')
+    code.className = 'g-col'
+    code.textContent = c
+    destino.appendChild(code)
+  }
+}
+
 // En esta vista la mayoría de las líneas tienen un solo caso, así que "1 caso(s)"
 // se ve por todos lados y queda mal escrito.
 const casos = (n) => (n === 1 ? '1 caso' : n.toLocaleString('es') + ' casos')
@@ -120,6 +136,9 @@ const subLinea = (key, lis, eje, meta, { conFix, multiFile }) => {
     const inv = lis[0].dataset.inversor
     if (inv) linea.appendChild(span('sub-inv', inv))
   }
+  // Con varios mensajes distintos, lo que distingue a esta línea son las columnas
+  // que toca: van en la línea y el detalle queda adentro del desplegable.
+  if (desplegable) chipsColumnas(linea, columnasDe(lis).slice(0, MAX_COLUMNAS_EN_CABECERA))
   linea.appendChild(span('sub-filas', rangos(lis)))
 
   const meta2 = document.createElement('span')
@@ -134,6 +153,19 @@ const subLinea = (key, lis, eje, meta, { conFix, multiFile }) => {
   }
   linea.appendChild(meta2)
   caja.appendChild(linea)
+
+  // El MENSAJE en la línea. Es lo que de verdad distingue un caso de otro y estaba
+  // escondido: dice qué columna está vacía, o qué otra inversión se quedó con el
+  // id y en qué fila. Medido sobre una entrega de 21 países, 88 de las 90 líneas
+  // tienen un solo mensaje distinto, así que casi siempre cabe entero acá y no hay
+  // nada que desplegar. No se recorta: recortarlo esconde justo lo que se vino a
+  // mostrar.
+  if (!desplegable) {
+    const p = document.createElement('p')
+    p.className = 'sub-msg'
+    p.textContent = [...mensajes][0]
+    caja.appendChild(p)
+  }
 
   // Con el corte por inversión el arreglo no cabe en la cabecera del grupo (la
   // cabecera es la inversión, no la regla), así que va acá, una vez por regla.
@@ -171,6 +203,14 @@ const agrupar = (items, modo, meta, { abrirTodo, multiFile }) => {
 
     const sum = document.createElement('summary')
     sum.appendChild(span('g-tit', m ? m.titulo : key))
+    // La columna, en la cabecera del grupo. "Columna obligatoria vacía" no dice
+    // cuál; "Columna obligatoria vacía · Project_Type" contesta el arreglo de un
+    // vistazo, sin abrir nada. Si son muchas, la lista deja de ser una etiqueta y
+    // el dato queda en cada línea.
+    if (m) {
+      const cols = columnasDe(lis)
+      if (cols.length && cols.length <= MAX_COLUMNAS_EN_CABECERA) chipsColumnas(sum, cols)
+    }
     if (m) sum.appendChild(span('badge ' + m.cls, m.badge))
     if (eje1 === 'id') {
       const inv = lis[0].dataset.inversor

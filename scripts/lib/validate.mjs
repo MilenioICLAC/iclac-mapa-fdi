@@ -620,11 +620,15 @@ export const validateRows = (rows, opts = {}) => {
           //    transmisión de Uruguay como si fueran una inversión falsa.
           const distintoAnio = yearRaw !== null && prev.year !== null && yearRaw !== prev.year
           if (distintoAnio) {
+            // El mensaje dice sólo LO QUE PASA EN ESTA FILA. Qué significa y cómo
+            // se arregla vive en RULE_HELP y el informe lo muestra una vez por
+            // regla: repetirlo acá lo imprime en cada caso, y con nueve
+            // colisiones eso son nueve párrafos idénticos.
             fail(i, 'fila/id-colision-intrapais', 'Id_Investment', id,
-              `El Id_Investment "${id}" ya lo usa "${prev.investor}" (fila ${prev.row}, año ${prev.year}) y esta fila dice "${investorRaw}" (año ${yearRaw}): son dos inversiones distintas con el mismo identificador. El mapa las dibuja a las dos, pero el contador cuenta una sola y el monto de la segunda no suma al total. Asignar un Id_Investment nuevo a la que corresponda.`)
+              `El Id_Investment "${id}" ya lo usa "${prev.investor}" (fila ${prev.row}, año ${prev.year}) y esta fila dice "${investorRaw}" (año ${yearRaw}).`)
           } else {
             push('warning', 'fila/inversor-inconsistente', excelRow, 'Investor', investorRaw,
-              `La inversión "${id}" trae dos nombres de inversor entre sus filas: "${prev.investor}" (fila ${prev.row}) y "${investorRaw}". El sitio toma el de la primera fila del trazado, así que el nombre de esa fila es el que se muestra para toda la inversión. Dejar el mismo nombre en todas.`)
+              `La inversión "${id}" trae dos nombres de inversor entre sus filas: "${prev.investor}" (fila ${prev.row}) y "${investorRaw}".`)
           }
         }
         // metadata consistente entre filas del mismo id (multi-punto repite campos)

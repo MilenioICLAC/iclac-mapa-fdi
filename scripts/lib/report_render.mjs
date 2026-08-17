@@ -106,7 +106,7 @@ const findingItem = (f, { multiFile }) => {
     <li class="h" data-regla="${att(f.regla)}" data-tipo="${att(f.tipo)}" data-pais="${att(f.pais)}"
         data-id="${att(f.id)}" data-fila="${f.fila}" data-bloquea="${f.bloquea ? 1 : 0}"
         data-inversor="${att(f.inversor)}" data-publica="${f.publicaHoy === null ? '' : f.publicaHoy ? 1 : 0}"
-        data-buscar="${att(buscar)}">
+        data-columna="${att(f.columna ?? '')}" data-buscar="${att(buscar)}">
       <details>
         <summary>
           ${sevPill(f.bloquea)}
@@ -463,6 +463,10 @@ const style = `
   .sub-filas { font-variant-numeric:tabular-nums; }
   .sub-meta { margin-left:auto; display:flex; gap:8px; align-items:center; }
   .sub-fix { flex:1 1 100%; color:var(--muted); font-size:13px; padding:0 4px 4px 19px; margin:0; }
+  /* El mensaje del hallazgo, en la línea: dice qué columna está vacía o qué otra
+     inversión se quedó con el id. Sin recortar, que es justo lo que se vino a ver. */
+  .sub-msg { margin:0; padding:0 4px 8px 19px; font-size:13px; color:var(--fg); }
+  .g-col { font-size:11.5px; padding:1px 6px; }
   .sub-f ul.hallazgos { padding:2px 0 8px 19px; }
   .sub-f ul.hallazgos li.h { border:0; border-left:2px solid var(--border); border-radius:0;
     margin:0 0 2px; }
