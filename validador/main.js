@@ -13,6 +13,10 @@ import * as XLSX from 'xlsx'
 import { validateRows } from '../scripts/lib/validate.mjs'
 import { renderReport } from '../scripts/lib/report_render.mjs'
 import { alpha3ForFilename } from '../scripts/lib/countries.mjs'
+import { buildPendientesWorkbook, nombrePendientes } from '../scripts/lib/pendientes.mjs'
+import {
+  PRIMERA_VEZ, CADA_VEZ, QUE_NO_TOCAR, RED_DE_SEGURIDAD, urlSubida, urlCarpeta, CARPETA_DATOS
+} from './instructivo.js'
 import {
   buildRegistry,
   parseInvestorMap,
@@ -40,6 +44,86 @@ const $files = document.getElementById('files')
 const $report = document.getElementById('report')
 const $again = document.getElementById('again')
 const $reset = document.getElementById('reset')
+const $acciones = document.getElementById('acciones')
+
+const esc = (s) =>
+  String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+
+const pasos = (items) =>
+  `<ol>${items.map((p) => `<li><b>${esc(p.titulo)}</b><span>${esc(p.cuerpo)}</span></li>`).join('')}</ol>`
+
+// Qué mostrar después del informe. El instructivo aparece cuando es accionable, no
+// como muro de texto: si el archivo no se puede leer todavía, ofrecer el botón de
+// subir sería mandarla a romper el sitio.
+const renderAcciones = (results) => {
+  const ilegibles = results.filter((r) => r.error || !r.stats?.passed)
+  const excluidas = results.reduce((n, r) => n + (r.excludedIds?.length ?? 0), 0)
+  const hayPendientes = results.some((r) => (r.issues ?? []).some((i) => i.severity !== 'info') || r.fileErrors?.length)
+
+  const descarga = hayPendientes
+    ? '<button type="button" class="secondary" id="bajar-pendientes">Bajar la lista de pendientes</button>'
+    : ''
+
+  if (ilegibles.length) {
+    $acciones.innerHTML = `
+      <h2>Todavía no se puede subir</h2>
+      <p class="lede">${ilegibles.length} archivo(s) no se pueden leer. No es que tengan datos malos: es que
+        el sistema no puede interpretarlos, así que ninguna de sus inversiones entraría. Eso se arregla
+        primero, y está detallado abajo en el informe.</p>
+      <div class="cta">${descarga}</div>
+      <p class="nota">Los otros archivos, si los hay, sí se pueden subir.</p>`
+  } else {
+    const titulo = excluidas ? 'Se puede subir' : 'Listo para subir'
+    const lede = excluidas
+      ? `El archivo se lee bien. <strong>${excluidas} inversión(es) no se van a publicar</strong> hasta que
+         se corrijan sus filas, y todo el resto sí entra al mapa. No hace falta esperar a tenerlo perfecto:
+         subilo y corregí esas después.`
+      : 'No quedó nada pendiente. Al subirlo, el informe se regenera y el mapa se reconstruye solos.'
+    $acciones.innerHTML = `
+      <h2>${titulo}</h2>
+      <p class="lede">${lede}</p>
+      <div class="cta">
+        <a class="primary" href="${urlSubida()}" target="_blank" rel="noopener">Subir a GitHub</a>
+        ${descarga}
+      </div>
+      <p class="nota">${esc(RED_DE_SEGURIDAD)}</p>
+      <details>
+        <summary>Cómo se sube (la primera vez)</summary>
+        ${pasos(PRIMERA_VEZ)}
+        <p class="nota">La carpeta es <a href="${urlCarpeta()}" target="_blank" rel="noopener"><code>${CARPETA_DATOS}</code></a>.</p>
+      </details>
+      <details>
+        <summary>Cómo se sube (cada vez)</summary>
+        ${pasos(CADA_VEZ)}
+      </details>
+      <details>
+        <summary>Qué conviene no tocar</summary>
+        <ul>${QUE_NO_TOCAR.map((t) => `<li>${t}</li>`).join('')}</ul>
+      </details>`
+  }
+
+  $acciones.classList.remove('hidden')
+
+  const $bajar = document.getElementById('bajar-pendientes')
+  if ($bajar) $bajar.addEventListener('click', () => bajarPendientes(results))
+}
+
+// El archivo se arma en el navegador y se baja con un Blob: igual que la
+// validación, nada sale de la máquina.
+const bajarPendientes = (results) => {
+  const fecha = new Date().toISOString().slice(0, 10)
+  const out = buildPendientesWorkbook(results, { fecha })
+  if (!out) return
+  const buf = XLSX.write(out.wb, { type: 'array', bookType: 'xlsx' })
+  const url = URL.createObjectURL(new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = nombrePendientes(fecha)
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
 
 const isPublished = (name) => {
   const a3 = alpha3ForFilename(registry, name)
@@ -125,6 +209,7 @@ const run = async (fileList) => {
   }
 
   $report.innerHTML = renderReport(results, { registry, countryBorders, fragment: true })
+  renderAcciones(results)
 
   const excluidas = results.reduce((n, r) => n + (r.excludedIds?.length ?? 0), 0)
   const ilegibles = results.filter((r) => r.error || !r.stats?.passed).length
@@ -163,6 +248,8 @@ $reset.addEventListener('click', () => {
   $file.value = ''
   $files.innerHTML = ''
   $report.innerHTML = ''
+  $acciones.innerHTML = ''
+  $acciones.classList.add('hidden')
   $again.classList.add('hidden')
   setStatus('')
   window.scrollTo({ top: 0, behavior: 'smooth' })

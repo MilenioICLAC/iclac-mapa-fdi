@@ -21,7 +21,8 @@
     "test:watch": "vitest",
     "investors:export": "node scripts/investors_export.mjs",
     "investors:import": "node scripts/investors_import.mjs",
-    "counts:update": "node scripts/build_expected_counts.mjs"
+    "counts:update": "node scripts/build_expected_counts.mjs",
+    "pendientes": "node scripts/build_pendientes.mjs"
   },
   "dependencies": {
     "@fontsource/raleway": "^5.3.0",
