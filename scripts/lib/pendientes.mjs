@@ -15,6 +15,7 @@
 // Esta forma anda en los dos, que es lo que este módulo necesita.
 import * as XLSX from 'xlsx'
 import { buildFindings, groupByTipo } from './findings.mjs'
+import { REASON_LABEL } from './gates.mjs'
 
 // Nombre de hoja por dueño. Excel corta los nombres de hoja en 31 caracteres, así
 // que "Encargado de la tabla de inversores" (35) no cabe y va abreviado.
@@ -28,7 +29,7 @@ export const HOJAS_POR_DUENO = [
 ]
 
 const COLUMNAS = [
-  'País', 'Id_Investment', 'Fila', 'Inversor', 'Bloquea', '¿Publica hoy?',
+  'País', 'Id_Investment', 'Fila', 'Inversor', 'Bloquea', '¿Publica hoy?', 'Por qué no publica',
   'Problema', 'Qué dice la celda', 'Qué pasa', 'Cómo se corrige', 'Corregido'
 ]
 
@@ -43,9 +44,13 @@ const registroDe = (f) => ({
   'Fila': f.fila > 0 ? f.fila : '',
   'Inversor': f.inversor,
   'Bloquea': f.bloquea ? 'Sí' : 'No',
-  // Lo que de verdad importa para priorizar: si esto ya está sacando la
-  // inversión del mapa o es sólo un aviso.
+  // La respuesta sobre las CUATRO compuertas, no sólo la de contenido. Decía «Sí»
+  // para inversiones que el sitio manda al anexo, y con esta planilla en la mano
+  // alguien iba a corregir filas de una inversión cancelada.
   '¿Publica hoy?': f.publicaHoy === null ? '' : f.publicaHoy ? 'Sí' : 'No',
+  // Un «No» sin motivo no dice si hay algo que arreglar o si es una decisión ya
+  // tomada, que es justo lo que decide si vale la pena tocar la fila.
+  'Por qué no publica': f.motivoNoPublica ? REASON_LABEL[f.motivoNoPublica] ?? f.motivoNoPublica : '',
   'Problema': f.titulo,
   'Qué dice la celda': f.valor,
   'Qué pasa': f.mensaje,
@@ -100,6 +105,8 @@ export const buildLeeme = (results, { fecha = '' } = {}) => {
     { ' ': 'Columnas:' },
     { ' ': '  Bloquea = si impide que esa inversión se publique.' },
     { ' ': '  ¿Publica hoy? = si la inversión está entrando al mapa en este momento.' },
+    { ' ': '  Por qué no publica = "error de esquema" se arregla editando el archivo; "cancelada" y' },
+    { ' ': '    "evidencia bajo el umbral" son decisiones ya tomadas, y ahí no hay nada que corregir.' },
     { ' ': '  Corregido = para marcar; la planilla no se lee de vuelta, es para ustedes.' },
     { ' ': '' },
     { ' ': 'Una inversión sale del mapa ENTERA, no por filas: son varios puntos, y publicar' },

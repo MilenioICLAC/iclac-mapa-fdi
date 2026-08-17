@@ -54,8 +54,36 @@ describe('buildFindings', () => {
     const fs = buildFindings([
       resultado({ issues: [issue(), issue({ row: 3 })], excludedIds: ['CHL-0001'] })
     ])
-    expect(fs.find((f) => f.id === 'CHL-0001').publicaHoy).toBe(false)
+    const uno = fs.find((f) => f.id === 'CHL-0001')
+    expect(uno.publicaHoy).toBe(false)
+    expect(uno.motivoNoPublica).toBe('contenido')
+    // Un error de esquema SÍ se arregla editando el archivo.
+    expect(uno.corregible).toBe(true)
     expect(fs.find((f) => f.id === 'CHL-0002').publicaHoy).toBe(true)
+  })
+
+  // Antes `publicaHoy` sólo miraba la compuerta de contenido, así que decía "sí"
+  // sobre una inversión que el sitio manda al anexo, y eso salía impreso en la
+  // planilla que se le pasa a otra persona.
+  it('ve las compuertas de cancelación y de evidencia, no sólo la de contenido', () => {
+    const fs = buildFindings([
+      resultado({
+        rows: [
+          { Id_Investment: 'CHL-0001', Investor: 'CNOOC', cancelled: 1, reliability_score: 5 },
+          { Id_Investment: 'CHL-0002', Investor: 'Zijin', cancelled: 0, reliability_score: 1 }
+        ],
+        issues: [issue(), issue({ row: 3 })]
+      })
+    ])
+    const cancelada = fs.find((f) => f.id === 'CHL-0001')
+    const flaca = fs.find((f) => f.id === 'CHL-0002')
+    expect(cancelada.publicaHoy).toBe(false)
+    expect(cancelada.motivoNoPublica).toBe('cancelada')
+    expect(flaca.motivoNoPublica).toBe('evidencia')
+    // Ninguna de las dos se arregla editando el archivo: corregirles el formato
+    // es trabajo tirado, y el filtro de la página cuelga de esto.
+    expect(cancelada.corregible).toBe(false)
+    expect(flaca.corregible).toBe(false)
   })
 
   it('deja los problemas de archivo con fila 0 y sin inversión', () => {

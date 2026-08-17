@@ -11,6 +11,7 @@ import {
 } from './lib/count_guard.mjs'
 import { loadRegistry, loadCountryBorders, loadCountryBounds, loadInvestorMap } from './lib/load_registry.mjs'
 import { buildInvestorMap } from './lib/investors_map.mjs'
+import { MIN_SCORE_DEFAULT, isCancelled, passesScore as scorePasses } from './lib/gates.mjs'
 
 const registry = loadRegistry()
 const countryBorders = registry ? loadCountryBorders(registry) : null
@@ -46,7 +47,10 @@ const outputPath = positionals[1] || DEFAULT_OUTPUT
 // independientes, y esas inversiones se publican aparte en el anexo de evidencia
 // limitada. `minScore` es el puntaje MÍNIMO que se publica, así que ≤2 fuera = 3.
 // Configurable porque el corte es editorial: `--min-score=0` apaga el filtro.
-const MIN_SCORE_DEFAULT = 3
+// El umbral vive en scripts/lib/gates.mjs, compartido con el validador: si cada
+// lado lleva su propia copia, el día que se mueva la página dice una cosa y el
+// sitio otra.
+
 const minScoreArg = process.argv.find(a => a.startsWith('--min-score='))
 const minScore = minScoreArg ? Number(minScoreArg.split('=')[1]) : MIN_SCORE_DEFAULT
 if (!Number.isFinite(minScore)) {
@@ -339,7 +343,7 @@ const cleanRow = row => {
     reliability_notes: cleanStr(row.reliability_notes),
     // `cancelled` (esquema v1.5): 1 = el proyecto no se concretó. Enum cerrado,
     // así que cualquier otra cosa se lee como vigente y el validador la avisa.
-    cancelled: String(row.cancelled ?? '').trim() === '1',
+    cancelled: isCancelled(row.cancelled),
     cancelled_motivo: cleanStr(row.cancelled_motivo),
     sources,
     province_iso: cleanStr(row.Province_ISO),
@@ -454,7 +458,7 @@ for (const r of rawRows) {
 // validación y publicación, y responde otra pregunta: "¿la evidencia alcanza?".
 // La contesta la metodología (rúbrica 0-5), no el validador ni el cliente.
 // Fila sin puntaje = todavía no revisada: pasa, y se cuenta aparte.
-const passesScore = r => r.reliability_score === null || r.reliability_score >= minScore
+const passesScore = r => scorePasses(r.reliability_score, minScore)
 
 // --- Y las canceladas van al mismo anexo, comprometido con ICLAC el 10-08.
 // La alternativa era agregarle al esquema una dimensión de estado, que obliga a

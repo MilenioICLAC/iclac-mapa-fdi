@@ -15,6 +15,7 @@
 // otras dos unidades del sistema: la INVERSIÓN es la unidad de la consecuencia
 // (lo que sale del mapa) y el ARCHIVO es la unidad de la estructura.
 import { RULE_HELP } from './rules_help.mjs'
+import { investmentDestinies } from './gates.mjs'
 
 const tipoDe = (regla) => RULE_HELP[regla]?.tipo ?? 'contenido'
 
@@ -33,6 +34,8 @@ const tipoDe = (regla) => RULE_HELP[regla]?.tipo ?? 'contenido'
  * @property {'error'|'warning'} severidad
  * @property {boolean} bloquea  severidad error: saca del mapa la inversión de esa fila
  * @property {boolean|null} publicaHoy  null cuando el hallazgo no cuelga de una inversión
+ * @property {'contenido'|'cancelada'|'evidencia'|null} motivoNoPublica
+ * @property {boolean} corregible  false si lo que la saca es una decisión, no un error del archivo
  * @property {string} valor     lo que dice la celda
  * @property {string} mensaje
  * @property {string} inversor
@@ -68,7 +71,11 @@ export const buildFindings = (results) => {
 
     const archivo = String(r.name ?? '')
     const pais = archivo.replace(/\.xlsx$/i, '')
-    const excluidas = new Set(r.excludedIds ?? [])
+    // El destino de cada inversión sobre las CUATRO compuertas, no sólo la de
+    // contenido. Antes `publicaHoy` decía «sí» para una inversión con puntaje 1
+    // que el sitio manda al anexo, y eso salía impreso en la planilla que se le
+    // pasa a otra persona.
+    const destinos = investmentDestinies(r.rows, { excludedIds: r.excludedIds ?? [] })
 
     // Los problemas de archivo no tienen fila ni columna. Van igual, con fila 0:
     // son los que hay que resolver ANTES que nada, porque sin eso no entra
@@ -86,6 +93,7 @@ export const buildFindings = (results) => {
       // es el índice N-2 del arreglo de datos.
       const fila = it.row > 0 ? r.rows?.[it.row - 2] : null
       const id = String(fila?.Id_Investment ?? '').trim()
+      const destino = id ? destinos.get(id) ?? null : null
 
       out.push({
         archivo,
@@ -100,9 +108,13 @@ export const buildFindings = (results) => {
         tipo: tipoDe(it.rule),
         severidad: it.severity,
         bloquea: it.severity === 'error',
-        // Lo que de verdad importa para priorizar: si esto ya está sacando la
-        // inversión del mapa o es sólo un aviso sobre algo que sí se publica.
-        publicaHoy: id ? !excluidas.has(id) : null,
+        // Lo que de verdad importa para priorizar: si esta inversión llega al mapa
+        // o no, y por qué no. `corregible` separa lo que se arregla editando el
+        // archivo de lo que es una decisión ya tomada: corregirle el formato a una
+        // cancelada es trabajo tirado.
+        publicaHoy: destino ? destino.publica : null,
+        motivoNoPublica: destino?.motivo ?? null,
+        corregible: !destino || destino.publica || destino.motivo === 'contenido',
         valor: it.value === null || it.value === undefined ? '' : String(it.value),
         mensaje: it.message ?? '',
         inversor: String(fila?.Investor ?? '').trim()

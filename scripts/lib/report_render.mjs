@@ -23,6 +23,7 @@ import { alpha3ForFilename } from './countries.mjs'
 import { SECTOR_PAIRS } from './validate.mjs'
 import { RULE_HELP, tipoBadge } from './rules_help.mjs'
 import { buildFindings } from './findings.mjs'
+import { investmentDestinies } from './gates.mjs'
 
 // La lista arranca SIEMPRE agrupada por regla, y el HTML la emite plana para que
 // sin JavaScript siga siendo un documento completo. Medido sobre una entrega de 21
@@ -91,6 +92,23 @@ const sevPill = (bloquea) =>
     : '<span class="pill warn">Aviso</span>'
 
 /**
+ * Por qué esta inversión no llega al mapa. Distingue lo que se arregla editando el
+ * archivo de lo que es una decisión ya tomada: sobre una cancelada o una que quedó
+ * bajo el umbral de evidencia no hay nada que corregir, y corregirle el formato es
+ * trabajo tirado.
+ */
+const estadoChip = (f) => {
+  if (f.publicaHoy !== false) return ''
+  if (f.motivoNoPublica === 'cancelada') {
+    return '<span class="estado anexo" title="Cancelada en la base: va al anexo, no al mapa">cancelada</span>'
+  }
+  if (f.motivoNoPublica === 'evidencia') {
+    return '<span class="estado anexo" title="Evidencia bajo el umbral del Repositorio: va al anexo, no al mapa">al anexo</span>'
+  }
+  return '<span class="estado no">no publica</span>'
+}
+
+/**
  * Un hallazgo. La línea de arriba es densa y de un renglón, y el detalle (qué
  * pasa y cómo se corrige) va adentro de un <details>: repetir el mismo "cómo se
  * corrige" en las 109 filas de un mismo error es el muro de texto que esta vista
@@ -106,7 +124,8 @@ const findingItem = (f, { multiFile }) => {
     <li class="h" data-regla="${att(f.regla)}" data-tipo="${att(f.tipo)}" data-pais="${att(f.pais)}"
         data-id="${att(f.id)}" data-fila="${f.fila}" data-bloquea="${f.bloquea ? 1 : 0}"
         data-inversor="${att(f.inversor)}" data-publica="${f.publicaHoy === null ? '' : f.publicaHoy ? 1 : 0}"
-        data-columna="${att(f.columna ?? '')}" data-buscar="${att(buscar)}">
+        data-columna="${att(f.columna ?? '')}" data-corregible="${f.corregible ? 1 : 0}"
+        data-motivo="${att(f.motivoNoPublica ?? '')}" data-buscar="${att(buscar)}">
       <details>
         <summary>
           ${sevPill(f.bloquea)}
@@ -117,7 +136,7 @@ const findingItem = (f, { multiFile }) => {
           ${f.valor ? `<span class="h-val" title="Lo que dice la celda">“${esc(f.valor)}”</span>` : ''}
           <span class="h-meta">
             <span class="badge ${badge.cls}">${badge.label}</span>
-            ${f.publicaHoy === false ? '<span class="estado no">no publica</span>' : ''}
+            ${estadoChip(f)}
           </span>
         </summary>
         <div class="h-det">
@@ -168,12 +187,25 @@ const AYUDA_CURACION = `<p>Los problemas de <strong>formato</strong> determinist
   renombrarlo).</p>
   <p>Se listan uno por uno a propósito: se corrige a la vista, no a escondidas.</p>`
 
+const AYUDA_CORREGIBLE = `<p>Hay hallazgos que caen sobre inversiones que <strong>no van a publicarse
+  igual</strong>, porque están canceladas en la base o porque su evidencia queda bajo el umbral del
+  Repositorio. Esas van al anexo, no al mapa.</p>
+  <p>Corregirles el formato es trabajo que no cambia nada: lo que las saca no es un error del archivo,
+  es una decisión ya tomada. Este control las quita de la vista para trabajar sólo lo que rinde.</p>`
+
 const controles = (findings, { multiFile }) => {
   const bloqueantes = findings.filter((f) => f.bloquea).length
+  const noRinden = findings.filter((f) => !f.corregible).length
   return `
   <div class="controles" data-total="${findings.length}" data-bloqueantes="${bloqueantes}">
     <label class="ctl-check"><input type="checkbox" id="solo-bloqueantes"> Solo bloqueantes
       <span class="ctl-n">(${n(bloqueantes)})</span></label>${tip(AYUDA_BLOQUEA)}
+    ${
+      noRinden
+        ? `<label class="ctl-check"><input type="checkbox" id="ocultar-anexo"> Ocultar lo que no publica
+      <span class="ctl-n">(${n(noRinden)})</span></label>${tip(AYUDA_CORREGIBLE)}`
+        : ''
+    }
     <label class="ctl-buscar"><span class="vh">Buscar</span>
       <input type="search" id="buscar" placeholder="Buscar por id, fila, columna…"></label>
     <div class="ctl-agrupar" role="group" aria-label="Agrupar hallazgos">
@@ -425,6 +457,10 @@ const style = `
     text-overflow:ellipsis; white-space:nowrap; }
   .h-meta { display:flex; gap:6px; align-items:center; margin-left:auto; }
   .estado.no { font-size:11px; font-weight:700; color:var(--bad); white-space:nowrap; }
+  /* Al anexo por decisión, no por error: ámbar y no rojo, porque no hay nada que
+     corregir. La diferencia de color es la diferencia entre trabajo y no-trabajo. */
+  .estado.anexo { font-size:11px; font-weight:700; color:var(--warn); white-space:nowrap;
+    border:1px solid color-mix(in srgb,var(--warn) 40%,transparent); border-radius:5px; padding:1px 6px; }
   .h-det { padding:0 14px 12px 34px; font-size:13.5px; }
   .h-det .msg { margin:0; }
   .h-det .fix { margin:6px 0 0; color:var(--muted); }
@@ -669,6 +705,32 @@ export const renderReport = (results, opts = {}) => {
   const totalCuraciones = results.reduce((s, r) => s + (r.stats?.curaciones ?? 0), 0)
   const bloqueantes = findings.filter((f) => f.bloquea).length
 
+  // Inversiones que no llegan al mapa por decisión y no por error: canceladas en la
+  // base, o con evidencia bajo el umbral. Se cuentan aparte del `totalExcluded`,
+  // que son las que se caen por errores de esquema, porque las dos cifras piden
+  // cosas distintas: una se corrige editando el archivo y la otra no.
+  //
+  // Se cuenta sobre TODAS las inversiones del archivo y no sobre los hallazgos: una
+  // cancelada sin ningún problema de esquema no genera hallazgos, así que contar
+  // desde ahí decía «otras 14» donde eran noventa y tres.
+  let nCanceladas = 0
+  let nEvidencia = 0
+  for (const r of results) {
+    if (r.error || !r.rows) continue
+    for (const { motivo } of investmentDestinies(r.rows, { excludedIds: r.excludedIds ?? [] }).values()) {
+      if (motivo === 'cancelada') nCanceladas++
+      else if (motivo === 'evidencia') nEvidencia++
+    }
+  }
+  const nAnexo = nCanceladas + nEvidencia
+  const plural = (cuenta, sing, plur) => `${n(cuenta)} ${cuenta === 1 ? sing : plur}`
+  const detalleAnexo = [
+    nCanceladas ? plural(nCanceladas, 'cancelada', 'canceladas') : '',
+    nEvidencia ? plural(nEvidencia, 'con evidencia bajo el umbral', 'con evidencia bajo el umbral') : ''
+  ]
+    .filter(Boolean)
+    .join(' y ')
+
   // Un solo veredicto, en una línea. Antes el estado se decía dos veces con
   // palabras distintas (arriba en el estado, abajo en el título de acciones).
   const veredicto = ilegibles
@@ -680,13 +742,23 @@ export const renderReport = (results, opts = {}) => {
     : totalExcluded
       ? {
           cls: 'hold',
-          txt: `Los archivos se leen bien. ${n(totalExcluded)} inversión(es) no se publican.`,
-          sub: `Todo el resto entra al mapa. No hace falta esperar a tenerlo perfecto: son ${n(bloqueantes)} correccion(es) puntuales.`
+          txt: `Los archivos se leen bien. ${plural(totalExcluded, 'inversión no se publica', 'inversiones no se publican')} por errores que podés corregir.`,
+          sub: `${
+            nAnexo
+              ? `Otras ${n(nAnexo)} van al anexo por una decisión ya tomada (${detalleAnexo}), y ahí no hay nada que arreglar. `
+              : ''
+          }Todo el resto entra al mapa: son ${plural(bloqueantes, 'una corrección puntual', 'correcciones puntuales')}.`
         }
       : {
-          cls: 'ok',
-          txt: 'Todo en orden: los archivos se leen bien y todas las inversiones publican.',
-          sub: findings.length ? `Quedan ${n(findings.length)} aviso(s), que no sacan nada del mapa.` : ''
+          cls: nAnexo ? 'hold' : 'ok',
+          txt: nAnexo
+            ? `Los archivos se leen bien y no hay errores que corregir. ${plural(nAnexo, 'inversión va', 'inversiones van')} al anexo y no al mapa.`
+            : 'Todo en orden: los archivos se leen bien y todas las inversiones publican.',
+          sub: nAnexo
+            ? `Por una decisión ya tomada: ${detalleAnexo}. No es un problema del archivo.`
+            : findings.length
+              ? `Quedan ${n(findings.length)} aviso(s), que no sacan nada del mapa.`
+              : ''
         }
 
   // ---- Las secciones del documento, en orden ----

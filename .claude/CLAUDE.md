@@ -163,6 +163,23 @@ otro inversor y su fila. Anidar por anidar sería peor que no anidar.
 **Al filtrar o buscar, los grupos se abren solos.** Buscar y después tener que abrir trece grupos
 para ver dónde cayó la coincidencia no es buscar.
 
+**El validador conoce las CUATRO compuertas, y `scripts/lib/gates.mjs` es donde viven las dos
+últimas.** El umbral de confiabilidad estaba como constante dentro de `scripts/etl.mjs` y el
+validador no lo conocía, así que la página decía «publica: sí» sobre una inversión con puntaje 1 que
+el sitio manda al anexo, y ese «sí» falso salía impreso en la planilla que se le pasa a otra persona.
+El número no se duplica: el ETL y la página importan el mismo módulo.
+
+**Y hay dos formas de no publicar, que no se mezclan:** por **error de esquema**, que se arregla
+editando el archivo, o por **decisión ya tomada** (cancelada en la base, o evidencia bajo el umbral),
+donde no hay nada que corregir. `corregible` en el modelo de hallazgos es ese eje, el chip ámbar lo
+muestra y el control «Ocultar lo que no publica» cuelga de él: corregirle el formato a una cancelada
+es trabajo tirado. El orden de `exclusionReason` tampoco es arbitrario: el error de esquema gana,
+porque decirle a alguien «está cancelada» cuando además tiene una fila rota lo manda a no hacer nada.
+
+**Las cifras del veredicto se cuentan sobre TODAS las inversiones del archivo, no sobre los
+hallazgos.** Una cancelada sin ningún problema de esquema no genera hallazgos, así que contar desde
+ahí decía «otras 14 van al anexo» donde eran noventa y tres.
+
 **El mensaje de una regla dice sólo lo que pasa en ESA fila; qué significa y cómo se arregla viven en
 `RULE_HELP`.** Medido: 88 de las 90 líneas de una entrega tienen un solo mensaje distinto, así que el
 mensaje **es** lo que distingue un caso de otro y va en la línea, sin recortar: es lo que contesta
