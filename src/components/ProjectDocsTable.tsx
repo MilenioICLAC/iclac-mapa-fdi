@@ -6,6 +6,7 @@ import { flatList, groupByCountry, localizedArea, localizedDetail, studyHref, ty
 import { formatUsd } from '@/lib/money'
 import { byLocalizedCountry, localizedCountry } from '@/lib/countries'
 import { useFilters } from '@/hooks/useFilters'
+import { useIsMobile } from '@/hooks/useMediaQuery'
 import MiniSegmented from './MiniSegmented'
 import ProjectSearchBox from './ProjectSearchBox'
 
@@ -62,13 +63,33 @@ const StudyLinks = ({ cases, note }: { cases: ResearchCase[]; note: string }) =>
   </div>
 )
 
+// Cuántas columnas dibuja la fila. El panel desplegado la ocupa entera con un
+// colSpan, así que este número y las celdas de arriba tienen que salir del mismo
+// lado: estuvo escrito a mano en 6 y cualquier columna que se agregara o se sacara
+// dejaba el panel corto o largo sin avisar.
+const colCount = (variant: 'grouped' | 'flat', compact: boolean): number =>
+  1 + // chevron
+  (variant === 'flat' && !compact ? 1 : 0) + // país
+  1 + // inversor
+  (compact ? 0 : 1) + // año
+  1 + // sector
+  1 + // monto
+  (variant === 'grouped' && !compact ? 1 : 0) // localidad
+
 // One investment row + its expandable detail panel. In flat view the country is
 // its own column (no country grouping to carry it); in grouped view the country
 // lives in the group header, so the last column shows the locality instead.
+//
+// En teléfono la fila se queda con inversor, sector y monto, y el resto baja al
+// panel desplegado: seis columnas en 312px daban 29,5px por columna elástica y el
+// texto se imprimía encima del de la vecina. El año no desaparece, se pega como
+// segunda línea del inversor, porque es el criterio de orden por defecto y ordenar
+// por un dato que no se ve no se entiende.
 function InvRow({
   inv,
   idx,
   variant,
+  compact,
   lang,
   open,
   onToggle,
@@ -77,6 +98,7 @@ function InvRow({
   inv: Investment
   idx: number
   variant: 'grouped' | 'flat'
+  compact: boolean
   lang: string
   open: boolean
   onToggle: () => void
@@ -86,6 +108,19 @@ function InvRow({
   const cases = inv.research_cases ?? []
   const hasStudies = cases.length > 0
   const zebra = idx % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+  const country = inv.country ? localizedCountry(inv.country, lang) : '—'
+  // `break-word` corta sólo si la palabra no entra, y no achica el ancho mínimo de la
+  // columna. Se probó `anywhere`, que sí lo achica: hace entrar la tabla, pero parte
+  // «Minería» en «Mine / ría» aunque sobre lugar. Lo que hace entrar la tabla en 312px
+  // sin partir nada es el relleno: 8px por lado y por columna son 64px de los 312.
+  const corte = 'break-words'
+  const pad = compact ? 'px-1' : 'px-2'
+  // En 312px la suma de los anchos mínimos se pasa del panel y alguna columna tiene
+  // que ceder. Cede el inversor: sus nombres ya vienen en dos o tres líneas, así que
+  // un corte dentro de «Construction» casi no se nota. El sector no cede aunque sea
+  // la palabra más larga, porque partir «Minería» en «Minerí / a» se lee como un
+  // error. Ese fue el orden probado: cortando el sector la tabla entraba igual y se
+  // veía rota.
   return (
     <Fragment>
       <tr className={`${zebra} cursor-pointer hover:bg-brand/20`} onClick={onToggle}>
@@ -94,30 +129,36 @@ function InvRow({
             <Chevron open={open} />
           </button>
         </td>
-        {variant === 'flat' && (
-          <td className="px-2 py-2 align-top text-gray-700">
-            <span className="block truncate">
-              {inv.country ? localizedCountry(inv.country, lang) : '—'}
-            </span>
+        {variant === 'flat' && !compact && (
+          <td className={`${pad} py-2 align-top text-gray-700 ${corte}`}>
+            <span className="block">{country}</span>
           </td>
         )}
-        <td className="px-2 py-2 align-top font-medium text-gray-900">{inv.investor ?? '—'}</td>
-        <td className="px-2 py-2 align-top text-gray-700">{inv.year ?? '—'}</td>
-        <td className="px-2 py-2 align-top">
+        <td className={`${pad} py-2 align-top font-medium text-gray-900 ${compact ? "[overflow-wrap:anywhere]" : corte}`}>
+          {inv.investor ?? '—'}
+          {compact && (
+            <span className="block text-xs font-normal tabular-nums text-gray-500">{inv.year ?? '—'}</span>
+          )}
+        </td>
+        {!compact && <td className="px-2 py-2 align-top tabular-nums text-gray-700">{inv.year ?? '—'}</td>}
+        <td className={`${pad} py-2 align-top`}>
           <span className="flex items-start gap-1.5">
             <span
               className="mt-1 inline-block h-2.5 w-2.5 shrink-0 rounded-sm"
               style={{ background: sectorColor(inv.area_en) }}
             />
-            <span className="min-w-0">{localizedArea(inv, lang)}</span>
+            <span className={`min-w-0 ${corte}`}>{localizedArea(inv, lang)}</span>
           </span>
         </td>
-        <td className="whitespace-nowrap px-2 py-2 align-top text-right tabular-nums text-gray-700">
+        {/* El monto envuelve. Con `whitespace-nowrap` la columna reclamaba los 169px
+            que mide «US$ 1,2 mil millones» en español, y entre eso y el mínimo de las
+            demás la tabla se pasaba 78px del panel: dejaba de pisarse y se salía. */}
+        <td className={`${pad} py-2 align-top text-right tabular-nums text-gray-700`}>
           {formatUsd(inv.investment_musd, lang)}
         </td>
-        {variant === 'grouped' && (
+        {variant === 'grouped' && !compact && (
           <td className="px-2 py-2 align-top text-gray-700">
-            <span className="flex items-center gap-1">
+            <span className="flex items-start gap-1">
               {onLocate && (
                 <button
                   type="button"
@@ -126,21 +167,23 @@ function InvRow({
                     onLocate(inv)
                   }}
                   title={t('list.locate')}
-                  className="shrink-0 text-teal-600 hover:text-teal-800"
+                  className="mt-0.5 shrink-0 text-teal-600 hover:text-teal-800"
                 >
                   <PinIcon />
                 </button>
               )}
-              <span className="min-w-0 truncate" title={inv.location ?? undefined}>
-                {inv.location ?? '—'}
-              </span>
+              <span className={`min-w-0 ${corte}`}>{inv.location ?? '—'}</span>
             </span>
           </td>
         )}
       </tr>
       {open && (
         <tr className={zebra}>
-          <td colSpan={6} className="bg-gray-50 px-4 py-3 text-left">
+          <td colSpan={colCount(variant, compact)} className="bg-gray-50 px-4 py-3 text-left">
+            {/* El año no se repite acá: en teléfono ya viaja bajo el nombre del
+                inversor. Lo único que el panel repone es el país, que en la lista
+                plana sí perdió su columna. */}
+            {compact && variant === 'flat' && <p className="mb-1 text-xs text-gray-600">{country}</p>}
             <p className="text-sm font-medium text-gray-900">{localizedDetail(inv, lang)}</p>
             {inv.location && (
               <p className="mt-1 flex items-center gap-1.5 text-xs text-gray-600">
@@ -169,18 +212,29 @@ function InvRow({
 
 // Column header row. Flat adds a País column and drops Locality (locality moves
 // to the expanded detail); grouped is the reverse.
-function TableHead({ variant }: { variant: 'grouped' | 'flat' }) {
+//
+// Ningún ancho se declara acá, y por eso la tabla es `table-auto`: el ancho que
+// necesita el monto lo decide el idioma («US$ 1,2 mil millones» mide 152px y
+// «US$12亿» mucho menos), así que cualquier número que escribamos es una
+// adivinanza que se rompe al cambiar de idioma. El `w-7` del chevron es el único,
+// y es el ancho de un ícono.
+function TableHead({ variant, compact }: { variant: 'grouped' | 'flat'; compact: boolean }) {
   const { t } = useTranslation()
+  const pad = compact ? 'px-1' : 'px-2'
   return (
     <thead className="bg-teal-700 text-white text-xs">
       <tr>
         <th className="w-7 px-1 py-2" />
-        {variant === 'flat' && <th className="w-20 px-2 py-2 text-left font-medium">{t('filter.country')}</th>}
-        <th className="px-2 py-2 text-left font-medium">{t('list.investor')}</th>
-        <th className="w-12 px-2 py-2 text-left font-medium">{t('list.year')}</th>
-        <th className="px-2 py-2 text-left font-medium">{t('list.area')}</th>
-        <th className="w-20 px-2 py-2 text-right font-medium">{t('list.amount')}</th>
-        {variant === 'grouped' && <th className="w-24 px-2 py-2 text-left font-medium">{t('list.location')}</th>}
+        {variant === 'flat' && !compact && (
+          <th className={`${pad} py-2 text-left font-medium`}>{t('filter.country')}</th>
+        )}
+        <th className={`${pad} py-2 text-left font-medium`}>{t('list.investor')}</th>
+        {!compact && <th className="px-2 py-2 text-left font-medium">{t('list.year')}</th>}
+        <th className={`${pad} py-2 text-left font-medium`}>{t('list.area')}</th>
+        <th className={`${pad} py-2 text-right font-medium`}>{t('list.amount')}</th>
+        {variant === 'grouped' && !compact && (
+          <th className="px-2 py-2 text-left font-medium">{t('list.location')}</th>
+        )}
       </tr>
     </thead>
   )
@@ -189,6 +243,7 @@ function TableHead({ variant }: { variant: 'grouped' | 'flat' }) {
 export default function ProjectDocsTable({ investments, lang, onLocate }: Props) {
   const { t } = useTranslation()
   const { filters } = useFilters()
+  const compact = useIsMobile()
   const query = filters.query
   const [sortBy, setSortBy] = useState<CardSort>('year')
   const [grouped, setGrouped] = useState(true)
@@ -270,8 +325,13 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
                 })}
               </button>
               {open && (
-                <table className="w-full table-fixed border-collapse">
-                  <TableHead variant="grouped" />
+                // Red, no encuadre: con el corte de palabra y sin anchos declarados la
+                // tabla entra sola en los seis anchos medidos. Esto existe para que un
+                // dato futuro más largo empuje un scroll de 8px en vez de romper el
+                // panel, que es lo que hacían los anchos fijos.
+                <div className="overflow-x-auto">
+                <table className="w-full table-auto border-collapse">
+                  <TableHead variant="grouped" compact={compact} />
                   <tbody>
                     {group.projects.map((inv, idx) => (
                       <InvRow
@@ -279,6 +339,7 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
                         inv={inv}
                         idx={idx}
                         variant="grouped"
+                        compact={compact}
                         lang={lang}
                         open={openRows.has(inv.id)}
                         onToggle={() => toggleRow(inv.id)}
@@ -287,13 +348,15 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
                     ))}
                   </tbody>
                 </table>
+                </div>
               )}
             </div>
           )
         })
       ) : (
-        <table className="w-full table-fixed border-collapse">
-          <TableHead variant="flat" />
+        <div className="overflow-x-auto">
+        <table className="w-full table-auto border-collapse">
+          <TableHead variant="flat" compact={compact} />
           <tbody>
             {flat.map((inv, idx) => (
               <InvRow
@@ -301,6 +364,7 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
                 inv={inv}
                 idx={idx}
                 variant="flat"
+                compact={compact}
                 lang={lang}
                 open={openRows.has(inv.id)}
                 onToggle={() => toggleRow(inv.id)}
@@ -309,6 +373,7 @@ export default function ProjectDocsTable({ investments, lang, onLocate }: Props)
             ))}
           </tbody>
         </table>
+        </div>
       )}
 
       {(grouped ? groups.length === 0 : flat.length === 0) && (
