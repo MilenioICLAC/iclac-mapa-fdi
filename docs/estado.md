@@ -66,11 +66,16 @@ algún día da distinto, algo se está perdiendo en el viaje. El import machaca 
 borra nunca, no escribe si el resultado no pasa el validador, y absorbe lo que Excel le haga al
 archivo. Detalle completo en `data/schema/investors_map.README.md`.
 
-**Ninguna inversión publicada queda hoy sin propiedad determinada.** El camino fue largo y conviene
-tenerlo: 14 empresas se resolvieron el 31-07 con veredictos de la revisión externa que llevaban una
-semana sin cargarse; el resto salió al implementar el modelo de consorcios y al registrar el primer
-socio no chino. La opción «Sin determinar» **se sacó del filtro** (sigue siendo un valor válido del
-dato, lo que salió es la casilla).
+**Hasta el 10-08 ninguna inversión publicada quedaba sin propiedad determinada; hoy hay 51 que sí.**
+La entrega del 21-08 cambió nombres de inversor que ya estaban mapeados, y un nombre que no está en
+la tabla cae a propiedad desconocida aunque su empresa lleve meses clasificada. Se cierra
+completando la tabla, no reclasificando empresas.
+
+El camino de la vez anterior conviene tenerlo, porque vuelve a aplicar: 14 empresas se resolvieron el
+31-07 con veredictos de la revisión externa que llevaban una semana sin cargarse; el resto salió al
+implementar el modelo de consorcios y al registrar el primer socio no chino. La opción «Sin
+determinar» **se sacó del filtro** (sigue siendo un valor válido del dato, lo que salió es la
+casilla).
 
 Lo que sí sigue esperando revisión externa son **16 clasificaciones que propusimos nosotros**, más 3
 empresas que la revisión marcó para eliminar. El instrumento y el correo están listos en
@@ -78,10 +83,11 @@ empresas que la revisión marcó para eliminar. El instrumento y el correo está
 
 ### 1.2 Qué países nuevos se publican
 
-Costa Rica, Honduras, Nicaragua y Trinidad y Tobago pasan la validación y están **retenidos** con
-`publish=no` en `data/schema/countries.csv`, a la espera de la decisión de ICLAC.
+**Resuelto el 17-08: se publicaron.** Costa Rica, Honduras, Nicaragua y Trinidad y Tobago están hoy
+con `publish=yes` en `data/schema/countries.csv`, junto con Cuba, El Salvador, Jamaica y República
+Dominicana.
 
-Antes de publicarlos conviene resolver dos cosas de contenido:
+Lo que sigue abierto es lo que no se resolvió antes de publicarlos:
 
 - Cinco filas de esos países traen `Area_EN = Construction`, que no es una de las ocho categorías de
   sector de la metodología. Se dibujarían en gris y con una categoría de más en el filtro.
