@@ -555,8 +555,8 @@ export default function MapView() {
         <RegionLimits bounds={region} topInset={topInset} />
         <ZoomControl position="bottomleft" />
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+          url="https://tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
         {filteredGeo && (
           <GeoJSON

@@ -232,3 +232,13 @@ html, body, #root {
   background: transparent;
   height: 12px;
 }
+
+/* El basemap va en gris. OSM crudo es un mapa de referencia: bosque verde,
+   carreteras y manchas urbanas le compiten al punto de sector, que es el dato.
+   En gris el dato es lo único con color. El sitio anterior hacía lo mismo.
+   El selector lleva el contenedor a propósito: Leaflet trae
+   `.leaflet-tile { filter: inherit }`, misma especificidad y más tarde en la
+   cascada, así que `.leaflet-tile-loaded` a secas no aplica y queda `none`. */
+.leaflet-container img.leaflet-tile {
+  filter: brightness(1.1) grayscale(1);
+}
