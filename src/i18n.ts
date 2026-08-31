@@ -19,7 +19,10 @@ i18n
     supportedLngs: ['es', 'en', 'cn'],
     interpolation: { escapeValue: false },
     detection: {
-      order: ['localStorage', 'navigator'],
+      // `querystring` primero para que un enlace pueda fijar el idioma: el menú de
+      // iclac.cl llega con ?lng=en o ?lng=cn según el idioma en que se venía navegando.
+      order: ['querystring', 'localStorage', 'navigator'],
+      lookupQuerystring: 'lng',
       caches: ['localStorage']
     }
   })
