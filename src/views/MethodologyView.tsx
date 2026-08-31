@@ -1,14 +1,11 @@
 import { useTranslation } from 'react-i18next'
 import Citation from '@/components/Citation'
 
-// PENDIENTE VALIDACIÓN CLIENTE (texto migrado del legado, sin editar):
-//  1. Rango de años: el texto dice "2003–2025" pero investments.json llega hasta 1997.
-//     Confirmar si el rango es correcto o si hay outliers pre-2003 a depurar.
-//  2. Sector ICT/TIC no está descrito en la sección "clasificados por industria"
-//     (el texto describe 7 de los 8 sectores canónicos). Falta párrafo de TIC.
-//  3. El texto EN está desactualizado respecto a ES/CN: lista solo 8 países y omite
-//     el párrafo de Venezuela. Pedir al cliente el texto EN vigente.
-// Ver docs/generales/next_steps.md.
+// El texto de ES y EN es el que envió Francisco el 30-08-2026
+// (docs/sprint_6/Texto_web_metodologia_ES_EN.docx). El CN se puso al día traduciendo el
+// delta sobre la traducción ya revisada, así que dice lo mismo que los otros dos, pero
+// esa parte todavía NO pasó por revisión externa y el PDF en chino sigue siendo el de
+// 2025. Ver docs/estado.md antes de publicar.
 
 const PDF_BY_LANG: Record<string, string> = {
   es: '/data/methodology/Methodology_ICLAC_ES.pdf',

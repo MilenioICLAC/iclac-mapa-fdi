@@ -165,10 +165,11 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
 - **Sector de `PRY-0001` (COFCO):** `Area_EN` dice `Energy` y `Area_ES` dice `Agroindustria`. Una de
   las dos está mal y hace falta criterio para saber cuál.
 - **`ECU-0041`:** la latitud (−6,62) cae en Perú; `Location` dice Orellana, que está cerca de −0,5.
-- **Ventana temporal:** la metodología declara 2003–2025 y hay una inversión de 1997 (`0101101`,
-  Venezuela, CNPC), sin monto.
-- **Año de la cita sugerida:** el sitio cita 2024, igual que la versión anterior, y los datos llegan
-  a 2025. Es una línea por idioma en `common.citation_text`.
+- **Ventana temporal:** la metodología declara 2003–2026 desde la edición del 30-08 y hay una
+  inversión de 1997 (`0101101`, Venezuela, CNPC), sin monto.
+- **Guatemala está en `countries.csv` y no tiene archivo de país.** Se barrió en su momento, así que
+  hay que confirmar si quedó fuera por decisión o si se perdió en alguna entrega. Lo levantó el
+  documento de texto web del 30-08.
 - **Investigación y noticias:** falta definir si las noticias van en una columna aparte o se
   excluyen.
 - **`Research`/`News` no reflejan `source1..3`:** 290 de las 465 inversiones tienen los dos flags en
@@ -209,9 +210,28 @@ de datos y una corrida de `build_borders`. La geometría ya está disponible en
   del mapa quedan alcanzables sin scroll.
 - **Pantallas de poca altura** (unos 475 px): se probó un punto de corte para encoger los logos, sin
   confirmar.
-- **El texto chino de Metodología** conviene contrastarlo con el del sitio anterior. Hay una
-  diferencia intencional: se eliminó el párrafo final que repetía la cita sugerida ya presente
-  arriba. Cualquier otra diferencia sí es un hallazgo.
+- **El texto chino de Metodología está redactado por nosotros y NO tiene revisión externa.**
+  Francisco dejó el chino «para más adelante» al mandar las versiones nuevas de español e inglés el
+  30-08, pero esperar dejaba al lector en chino con doce países en vez de veintiuno, la ventana
+  2003–2025 y el criterio del año viejo, o sea el sitio contradiciéndose entre idiomas. Se tradujo
+  el delta: los cinco párrafos nuevos y los siete retoques, reusando la prosa ya revisada de los
+  otros ocho. **No se publica sin que lo lea un hablante nativo del equipo** (Yifang Wang, Xinyi
+  Wang o Jessie Hu, del Diálogo, son los nombres obvios). Los párrafos escritos por nosotros son:
+  modelos de lenguaje en la verificación, la descarga en CSV, el puntaje de fiabilidad, el anexo de
+  excluidos y la construcción sin propiedad; más los cambios en el primer párrafo (rango y lista de
+  países), agradecimientos, multipunto y 23,77 %, un tercio de los estudios de caso, empresas
+  conjuntas y criterio del año, sector TIC y manufactura, y ANID.
+- **El PDF de metodología en chino sigue siendo el de 2025.** Pedro diagramó la edición nueva sólo
+  en español e inglés, así que el botón de descarga de la página en chino entrega un documento que
+  ya no coincide con el texto que tiene encima. Hay que pedirle a Francisco el Word en chino para
+  que Pedro lo diagrame.
+- **Al contrastar el chino con el sitio anterior** hay una diferencia intencional: se eliminó el
+  párrafo final que repetía la cita sugerida ya presente arriba. Cualquier otra diferencia sí es un
+  hallazgo.
+- **El español y el inglés no dicen lo mismo sobre la filiación de los jóvenes investigadores:** el
+  español los da como «jóvenes investigadores de ICLAC» y el inglés (y el chino, que lo sigue) como
+  de la Pontificia Universidad Católica de Chile. Viene del texto que mandó Francisco, así que la
+  corrección es de ellos.
 
 ### 2.3 Datos y pipeline
 

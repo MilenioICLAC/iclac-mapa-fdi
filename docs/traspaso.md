@@ -65,18 +65,27 @@ Ese ítem no apuntaba a `app.iclac.cl` sino a una página del propio WordPress
 (`iclac.cl/mapa-repositorio-regional-de-inversiones-chinas/`, id **5411**), cuyo contenido era una
 sola cosa: un iframe al mapa del proveedor anterior, `https://china-latam.iclac.cl/`.
 
-Por eso hacen falta **dos** cambios y no uno:
+**El ítem del menú se dejó apuntando a esa página**, como estaba, y lo que cambió es que **la página
+5411 redirige** a `https://app.iclac.cl/` con un 301. Un solo mecanismo, y cubre las tres entradas: el
+menú, los enlaces a esa dirección que ya circulan en publicaciones, y lo que está indexado.
 
-- **El ítem del menú** pasó a ser un enlace directo a `https://app.iclac.cl/`. Un ítem de tipo página
-  está atado al id de esa página y no admite una URL externa, así que hubo que borrar el viejo (5414)
-  y crear uno de tipo «enlace personalizado» (**7439**), reponiéndole la posición (29) y el padre
-  (6020, «Datos»). El título se mantuvo **idéntico**: TranslatePress indexa las traducciones por el
-  string original, y cambiarlo aunque sea una tilde deja el menú sin traducir en inglés y chino.
-- **La página 5411 redirige** a `https://app.iclac.cl/` con un 301. El menú no alcanza: los enlaces a
-  esa dirección ya circulan en publicaciones y están indexados, y esos no pasan por el menú.
+**Apuntar el menú directo a la app se probó y se revirtió.** Parecía mejor —un salto menos— y rompe el
+idioma: el ítem del menú es una URL fija, así que el visitante que venía leyendo iclac.cl en inglés
+llegaba a la app en español. El idioma se traduce en la redirección (ver abajo), y un enlace directo
+no pasa por ahí. Además obliga a un ítem de tipo «enlace personalizado» con el id escrito a mano en el
+código, que se rompe si alguien rehace el menú desde wp-admin. El salto extra es un 301 que el
+navegador cachea; el idioma correcto vale más.
 
-La redirección vive en `wp-content/mu-plugins/iclac-redirect-mapa.php`, un archivo de cuatro líneas
-que redirige por **id de página**:
+Si alguna vez hay que recrear ese ítem, va con el **título idéntico** al actual («Mapa Inversiones
+Chinas», que no es el título de la página): TranslatePress indexa las traducciones por el string
+original, y cambiarlo aunque sea una tilde deja el menú sin traducir en inglés y chino.
+
+```
+wp menu item add-post principal 5411 --title="Mapa Inversiones Chinas" --parent-id=6020 --position=29
+```
+
+La redirección vive en `wp-content/mu-plugins/iclac-redirect-mapa.php`, y redirige por **id de
+página**:
 
 ```php
 <?php
@@ -146,6 +155,17 @@ curl -sI https://iclac.cl/mapa-repositorio-regional-de-inversiones-chinas/
 ```
 
 Tiene que responder `301` con `Location: https://app.iclac.cl/` y `X-Redirect-By: WordPress`.
+
+**Y esa caché es sensible a cookies**, que es la trampa: una petición que lleva cookie de sesión la
+esquiva y devuelve el 301. O sea que quien está logueado en WordPress —cualquiera que venga de
+trabajar en el panel— ve la redirección funcionando mientras el visitante anónimo sigue recibiendo la
+copia vieja. Verificar siempre sin sesión, con `curl` o en una ventana de incógnito recién abierta:
+
+```
+curl -sI -b "wordpress_logged_in_x=1" https://iclac.cl/mapa-repositorio-regional-de-inversiones-chinas/
+```
+
+Si esa da 301 y la misma sin `-b` da 200, es caché, no código.
 
 **Queda pendiente `china-latam.iclac.cl`**, el mapa del proveedor anterior. Redirigida la página, ese
 subdominio queda huérfano pero sigue en pie y accesible por enlace directo. Apagarlo o redirigirlo es
