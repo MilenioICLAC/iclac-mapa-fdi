@@ -215,7 +215,8 @@ tabla se muestra igual, con propiedad desconocida, y queda listado en el informe
 
 ### Qué queda pendiente
 
-`docs/estado.md`, que se mantiene borrando lo que se cierra.
+Lo mantiene la asesoría en su documentación interna, borrando lo que se cierra. Pedirlo cuando haga
+falta el estado al día.
 
 ### Si hay que retomar el desarrollo
 

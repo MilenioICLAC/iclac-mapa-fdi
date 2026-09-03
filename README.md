@@ -80,7 +80,7 @@ data/sources/   los archivos que sube el equipo de datos
 data/schema/    el contrato de datos, el registro de países y la tabla de inversores
 scripts/        ETL y validadores; en one-off/, herramientas de auditorías puntuales
 public/data/    lo que consume el navegador (los JSON los genera el ETL)
-docs/estado.md  qué quedó pendiente y de quién depende
+docs/           traspaso.md: cómo quedó montado el sitio y qué queda en manos de ICLAC
 ```
 
 `.claude/CLAUDE.md` explica **por qué** el código está como está: las reglas que no caducan y las

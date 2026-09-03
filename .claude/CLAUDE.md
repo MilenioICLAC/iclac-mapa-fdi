@@ -2,7 +2,8 @@
 
 Contexto para quien retome este repositorio, sea persona o agente. Acá van **las reglas que no
 caducan**: por qué el código está como está y qué se rompe si se cambia sin saber. Lo que falta hacer
-vive en `docs/estado.md`.
+vive fuera de este repositorio, en la documentación interna: `fsotoj/proyectos-docs` (privado),
+`mapa_fdi/docs/estado.md`.
 
 ## Qué es
 
@@ -261,7 +262,7 @@ queda deshabilitado, porque Adquisición y Greenfield son justo lo que se está 
 construcción entre paréntesis. Contar sobre las 386 publicadas describe un universo que el lector nunca
 ve, porque el default excluye construcción y son 272. Los documentos anteriores al 11-08, incluido el
 informe de propiedad del 03-08, usan el número con construcción **sin declararlo**: convertir antes de
-reutilizar cualquier cifra de ahí. La tabla vigente está en `docs/estado.md` §0.
+reutilizar cualquier cifra de ahí. La tabla vigente está en `estado.md` §0 de la documentación interna.
 
 ## Regla de hover
 
@@ -595,4 +596,5 @@ cadena; ver su README.
 
 ## Dónde está lo que falta
 
-`docs/estado.md`: qué quedó pendiente, qué decisiones están abiertas y de quién depende cada una.
+`estado.md`, en `fsotoj/proyectos-docs` (privado), carpeta `mapa_fdi/docs/`: qué quedó pendiente, qué
+decisiones están abiertas y de quién depende cada una.

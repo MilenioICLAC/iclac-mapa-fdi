@@ -14,12 +14,13 @@ dist-ssr
 # Salida del informe de validacion que se publica en GitHub Pages
 site/
 
-# Documentos de trabajo internos: no se versionan. Las excepciones de abajo sí,
+# Documentos de trabajo internos: no se versionan. La excepción de abajo sí,
 # porque el repositorio tiene que poder explicarse solo.
 # (Ojo: tiene que ser `docs/*` y no `docs/`. Si se excluye el directorio, git no
 #  puede volver a incluir un archivo de adentro y las negaciones no hacen nada.)
+# estado.md salió el 04-09-2026 a fsotoj/proyectos-docs (privado), carpeta
+# mapa_fdi/: es estado interno de trabajo y este repositorio es público.
 docs/*
-!docs/estado.md
 !docs/traspaso.md
 
 # Salidas de los scripts de reporte
