@@ -12,7 +12,40 @@
 [build.environment]
   NODE_VERSION = "20"
 
+# `app.iclac.cl` reparte las herramientas por ruta. El orden importa: Netlify aplica la primera
+# regla que calza.
+#
+# 1. La encuesta vive en otro sitio de Netlify; se reenvía sin cambiar la URL del navegador.
+# Sin la barra final también es la encuesta (si no, la regla 3 la mandaría a `/mapa-fdi/encuesta-percepciones`).
+[[redirects]]
+  from = "/encuesta-percepciones"
+  to = "https://iclac-encuesta.netlify.app/encuesta-percepciones/"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/encuesta-percepciones/*"
+  to = "https://iclac-encuesta.netlify.app/encuesta-percepciones/:splat"
+  status = 200
+  force = true
+
+# 2. El mapa. El build deja sus archivos en `dist/mapa-fdi/` (ver `vite.config.ts`), así que los
+#    archivos reales se sirven solos; esta regla es el fallback de la app para sus rutas internas.
+#    Sin `force`, un archivo que existe gana sobre la regla.
+# Sin la barra final también es el mapa (si no, la regla 3 lo mandaría a `/mapa-fdi/mapa-fdi`).
+[[redirects]]
+  from = "/mapa-fdi"
+  to = "/mapa-fdi/index.html"
+  status = 200
+
+[[redirects]]
+  from = "/mapa-fdi/*"
+  to = "/mapa-fdi/index.html"
+  status = 200
+
+# 3. Los enlaces que ya circulan apuntan a la raíz (con los filtros en el query string): se llevan
+#    a la ruta nueva. Va al final para no capturar nada de lo anterior.
 [[redirects]]
   from = "/*"
-  to = "/index.html"
-  status = 200
+  to = "/mapa-fdi/:splat"
+  status = 301

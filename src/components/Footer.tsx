@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { asset } from '@/lib/base'
 
 type Logo = { src: string; alt: string; href?: string }
 
@@ -20,16 +21,16 @@ type Logo = { src: string; alt: string; href?: string }
 // `PLUMA-BLANCO` es la tercera y no sirve acá: es blanca entera (`fill: #fff`) sobre
 // un pie blanco. Está pensada para fondos oscuros.
 const PARTNERS: Logo[] = [
-  { src: '/icons/theDialogue.webp', alt: 'The Dialogue', href: 'https://www.thedialogue.org/' },
-  { src: '/icons/cechap.webp', alt: 'CECHAP', href: 'https://cechap.up.edu.pe/' },
+  { src: asset('/icons/theDialogue.webp'), alt: 'The Dialogue', href: 'https://www.thedialogue.org/' },
+  { src: asset('/icons/cechap.webp'), alt: 'CECHAP', href: 'https://cechap.up.edu.pe/' },
   {
-    src: '/icons/minciencia-anid.svg',
+    src: asset('/icons/minciencia-anid.svg'),
     alt: 'Ministerio de Ciencia, Tecnología, Conocimiento e Innovación · ANID',
     href: 'https://anid.cl/'
   },
-  { src: '/icons/ceach.webp', alt: 'CEACH' },
-  { src: '/icons/camaraArgentinaChina.webp', alt: 'Cámara Argentino China' },
-  { src: '/icons/camaraColombiaChina.webp', alt: 'Cámara Colombo China' }
+  { src: asset('/icons/ceach.webp'), alt: 'CEACH' },
+  { src: asset('/icons/camaraArgentinaChina.webp'), alt: 'Cámara Argentino China' },
+  { src: asset('/icons/camaraColombiaChina.webp'), alt: 'Cámara Colombo China' }
 ]
 
 function LogoImg({ logo, className }: { logo: Logo; className: string }) {

@@ -24,6 +24,7 @@ import YearRangeSlider from '@/components/YearRangeSlider'
 import CheckList from '@/components/CheckList'
 import ToolInfo from '@/components/ToolInfo'
 import { TrendsIcon } from '@/components/icons'
+import { asset } from '@/lib/base'
 
 // Register only what the Sankey needs — the bundler drops the rest of echarts.
 // LabelLayout is what implements `labelLayout: { hideOverlap: true }` below. Leaving
@@ -55,12 +56,12 @@ export default function SankeyView() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/data/investments.json').then(r => {
+      fetch(asset('/data/investments.json')).then(r => {
         if (!r.ok) throw new Error(`investments.json: ${r.status}`)
         return r.json()
       }),
       // Map is optional: unmapped investors fall back to their raw name.
-      fetch('/data/investors_map.json').then(r => (r.ok ? r.json() : {}))
+      fetch(asset('/data/investors_map.json')).then(r => (r.ok ? r.json() : {}))
     ])
       .then(([inv, m]: [Investment[], InvestorMap]) => {
         setInvestments(inv)

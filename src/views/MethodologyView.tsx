@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import Citation from '@/components/Citation'
+import { asset } from '@/lib/base'
 
 // El texto de ES y EN es el que envió Francisco el 30-08-2026
 // (docs/sprint_6/Texto_web_metodologia_ES_EN.docx). El CN se puso al día traduciendo el
@@ -8,9 +9,9 @@ import Citation from '@/components/Citation'
 // 2025. Ver docs/estado.md antes de publicar.
 
 const PDF_BY_LANG: Record<string, string> = {
-  es: '/data/methodology/Methodology_ICLAC_ES.pdf',
-  en: '/data/methodology/Methodology_ICLAC_EN.pdf',
-  cn: '/data/methodology/Methodology_ICLAC_CN.pdf',
+  es: asset('/data/methodology/Methodology_ICLAC_ES.pdf'),
+  en: asset('/data/methodology/Methodology_ICLAC_EN.pdf'),
+  cn: asset('/data/methodology/Methodology_ICLAC_CN.pdf'),
 }
 
 export default function MethodologyView() {
