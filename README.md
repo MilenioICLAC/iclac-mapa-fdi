@@ -88,9 +88,9 @@ trampas ya conocidas. Vale leerlo antes de tocar el mapa, los filtros o el Sanke
 
 ### Despliegue
 
-En producción: **https://app.iclac.cl**
+En producción: **https://app.iclac.cl/mapa-fdi/** (la raíz de `app.iclac.cl` y las rutas viejas redirigen ahí)
 
-Netlify, construyendo con `npm run etl && npm run build` y publicando `dist/` (ver `netlify.toml`).
+Netlify, construyendo con `npm run etl && npm run build` y publicando `dist/` (ver `netlify.toml`). El build deja el mapa en `dist/mapa-fdi/`, igual que su URL, y el mismo `netlify.toml` reparte `app.iclac.cl` entre las herramientas.
 Cada push a `main` reconstruye el sitio. El dominio llega con un CNAME de `app` a
 `map-fdi.netlify.app`, en la zona DNS de `iclac.cl` que se administra en iHosting.
 

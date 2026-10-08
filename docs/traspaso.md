@@ -8,12 +8,12 @@ de administrador que solo alguien de la organización tiene.
 
 ## 1. Hosting en Netlify
 
-Montado. El sitio está publicado en **https://app.iclac.cl**, desde este repositorio y en la cuenta
+Montado. El sitio está publicado en **https://app.iclac.cl/mapa-fdi/**, desde este repositorio y en la cuenta
 de Netlify de ICLAC. La configuración está versionada en `netlify.toml`, así que no hay nada que
 ajustar a mano:
 
 - Build command: `npm run etl && npm run build`
-- Publish directory: `dist`
+- Publish directory: `dist` (el build deja el mapa en `dist/mapa-fdi/`, igual que su URL)
 - Variable de entorno: `VITE_WEB3FORMS_KEY` (ver punto 2)
 
 **Cada push al repositorio reconstruye el sitio solo.** Subir una planilla corregida es todo lo que
@@ -66,7 +66,7 @@ Ese ítem no apuntaba a `app.iclac.cl` sino a una página del propio WordPress
 sola cosa: un iframe al mapa del proveedor anterior, `https://china-latam.iclac.cl/`.
 
 **El ítem del menú se dejó apuntando a esa página**, como estaba, y lo que cambió es que **la página
-5411 redirige** a `https://app.iclac.cl/` con un 301. Un solo mecanismo, y cubre las tres entradas: el
+5411 redirige** a `https://app.iclac.cl/mapa-fdi/` con un 301. Un solo mecanismo, y cubre las tres entradas: el
 menú, los enlaces a esa dirección que ya circulan en publicaciones, y lo que está indexado.
 
 **Apuntar el menú directo a la app se probó y se revirtió.** Parecía mejor —un salto menos— y rompe el
@@ -99,7 +99,7 @@ add_action('template_redirect', function () {
 
     $ruta    = (string) wp_parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
     $primero = strtok(trim($ruta, '/'), '/');
-    $destino = 'https://app.iclac.cl/';
+    $destino = 'https://app.iclac.cl/mapa-fdi/';
 
     if (isset($idiomas[$primero])) {
         $destino = add_query_arg('lng', $idiomas[$primero], $destino);
@@ -135,12 +135,10 @@ de mostrar su ítem en el menú y desaparece «Mapa Inversiones Chinas». Sigue 
 nunca se renderiza. Su contenido se dejó como un enlace a la app, para que la página siga siendo
 correcta si algún día el mu-plugin no está.
 
-**Los dos apuntan a la raíz de `app.iclac.cl`, y eso depende de una decisión abierta.** Si las tres
-herramientas terminan compartiendo host por rutas (`app.iclac.cl/mapa-fdi`, `/encuesta`,
-`/mapa-malls`) en vez de por subdominios, el mapa deja de vivir en la raíz y hay que actualizar **los
-dos lugares en el mismo gesto**, más una redirección en Netlify para los enlaces ya compartidos, que
-llevan los filtros en el query string de la raíz. La decisión de enrutamiento está registrada como
-abierta en el `CLAUDE.md` de la carpeta que orquesta los tres frentes.
+**El mapa vive en `app.iclac.cl/mapa-fdi/`** (desde el 08-10-2026), porque las herramientas comparten
+`app.iclac.cl` con una ruta cada una. El mu-plugin y el menú apuntan ahí. Las dos cosas se actualizaron
+en el mismo gesto, y `netlify.toml` redirige con 301 la raíz y las rutas viejas a `/mapa-fdi/`,
+conservando el query string con los filtros de los enlaces ya compartidos.
 
 **Un cambio en WordPress no se ve al instante.** iHosting tiene **nginx** delante de Apache cacheando
 el HTML de los visitantes anónimos, y **cPanel no expone ninguna herramienta de purga** («Optimizar
@@ -154,7 +152,7 @@ iHosting. Para verificar sin depender del navegador:
 curl -sI https://iclac.cl/mapa-repositorio-regional-de-inversiones-chinas/
 ```
 
-Tiene que responder `301` con `Location: https://app.iclac.cl/` y `X-Redirect-By: WordPress`.
+Tiene que responder `301` con `Location: https://app.iclac.cl/mapa-fdi/` y `X-Redirect-By: WordPress`.
 
 **Y esa caché es sensible a cookies**, que es la trampa: una petición que lleva cookie de sesión la
 esquiva y devuelve el 301. O sea que quien está logueado en WordPress —cualquiera que venga de
