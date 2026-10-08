@@ -1,5 +1,6 @@
 import { useTranslation } from 'react-i18next'
 import Citation from '@/components/Citation'
+import { asset } from '@/lib/base'
 
 // DOS descargas, las dos armadas por el ETL en build (`scripts/etl.mjs`), no por el
 // navegador: los datos ya están unidos ahí, el bundle se ahorra SheetJS y lo que baja el
@@ -19,8 +20,8 @@ import Citation from '@/components/Citation'
 // PENDIENTE CLIENTE (ver next_steps 2.6): sugerir publicar también la base canónica de
 // inversores (investors_map) una vez aprobada la auditoría.
 
-const DATASET_URL = '/data/iclac_inversiones_china_latam.xlsx'
-const ANNEX_URL = '/data/iclac_anexo_evidencia_limitada.xlsx'
+const DATASET_URL = asset('/data/iclac_inversiones_china_latam.xlsx')
+const ANNEX_URL = asset('/data/iclac_anexo_evidencia_limitada.xlsx')
 
 // El ícono de descarga es el mismo en los dos botones: la diferencia entre principal y
 // anexo la lleva el color, no un glifo distinto.

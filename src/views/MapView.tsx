@@ -23,6 +23,7 @@ import { buildDonutSvg, buildLegendHtml, tallyByArea, tallyMoneyByArea, type Sec
 import type { PieMetric } from '@/lib/filter'
 import { buildInvestmentPopup, buildInvestmentTooltip } from '@/lib/popup'
 import { dedupeById } from '@/lib/projectDocs'
+import { asset } from '@/lib/base'
 
 
 // The paneable region is DERIVED from the geometry actually loaded (see regionOf),
@@ -384,16 +385,16 @@ export default function MapView() {
 
   useEffect(() => {
     Promise.all([
-      fetch('/data/south-america.geojson').then(r => r.json()),
-      fetch('/data/investments.json').then(r => {
+      fetch(asset('/data/south-america.geojson')).then(r => r.json()),
+      fetch(asset('/data/investments.json')).then(r => {
         if (!r.ok) throw new Error(`investments.json fetch failed: ${r.status}`)
         return r.json()
       }),
       // research_cases lives in its own (tiny) file; join it back by id. Popups,
       // cards, table and search read inv.research_cases from the hydrated rows.
-      fetch('/data/research.json').then(r => (r.ok ? r.json() : {})),
+      fetch(asset('/data/research.json')).then(r => (r.ok ? r.json() : {})),
       // Canonical investor map: optional, unmapped names just fall back to raw.
-      fetch('/data/investors_map.json').then(r => (r.ok ? r.json() : {}))
+      fetch(asset('/data/investors_map.json')).then(r => (r.ok ? r.json() : {}))
     ])
       .then(([g, inv, research, m]: [CountryFeatureCollection, Investment[], Record<string, ResearchCase[]>, InvestorMap]) => {
         for (const row of inv) row.research_cases = research[row.id] ?? []

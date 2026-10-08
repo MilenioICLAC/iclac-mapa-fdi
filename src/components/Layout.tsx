@@ -6,6 +6,7 @@ import Footer from './Footer'
 import LandingModal from './LandingModal'
 import { consumeFirstVisit } from '@/lib/firstVisit'
 import { MapIcon, TrendsIcon } from './icons'
+import { asset } from '@/lib/base'
 
 const LANGS: { code: LocaleCode; label: string }[] = [
   { code: 'es', label: 'ES' },
@@ -81,7 +82,7 @@ export default function Layout() {
           <div className="flex items-center gap-3 min-w-0">
             <a href="https://iclac.cl/" target="_blank" rel="noopener noreferrer" className="shrink-0">
               {/* 68px en md+ es el alto exacto con que iclac.cl dibuja el mismo logo. */}
-              <img src="/icons/iclac.webp" alt="ICLAC" className="h-9 w-auto object-contain sm:h-10 md:h-[4.25rem]" />
+              <img src={asset('/icons/iclac.webp')} alt="ICLAC" className="h-9 w-auto object-contain sm:h-10 md:h-[4.25rem]" />
             </a>
             <div className="leading-tight min-w-0">
               <h1 className="font-display text-[0.8125rem] font-semibold leading-tight text-gray-900 sm:text-base">{t('app.subject')}</h1>
