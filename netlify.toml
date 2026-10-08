@@ -19,13 +19,13 @@
 # Sin la barra final también es la encuesta (si no, la regla 3 la mandaría a `/mapa-fdi/encuesta-percepciones`).
 [[redirects]]
   from = "/encuesta-percepciones"
-  to = "https://iclac-encuesta.netlify.app/encuesta-percepciones/"
+  to = "https://encuestaiclac.netlify.app/encuesta-percepciones/"
   status = 200
   force = true
 
 [[redirects]]
   from = "/encuesta-percepciones/*"
-  to = "https://iclac-encuesta.netlify.app/encuesta-percepciones/:splat"
+  to = "https://encuestaiclac.netlify.app/encuesta-percepciones/:splat"
   status = 200
   force = true
 
